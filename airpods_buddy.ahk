@@ -383,14 +383,15 @@ CheckUpdate(manual := false) {
             SetStatus("v" APP_VERSION " 已是最新版本 ✅", C_OK)
         return
     }
-    ; find the zip asset download url
+    ; find the zip asset download url (GitHub API JSON is compact: no space after colon)
     dlUrl := ""
+    needleUrl := '"browser_download_url":"'
     pos := 1
     loop {
-        pos := InStr(json, '"browser_download_url": "', true, pos)
+        pos := InStr(json, needleUrl, true, pos)
         if !pos
             break
-        start := pos + 24
+        start := pos + StrLen(needleUrl)
         end := InStr(json, '"', true, start)
         url := SubStr(json, start, end - start)
         if InStr(url, "AirPodsBuddy-Windows.zip") {
@@ -407,9 +408,9 @@ CheckUpdate(manual := false) {
     ShowUpdateGui(remoteVer, dlUrl)
 }
 
-; Minimal JSON string-field extractor: "key": "value"
+; Minimal JSON string-field extractor for compact API JSON: "key":"value"
 ExtractJsonString(json, key) {
-    needle := '"' key '": "'
+    needle := '"' key '":"'
     pos := InStr(json, needle)
     if !pos
         return ""
