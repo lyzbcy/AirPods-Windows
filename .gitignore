@@ -14,3 +14,4 @@ streamdeck-plugin/macos-helper/.build/
 # OS
 .DS_Store
 Thumbs.db
+dist/

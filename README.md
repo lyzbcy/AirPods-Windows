@@ -34,6 +34,31 @@
 - Provides visual notifications for success or errors.
 - **🎮 Stream Deck Integration**: One-click Bluetooth connection directly from your Elgato Stream Deck!
 
+## 🤍 AirPods Buddy — 米白简约风 GUI（fork 主打功能）
+
+> 面向新手小白的「傻瓜式」AirPods 管理小助手：下载一个 exe，双击就能用。
+
+<div align="center">
+  <img src="screenshots/main-ui.png" alt="AirPods Buddy 主界面" width="480">
+  <p><sub>米白配色 · 大道至简 · 星星布丁保驾护航</sub></p>
+</div>
+
+**功能一览**
+
+- 🔍 **设备检测**：自动列出本机所有已配对的蓝牙耳机（AirPods / Beats / 其他耳机音箱）
+- 🔗 **一键连接 / 一键断开**：每台设备独立按钮，连接后自动切换音频输出
+- ➕ **添加指引**：一键打开系统蓝牙设置，并弹出保姆级指引（断开旧设备、进入待连接模式、各型号操作说明）
+- 🗑️ **一键删除**：一站式移除不再使用的耳机设备
+- 🐟 **关于捞鱼**：右下角入口，粉丝群 / 赞赏码 / 星星布丁表情包三码齐飞
+
+**使用方法**：下载 Release 里的 `AirPodsBuddy.exe`，双击运行（无需安装 AutoHotkey，资源已全部内嵌）。第一次使用请先在 Windows 蓝牙设置里完成一次配对，之后所有连接/断开都可以在小助手里一键完成。
+
+源码为 `airpods_buddy.ahk`（AutoHotkey v2），也可直接用 AHK v2 运行。
+
+<div align="center">
+  <img src="screenshots/about.png" alt="关于捞鱼" width="420">
+</div>
+
 ## 🖼️ Tray-Resident Variant (fork feature)
 
 This fork adds **`bluetooth_tray_connector.ahk`** — a taskbar-resident version with a custom tray icon and a minimal right-click menu:
@@ -153,9 +178,15 @@ This project is completely free and open source. If you find it useful and would
 
 Every contribution, no matter how small, is greatly appreciated! ❤️
 
+## 🙏 致谢 Acknowledgements
+
+- **[ChromuSx/BluetoothDeviceConnector](https://github.com/ChromuSx/BluetoothDeviceConnector)** — 本 fork 的核心连接/断开逻辑（`Bthprops.cpl\BluetoothSetServiceState`）与 Stream Deck 插件全部来自上游，由 Giovanni Guarino 以 MIT 协议开源。AirPods Buddy 的 GUI、托盘版与图标转换脚本是在此基础上的增强。强烈推荐去看看原项目！
+- [AutoHotkey v2](https://www.autohotkey.com/) — 一切自动化的基石
+- 星星布丁 — 界面吉祥物与表情包出处 💕
+
 ## 📜 License
 This project is licensed under the MIT License. Feel free to use, modify, and distribute the script as you like.
 
 <div align="center">
-  <sub>Made with ❤️ by <a href="https://github.com/ChromuSx">Giovanni Guarino</a></sub>
+  <sub>Made with ❤️ by <a href="https://github.com/ChromuSx">Giovanni Guarino</a> · Fork features by <a href="https://github.com/lyzbcy">捞鱼 lyzbcy</a></sub>
 </div>

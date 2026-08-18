@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AirPods 小助手 · 大道至简，一键连接</title>
+<meta name="description" content="免费开源的 Windows AirPods 管理小助手：检测已配对耳机、一键连接断开、保姆级添加指引。米白简约风，下载即用。">
+<style>
+  :root {
+    --bg: #FAF7F2;
+    --card: #FFFFFF;
+    --text: #3F3A35;
+    --sub: #8C8478;
+    --line: #E8E2D8;
+    --accent: #A08668;
+    --accent-dark: #8A7055;
+    --ok: #6E9B5F;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Microsoft YaHei UI", "PingFang SC", "Segoe UI", sans-serif;
+    line-height: 1.7;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 0 24px; }
+
+  /* hero */
+  .hero { text-align: center; padding: 72px 0 48px; }
+  .hero img.mascot { width: 120px; height: 120px; border-radius: 28px; }
+  .hero h1 { font-size: 40px; margin-top: 18px; letter-spacing: 2px; }
+  .hero .slogan { color: var(--sub); font-size: 17px; margin-top: 8px; }
+  .hero .tags { margin-top: 14px; }
+  .hero .tag {
+    display: inline-block; font-size: 12.5px; color: var(--accent);
+    border: 1px solid var(--line); background: var(--card);
+    border-radius: 999px; padding: 3px 14px; margin: 0 4px;
+  }
+  .dl-btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    margin-top: 30px; padding: 15px 44px;
+    background: var(--accent); color: #fff;
+    font-size: 18px; font-weight: bold; letter-spacing: 1px;
+    border-radius: 14px; text-decoration: none;
+    box-shadow: 0 6px 18px rgba(160,134,104,.35);
+    transition: transform .15s, box-shadow .15s, background .15s;
+  }
+  .dl-btn:hover { transform: translateY(-2px); background: var(--accent-dark); box-shadow: 0 10px 24px rgba(160,134,104,.45); }
+  .dl-note { color: var(--sub); font-size: 13px; margin-top: 14px; }
+  .dl-note a { color: var(--accent); }
+
+  hr.sep { border: none; border-top: 1px solid var(--line); margin: 8px 0 44px; }
+
+  h2.sec { font-size: 26px; text-align: center; margin-bottom: 8px; }
+  p.sec-sub { text-align: center; color: var(--sub); margin-bottom: 32px; }
+
+  /* features */
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; margin-bottom: 56px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 18px; padding: 24px 22px;
+  }
+  .card .ico { font-size: 30px; }
+  .card h3 { font-size: 17px; margin: 10px 0 6px; }
+  .card p { font-size: 14px; color: var(--sub); }
+
+  /* steps */
+  .steps { margin-bottom: 56px; }
+  .step { display: flex; gap: 16px; align-items: flex-start; background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 18px 20px; margin-bottom: 14px; }
+  .step .n { flex: none; width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+  .step h3 { font-size: 16px; }
+  .step p { font-size: 14px; color: var(--sub); }
+
+  .shot { display: block; width: 100%; max-width: 640px; margin: 0 auto 14px; border-radius: 18px; border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(63,58,53,.08); }
+  .shot-cap { text-align: center; color: var(--sub); font-size: 13px; margin-bottom: 56px; }
+
+  /* author */
+  .author { text-align: center; margin-bottom: 56px; }
+  .author .face { width: 72px; height: 72px; border-radius: 18px; }
+  .qr-row { display: flex; justify-content: center; gap: 28px; flex-wrap: wrap; margin-top: 22px; }
+  .qr { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; width: 180px; }
+  .qr img { width: 140px; height: 140px; display: block; margin: 0 auto; }
+  .qr .t { font-size: 14.5px; font-weight: bold; margin-top: 10px; }
+  .qr .d { font-size: 12px; color: var(--sub); }
+
+  footer { border-top: 1px solid var(--line); padding: 26px 0 40px; text-align: center; color: var(--sub); font-size: 13px; }
+  footer a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <section class="hero">
+    <img class="mascot" src="assets/star_kawaii.png" alt="星星布丁">
+    <h1>AirPods 小助手</h1>
+    <p class="slogan">大道至简 · 一键连接 · 星星布丁保驾护航</p>
+    <div class="tags">
+      <span class="tag">🪟 Windows 10 / 11</span>
+      <span class="tag">📦 免安装单文件</span>
+      <span class="tag">🆓 开源免费 MIT</span>
+    </div>
+    <a class="dl-btn" href="https://github.com/lyzbcy/BluetoothDeviceConnector/releases/latest/download/AirPodsBuddy-Windows.zip">
+      ⬇ 一键下载（Windows 版）
+    </a>
+    <p class="dl-note">下载 zip 解压，双击 <b>AirPodsBuddy.exe</b> 即用 · <a href="https://github.com/lyzbcy/BluetoothDeviceConnector/releases">查看历史版本</a></p>
+  </section>
+
+  <hr class="sep">
+
+  <h2 class="sec">为什么需要它？</h2>
+  <p class="sec-sub">Windows 连 AirPods 要点四五下设置，还要等半天。交给小助手，一下就好。</p>
+  <div class="grid">
+    <div class="card"><div class="ico">🔍</div><h3>设备检测</h3><p>自动列出本机所有已配对的蓝牙耳机：AirPods、Beats、其他耳机音箱统统识别。</p></div>
+    <div class="card"><div class="ico">🎧</div><h3>一键连接 / 断开</h3><p>每台设备独立按钮，连接后自动切换音频输出，摘下即走，点一下就断。</p></div>
+    <div class="card"><div class="ico">➕</div><h3>保姆级添加指引</h3><p>一键打开系统蓝牙设置，弹出图文指引：断开旧设备、进入待连接模式、各型号操作说明。</p></div>
+    <div class="card"><div class="ico">🗑️</div><h3>一键删除</h3><p>不再使用的耳机？在小助手里一站式移除，不用钻进系统设置翻找。</p></div>
+    <div class="card"><div class="ico">🤍</div><h3>米白简约设计</h3><p>克制的配色、干净的排版、可爱的星星布丁。工具也可以很温柔。</p></div>
+    <div class="card"><div class="ico">🔒</div><h3>纯本地运行</h3><p>不联网、不上传、无广告、无后台。所有操作只调用 Windows 自带蓝牙接口。</p></div>
+  </div>
+
+  <h2 class="sec">三步上手</h2>
+  <p class="sec-sub">小白友好，全程有人带路。</p>
+  <div class="steps">
+    <div class="step"><div class="n">1</div><div><h3>下载并打开</h3><p>点上方一键下载，解压后双击 AirPodsBuddy.exe，无需任何安装。</p></div></div>
+    <div class="step"><div class="n">2</div><div><h3>首次配对（仅一次）</h3><p>点「添加新耳机」，跟着指引在系统设置里完成配对。之后再也不用进设置。</p></div></div>
+    <div class="step"><div class="n">3</div><div><h3>从此一键连接</h3><p>打开小助手，点「连接」，戴上耳机就能听。想断开就点「断开」。</p></div></div>
+  </div>
+
+  <img class="shot" src="screenshots/main-ui.png" alt="AirPods 小助手主界面">
+  <p class="shot-cap">主界面：米白底色、设备列表、一键连接 / 断开 / 删除</p>
+
+  <h2 class="sec">关于捞鱼 🐟</h2>
+  <p class="sec-sub">和星星布丁一起做的开源小工具 · 用爱发电</p>
+  <div class="author">
+    <img class="face" src="assets/star_kawaii.png" alt="捞鱼"><br>
+    <div class="qr-row">
+      <div class="qr"><img src="assets/qr/qq-group.jpg" alt="粉丝群"><div class="t">粉丝群</div><div class="d">一起摸鱼聊技术</div></div>
+      <div class="qr"><img src="assets/qr/reward-qr.jpg" alt="赞赏码"><div class="t">赞赏码</div><div class="d">帮到了你就请我喝杯奶茶</div></div>
+      <div class="qr"><img src="assets/qr/sticker-qr.png" alt="星星布丁表情包"><div class="t">星星布丁表情包</div><div class="d">超可爱，快扫码收藏</div></div>
+    </div>
+  </div>
+
+  <footer>
+    <p>MIT 开源协议 · 基于 <a href="https://github.com/ChromuSx/BluetoothDeviceConnector" target="_blank">ChromuSx/BluetoothDeviceConnector</a> 增强（特别致谢上游作者）·
+       由 <a href="https://github.com/lyzbcy" target="_blank">捞鱼 lyzbcy</a> 维护</p>
+    <p style="margin-top:6px;">Powered by AutoHotkey v2 · Made with 💕 和星星布丁</p>
+  </footer>
+</div>
+
+</body>
+</html>
