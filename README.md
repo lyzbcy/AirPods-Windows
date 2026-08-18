@@ -34,6 +34,27 @@
 - Provides visual notifications for success or errors.
 - **🎮 Stream Deck Integration**: One-click Bluetooth connection directly from your Elgato Stream Deck!
 
+## 🖼️ Tray-Resident Variant (fork feature)
+
+This fork adds **`bluetooth_tray_connector.ahk`** — a taskbar-resident version with a custom tray icon and a minimal right-click menu:
+
+- **一键连接** (one-click connect) — double-clicking the tray icon works too
+- **一键断开** (one-click disconnect)
+
+Toast notifications report progress and results. All core connection logic is identical to the original one-shot script (`Bthprops.cpl\BluetoothSetServiceState`).
+
+### Usage
+
+1. Install [AutoHotkey v2](https://www.autohotkey.com/)
+2. Edit the configuration block at the top of `bluetooth_tray_connector.ahk` (`deviceName`, `audioProfile`)
+3. Run the script (or drop a shortcut into `shell:startup` to auto-start with Windows)
+
+The custom tray icon is built with `make_ico.ps1` (PNG → multi-size ICO):
+
+```powershell
+pwsh ./make_ico.ps1 -Source "your-image.png" -Output "./assets/star_pudding.ico"
+```
+
 ## 🎮 Stream Deck Plugin
 
 This project includes an **official Stream Deck plugin** that lets you connect your Bluetooth devices with a single button press!
