@@ -37,27 +37,28 @@
 ## 🤍 AirPods Buddy — 米白简约风 GUI（fork 主打功能）
 
 > 面向新手小白的「傻瓜式」AirPods 管理小助手：下载一个 exe，双击就能用。
+> **v1.1 起界面全面重做**：HTML/CSS 前端（WebView2 渲染）—— 圆角卡片、入场/悬停动画、呼吸状态灯、毛玻璃弹窗、手绘风设备图形。简约，但绝不简陋。
 
 <div align="center">
-  <img src="screenshots/main-ui.png" alt="AirPods Buddy 主界面" width="480">
-  <p><sub>米白配色 · 大道至简 · 星星布丁保驾护航</sub></p>
+  <img src="screenshots/main-ui.png" alt="AirPods Buddy 主界面" width="420">
+  <p><sub>米白配色 · 圆角卡片 · 手绘设备图形 · 星星布丁表情阵容</sub></p>
 </div>
 
 **功能一览**
 
-- 🔍 **设备检测**：自动列出本机所有已配对的蓝牙耳机（AirPods / Beats / 其他耳机音箱）
-- 🔗 **一键连接 / 一键断开**：每台设备独立按钮，连接后自动切换音频输出
-- ➕ **添加指引**：一键打开系统蓝牙设置，并弹出保姆级指引（断开旧设备、进入待连接模式、各型号操作说明）
-- 🗑️ **一键删除**：一站式移除不再使用的耳机设备
-- 🔄 **自动更新**：启动时静默检查 GitHub 最新版本，落后即弹米白风更新窗，支持**一键自动更新**（下载→解压→自替换→重启，全程无需动手）；托盘菜单也可手动「检查更新」
+- 🔍 **设备检测**：自动列出本机所有已配对的蓝牙耳机（AirPods / Beats / 其他耳机音箱），每台设备配一个手绘风小图形（自动识别 Pro / Max / Beats / 通用来切换）
+- 🔗 **一键连接 / 一键断开**：胶囊按钮 + 连接中 spinner + toast 反馈，连接后实时呼吸绿灯
+- ➕ **添加指引**：一键打开系统蓝牙设置 + 图文弹窗指引（断开旧设备、进入待连接模式、各型号操作说明）
+- 🗑️ **一键删除**：确认弹窗后一站式移除
+- 🔄 **自动更新**：启动时静默检查 GitHub 最新版本，落后即弹米白风更新窗，支持**一键自动更新**；托盘菜单也可手动「检查更新」
 - 🐟 **关于捞鱼**：右下角入口，粉丝群 / 赞赏码 / 星星布丁表情包三码齐飞
 
-**使用方法**：下载 Release 里的 `AirPodsBuddy.exe`，双击运行（无需安装 AutoHotkey，资源已全部内嵌）。第一次使用请先在 Windows 蓝牙设置里完成一次配对，之后所有连接/断开都可以在小助手里一键完成。
+**使用方法**：下载 Release 里的 `AirPodsBuddy.exe`，双击运行（无需安装，界面资源全部内嵌，基于系统自带的 Edge WebView2 渲染）。第一次使用请先在 Windows 蓝牙设置里完成一次配对，之后所有连接/断开都可以在小助手里一键完成。
 
-源码为 `airpods_buddy.ahk`（AutoHotkey v2），也可直接用 AHK v2 运行。
+源码为 `airpods_buddy.ahk`（AutoHotkey v2 + `webui/index.html`），也可直接用 AHK v2 运行。
 
 <div align="center">
-  <img src="screenshots/about.png" alt="关于捞鱼" width="420">
+  <img src="screenshots/connected.png" alt="连接成功" width="420">
 </div>
 
 ## 🖼️ Tray-Resident Variant (fork feature)
