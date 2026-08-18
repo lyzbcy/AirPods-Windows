@@ -21,6 +21,11 @@ FONT     := "Microsoft YaHei UI"
 audioProfile := "a2dp-hfp"
 maxRetries := 10
 
+; ------------------------- Update ------------------------------------
+APP_VERSION   := "1.0.1"
+UPDATE_API    := "https://api.github.com/repos/lyzbcy/BluetoothDeviceConnector/releases/latest"
+RELEASE_PAGE  := "https://github.com/lyzbcy/BluetoothDeviceConnector/releases/latest"
+
 ; ------------------------- Resources ---------------------------------
 ; Flat resource paths, valid in both compiled and uncompiled modes.
 gPicMain := A_ScriptDir "\assets\star_kawaii.png"
@@ -76,11 +81,12 @@ BuildMainGui() {
 
     myGui.OnEvent("Close", (*) => myGui.Hide())   ; close = hide to tray
     myGui.Show("w540")
-    A_IconTip := "AirPods 小助手（双击图标打开界面）"
+    A_IconTip := "AirPods 小助手 v" APP_VERSION "（双击图标打开界面）"
 
-    ; tray menu: reopen / exit
+    ; tray menu: reopen / check update / exit
     A_TrayMenu.Delete()
     A_TrayMenu.Add("打开界面", (*) => myGui.Show())
+    A_TrayMenu.Add("检查更新", (*) => CheckUpdate(true))
     A_TrayMenu.Add()
     A_TrayMenu.Add("退出", (*) => ExitApp())
     A_TrayMenu.Default := "打开界面"
@@ -88,6 +94,7 @@ BuildMainGui() {
 
     RefreshDeviceList()
     SetTimer(UpdateStatus, 4000)
+    SetTimer(CheckUpdate, -2500)   ; silent update check on first launch
 }
 
 SetStatus(msg, color) {
@@ -188,7 +195,7 @@ RefreshDeviceList() {
     y += 10
 
     myGui.SetFont("s8 c" C_SUB)
-    statusText := myGui.Add("Text", "x24 y" y " w360 BackgroundTrans", "检测到 " devices.Length " 台已配对耳机")
+    statusText := myGui.Add("Text", "x24 y" y " w360 BackgroundTrans", "v" APP_VERSION " · 检测到 " devices.Length " 台已配对耳机")
     rowCtrls.Push(statusText)
 
     myGui.SetFont("s8 c" C_ACCENT " underline")
@@ -197,7 +204,7 @@ RefreshDeviceList() {
     rowCtrls.Push(aboutLink)
 
     myGui.Move(, , , y + 30)
-    SetStatus("检测到 " devices.Length " 台已配对耳机", C_SUB)
+    SetStatus("v" APP_VERSION " · 检测到 " devices.Length " 台已配对耳机", C_SUB)
 }
 
 ; Silent status poll: refresh fConnected, update status labels only.
@@ -347,6 +354,164 @@ ShowAbout() {
     aGui.Add("Text", "x420 y276 w140 Center BackgroundTrans", "超可爱的表情包，快扫码收藏")
 
     aGui.Show("w620")
+}
+
+; ------------------------- Update system ------------------------------
+; Check GitHub latest release vs APP_VERSION.
+; manual=true shows a toast even when up-to-date (tray menu entry).
+CheckUpdate(manual := false) {
+    global APP_VERSION, UPDATE_API, RELEASE_PAGE
+    json := ""
+    try {
+        jsonPath := A_Temp "\AirPodsBuddy_release.json"
+        Download(UPDATE_API, jsonPath)
+        json := FileRead(jsonPath, "UTF-8")
+    } catch {
+        if manual
+            SetStatus("检查更新失败：无法访问网络", C_ERR)
+        return
+    }
+    remoteTag := ExtractJsonString(json, "tag_name")
+    if (remoteTag = "") {
+        if manual
+            SetStatus("检查更新失败：解析版本信息出错", C_ERR)
+        return
+    }
+    remoteVer := StrReplace(remoteTag, "v")
+    if (CompareVersions(APP_VERSION, remoteVer) >= 0) {
+        if manual
+            SetStatus("v" APP_VERSION " 已是最新版本 ✅", C_OK)
+        return
+    }
+    ; find the zip asset download url
+    dlUrl := ""
+    pos := 1
+    loop {
+        pos := InStr(json, '"browser_download_url": "', true, pos)
+        if !pos
+            break
+        start := pos + 24
+        end := InStr(json, '"', true, start)
+        url := SubStr(json, start, end - start)
+        if InStr(url, "AirPodsBuddy-Windows.zip") {
+            dlUrl := url
+            break
+        }
+        pos := end
+    }
+    if (dlUrl = "") {
+        if manual
+            SetStatus("发现新版本 v" remoteVer "，但未找到下载包", C_ERR)
+        return
+    }
+    ShowUpdateGui(remoteVer, dlUrl)
+}
+
+; Minimal JSON string-field extractor: "key": "value"
+ExtractJsonString(json, key) {
+    needle := '"' key '": "'
+    pos := InStr(json, needle)
+    if !pos
+        return ""
+    start := pos + StrLen(needle)
+    end := InStr(json, '"', true, start)
+    return SubStr(json, start, end - start)
+}
+
+; Semantic version compare: -1 (a<b), 0 (equal), 1 (a>b)
+CompareVersions(a, b) {
+    pa := StrSplit(a, "."), pb := StrSplit(b, ".")
+    n := Max(pa.Length, pb.Length)
+    loop n {
+        x := (A_Index <= pa.Length) ? pa[A_Index] + 0 : 0
+        y := (A_Index <= pb.Length) ? pb[A_Index] + 0 : 0
+        if (x < y)
+            return -1
+        if (x > y)
+            return 1
+    }
+    return 0
+}
+
+; Cream-white update dialog: one-click update / release page / later.
+ShowUpdateGui(remoteVer, dlUrl) {
+    global myGui, gPicMain, APP_VERSION, RELEASE_PAGE, C_BG, C_TEXT, C_SUB, C_ACCENT, C_ERR, FONT
+    uGui := Gui("+AlwaysOnTop Owner" myGui.Hwnd, "发现新版本 ✨")
+    uGui.BackColor := C_BG
+    uGui.SetFont("s9 c" C_TEXT, FONT)
+
+    uGui.Add("Picture", "x24 y22 w56 h56 Background" C_BG, gPicMain)
+    uGui.SetFont("s13 bold")
+    uGui.Add("Text", "x96 y24 w380 BackgroundTrans", "发现新版本 v" remoteVer)
+    uGui.SetFont("s9 norm c" C_SUB)
+    uGui.Add("Text", "x96 y54 w380 BackgroundTrans", "当前版本 v" APP_VERSION " · 建议更新以获得最新功能与修复")
+
+    uGui.Add("Text", "x24 y94 w440 0x10 BackgroundTrans")
+
+    st := uGui.Add("Text", "x24 y106 w440 c" C_SUB " BackgroundTrans", "更新内容请见发布页。点「一键更新」自动完成下载与安装。")
+
+    btnGo := uGui.Add("Button", "x24 y142 w200 h38 Default", "🚀 一键更新")
+    btnPage := uGui.Add("Button", "x234 y142 w120 h38", "🌐 发布页")
+    btnLater := uGui.Add("Button", "x364 y142 w100 h38", "下次再说")
+    btnGo.OnEvent("Click", (*) => DoUpdate(dlUrl, st, uGui))
+    btnPage.OnEvent("Click", (*) => Run(RELEASE_PAGE))
+    btnLater.OnEvent("Click", (*) => uGui.Destroy())
+    uGui.Show("w488")
+}
+
+; One-click self update: download zip -> extract -> swap exe -> restart.
+DoUpdate(dlUrl, stCtrl, uGui) {
+    global C_OK, C_ERR, C_ACCENT
+    zipPath := A_Temp "\AirPodsBuddy_update.zip"
+    extDir := A_Temp "\AirPodsBuddy_update"
+    exeDir := A_ScriptDir
+
+    ; 1. download
+    stCtrl.SetFont("c" C_ACCENT)
+    stCtrl.Text := "⬇ 正在下载更新包…（约 2 MB）"
+    try
+        Download(dlUrl, zipPath)
+    catch {
+        stCtrl.SetFont("c" C_ERR)
+        stCtrl.Text := "下载失败，请检查网络后重试，或到发布页手动下载。"
+        return
+    }
+
+    ; 2. extract (Windows 10+ ships tar.exe which handles zip)
+    stCtrl.Text := "📦 正在解压…"
+    DirDelete(extDir, true)
+    DirCreate(extDir)
+    RunWait(A_ComSpec ' /c tar -xf "' zipPath '" -C "' extDir '"',, "Hide")
+    newExe := extDir "\AirPodsBuddy.exe"
+    if !FileExist(newExe) {
+        stCtrl.SetFont("c" C_ERR)
+        stCtrl.Text := "解压失败：未找到新版程序，请到发布页手动下载。"
+        return
+    }
+
+    ; 3. stage new exe next to the running one
+    try
+        FileCopy(newExe, exeDir "\AirPodsBuddy_new.exe", true)
+    catch {
+        stCtrl.SetFont("c" C_ERR)
+        stCtrl.Text := "无法写入程序目录（权限不足），请到发布页手动更新。"
+        return
+    }
+
+    ; 4. hand off to a tiny PowerShell swapper: wait for us to exit, replace, restart
+    stCtrl.SetFont("c" C_OK)
+    stCtrl.Text := "✅ 下载完成，正在重启到新版本…"
+    ps1 := A_Temp "\AirPodsBuddy_swapper.ps1"
+    FileAppend(
+        "param([int]`$OldPid, [string]`$Dir)`n" .
+        "Wait-Process -Id `$OldPid -ErrorAction SilentlyContinue`n" .
+        "Start-Sleep -Milliseconds 800`n" .
+        "Move-Item -LiteralPath (Join-Path `$Dir 'AirPodsBuddy_new.exe') -Destination (Join-Path `$Dir 'AirPodsBuddy.exe') -Force`n" .
+        "Start-Process -FilePath (Join-Path `$Dir 'AirPodsBuddy.exe')`n" .
+        "Remove-Item -LiteralPath `$MyInvocation.MyCommand.Path -Force`n",
+        ps1, "UTF-8")
+    Run('powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' ps1 '" -OldPid ' ProcessExist() ' -Dir "' exeDir '"',, "Hide")
+    ExitApp()
 }
 
 ; ------------------------- Helpers (upstream core) -------------------
