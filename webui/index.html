@@ -400,6 +400,8 @@ async function doUpdate(){
 
 /* ---------- boot ---------- */
 (async()=>{
+  try { rpc('bootok','vp='+innerWidth+'x'+innerHeight+' dpr='+devicePixelRatio+' cards='+document.querySelectorAll('.card').length); } catch(e) { console.error('rpc unavailable', e); }
+  setTimeout(()=>{ try{ rpc('vp2','inner='+innerWidth+'x'+innerHeight); }catch(e){} }, 2500);
   const v=await rpc('getversion');
   document.getElementById('ver').textContent='v'+v;
   document.getElementById('footver').textContent='v'+v;

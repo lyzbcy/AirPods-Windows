@@ -9,7 +9,7 @@
 #Include lib\WebView2\WebView2.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.1.1"
+APP_VERSION   := "1.1.2"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/BluetoothDeviceConnector/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/BluetoothDeviceConnector/releases/latest"
 
@@ -26,11 +26,10 @@ if A_IsCompiled {
     appRoot := A_Temp "\AirPodsBuddy_app"
     uiHtml := appRoot "\index_built.html"
     wvDll := appRoot "\WebView2Loader.dll"
-    if !DirExist(appRoot) {
-        DirCreate(appRoot)
-        FileInstall "webui\index_built.html", appRoot "\index_built.html", 1
-        FileInstall "lib\WebView2\64bit\WebView2Loader.dll", appRoot "\WebView2Loader.dll", 1
-    }
+    DirCreate(appRoot)
+    ; always overwrite: prevents stale/partial extractions
+    FileInstall "webui\index_built.html", appRoot "\index_built.html", 1
+    FileInstall "lib\WebView2\64bit\WebView2Loader.dll", appRoot "\WebView2Loader.dll", 1
 }
 if !A_IsCompiled && FileExist(A_ScriptDir "\assets\star_pudding.ico")
     TraySetIcon(A_ScriptDir "\assets\star_pudding.ico")
@@ -57,16 +56,42 @@ try {
     ExitApp(1)
 }
 wv := wvc.CoreWebView2
+wvc.Fill()   ; explicit: ensure bounds match client area even when created hidden
+try {
+    b := wvc.Bounds
+    FileAppend("[bounds] right=" b.right " bottom=" b.bottom "`n", scLog, "UTF-8")
+}
 try {
     wv.Settings.AreDevToolsEnabled := false
     wv.Settings.AreDefaultContextMenusEnabled := false
 }
 wv.add_WebMessageReceived(WebMessageHandler)
-wv.NavigateToString(FileRead(uiHtml, "UTF-8"))
+
+; ---- self-check diagnostics (writes to %TEMP%\AirPodsBuddy_selfcheck.log) ----
+scLog := A_Temp "\AirPodsBuddy_selfcheck.log"
+FileAppend("[" A_Hour ":" A_Min ":" A_Sec "] boot v" APP_VERSION " compiled=" A_IsCompiled "`n", scLog, "UTF-8")
+FileAppend("uiHtml exists: " FileExist(uiHtml) "`n", scLog, "UTF-8")
+wv.add_NavigationCompleted((wv2, args) => (
+    FileAppend("[nav] success=" args.IsSuccess " err=" args.WebErrorStatus "`n", scLog, "UTF-8")))
+SetTimer(() => (
+    wv.ExecuteScriptAsync('document.readyState').then(r => FileAppend("[poll] readyState=" r "`n", scLog, "UTF-8"))), -4000)
+
+htmlText := FileRead(uiHtml, "UTF-8")
+FileAppend("html bytes: " StrLen(htmlText) "`n", scLog, "UTF-8")
+wv.NavigateToString(htmlText)
 
 myGui.OnEvent("Close", (*) => myGui.Hide())
 myGui.OnEvent("Size", (*) => wvc.Fill())
 myGui.Show()
+wvc.Fill()   ; critical: bounds are wrong when created on a hidden window;
+             ; re-fill AFTER the window becomes visible
+try {
+    rc := Buffer(16)
+    DllCall("user32\GetClientRect", "ptr", myGui.Hwnd, "ptr", rc)
+    FileAppend("[client] w=" NumGet(rc, 8, "int") " h=" NumGet(rc, 12, "int") "`n", scLog, "UTF-8")
+}
+SetTimer(() => (
+    wv.ExecuteScriptAsync('innerWidth+"x"+innerHeight').then(r => FileAppend("[vp2] " r.Result "`n", scLog, "UTF-8"))), -3500)
 A_IconTip := "AirPods 小助手 v" APP_VERSION
 
 A_TrayMenu.Delete()
@@ -114,6 +139,7 @@ SetTimer(CheckUpdate, -3000)
 ; protocol: "cmd<SEP>id<SEP>arg1<SEP>arg2..."
 WebMessageHandler(core, args) {
     msg := args.TryGetWebMessageAsString()
+    try FileAppend("[js->ahk] " msg "`n", A_Temp "\AirPodsBuddy_selfcheck.log", "UTF-8")
     parts := StrSplit(msg, Chr(31))
     cmd := parts[1]
     id := parts[2]
