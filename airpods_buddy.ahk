@@ -9,7 +9,7 @@
 #Include lib\WebView2\WebView2.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.1.0"
+APP_VERSION   := "1.1.1"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/BluetoothDeviceConnector/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/BluetoothDeviceConnector/releases/latest"
 
@@ -18,22 +18,17 @@ maxRetries := 10
 SEP := Chr(31)
 
 ; ------------------------- Resources ---------------------------------
-; compiled: extract embedded web UI + loader dll to temp
+; compiled: extract the self-contained web UI + loader dll to temp
 appRoot := A_ScriptDir
+uiHtml := A_ScriptDir "\webui\index_built.html"
 wvDll := A_ScriptDir "\lib\WebView2\64bit\WebView2Loader.dll"
 if A_IsCompiled {
     appRoot := A_Temp "\AirPodsBuddy_app"
+    uiHtml := appRoot "\index_built.html"
     wvDll := appRoot "\WebView2Loader.dll"
     if !DirExist(appRoot) {
-        DirCreate(appRoot "\assets")
-        FileInstall "webui\index.html", appRoot "\index.html", 1
-        FileInstall "webui\assets\face_main.png", appRoot "\assets\face_main.png", 1
-        FileInstall "webui\assets\face_heart.png", appRoot "\assets\face_heart.png", 1
-        FileInstall "webui\assets\face_like.png", appRoot "\assets\face_like.png", 1
-        FileInstall "webui\assets\face_cheer.png", appRoot "\assets\face_cheer.png", 1
-        FileInstall "assets\qr\qq-group.jpg", appRoot "\assets\qq-group.jpg", 1
-        FileInstall "assets\qr\reward-qr.jpg", appRoot "\assets\reward-qr.jpg", 1
-        FileInstall "assets\qr\sticker-qr.png", appRoot "\assets\sticker-qr.png", 1
+        DirCreate(appRoot)
+        FileInstall "webui\index_built.html", appRoot "\index_built.html", 1
         FileInstall "lib\WebView2\64bit\WebView2Loader.dll", appRoot "\WebView2Loader.dll", 1
     }
 }
@@ -67,7 +62,7 @@ try {
     wv.Settings.AreDefaultContextMenusEnabled := false
 }
 wv.add_WebMessageReceived(WebMessageHandler)
-wv.Navigate("file:///" StrReplace(appRoot, "\", "/") "/index.html")
+wv.NavigateToString(FileRead(uiHtml, "UTF-8"))
 
 myGui.OnEvent("Close", (*) => myGui.Hide())
 myGui.OnEvent("Size", (*) => wvc.Fill())
@@ -76,11 +71,42 @@ A_IconTip := "AirPods 小助手 v" APP_VERSION
 
 A_TrayMenu.Delete()
 A_TrayMenu.Add("打开界面", (*) => myGui.Show())
-A_TrayMenu.Add("检查更新", (*) => CheckUpdate(true))
 A_TrayMenu.Add()
+A_TrayMenu.Add("🎧 一键连接", (*) => TrayQuickAction("connect"))
+A_TrayMenu.Add("🚫 一键断开", (*) => TrayQuickAction("disconnect"))
+A_TrayMenu.Add()
+A_TrayMenu.Add("检查更新", (*) => CheckUpdate(true))
 A_TrayMenu.Add("退出", (*) => ExitApp())
 A_TrayMenu.Default := "打开界面"
 A_TrayMenu.Click := 1
+
+; tray quick action: target the first AirPods-like device, else first audio device
+TrayQuickAction(action) {
+    global devices, busy
+    FindAllAudioDevices()
+    target := 0
+    for dev in devices {
+        if InStr(StrLower(dev.name), "airpods") {
+            target := dev
+            break
+        }
+    }
+    if !target && devices.Length > 0
+        target := devices[1]
+    if !target {
+        TrayTip("AirPods 小助手", "没有已配对的耳机，请先打开界面添加。", 3)
+        return
+    }
+    if busy {
+        TrayTip("AirPods 小助手", "上一个操作还在进行中…", 2)
+        return
+    }
+    r := DoAction(target.name, action)
+    if (r = "ok")
+        TrayTip("AirPods 小助手", (action = "connect" ? "已连接 💕 " : "已断开 💤 ") "«" target.name "»", 1)
+    else
+        TrayTip("AirPods 小助手", "操作失败 «" target.name "»", 3)
+}
 
 SetTimer(CheckUpdate, -3000)
 
