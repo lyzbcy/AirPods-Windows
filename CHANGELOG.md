@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dev/test launchers**: double-clickable `mac/AirPodsBuddyMac/run.command` (auto incremental build + launch, keeps window open on failure) and `run.bat` (root, detached-start of `dist/AirPodsBuddy.exe` respecting pitfall B1). These are for daily development; unified packaging (.app/DMG + Windows installer) comes at release time per roadmap.
 
 ### Fixed (macOS)
+- **Left-click toggle stuck on "connect"** (real-device bug): the toggle branched on `Watchdog.armed` instead of the headset's actual connection state, so with the watchdog pref off the icon stayed 💤 forever and left-click could never disconnect (user's log showed 6 consecutive `toggle → connected`). Toggle and icon now treat `armed || isConnected` as connected.
 - **Mac first successful build**: `swift build -c release` passes on a real Mac (arm64). Two scaffold bugs fixed: `CFString("")` is not constructible in Swift (→ `var name: CFString = "" as CFString`), and `Watchdog.tick()` was `private` while `StatusBarController` calls it on startup (→ `internal`). Smoke test passed: app boots, writes to `~/Library/Logs/AirPodsBuddyMac.log`, zero popups. Real-AirPods field testing (connect / anti-hijack / output lock) still pending — see `doc/06`. Also added `mac/AirPodsBuddyMac/.build/` to `.gitignore`.
 
 ## [1.3.1] - 2026-08-19

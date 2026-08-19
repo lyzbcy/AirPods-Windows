@@ -31,7 +31,11 @@ final class StatusBarController: NSObject {
     // MARK: - 状态图标
 
     private func refreshIcon() {
+        // 图标以"耳机实际连着"为准，而不是看门狗 armed——否则看门狗关掉后
+        // 已连接也永远显示 💤（真机日志抓到的坑）
         let connected = Watchdog.shared.armed
+            || (!Watchdog.shared.targetDeviceName.isEmpty
+                && BluetoothService.isConnected(Watchdog.shared.targetDeviceName))
         let emoji = connected ? Preferences.connectedEmoji : Preferences.disconnectedEmoji
         statusItem.button?.image = EmojiIcon.image(for: emoji)
         statusItem.button?.toolTip = connected
@@ -50,17 +54,21 @@ final class StatusBarController: NSObject {
     }
 
     /// 左键单击：连接态→断开；断开态→连接（并启动防跳看门狗）
+    /// 状态以"耳机实际是否连着"为准（armed 或 isConnected 任一为真都算连着），
+    /// 否则看门狗关闭时左键永远走"连接"分支、无法断开（真机日志抓到的坑）
     private func toggle() {
-        if Watchdog.shared.armed {
-            let name = Watchdog.shared.targetDeviceName
+        let name = Watchdog.shared.targetDeviceName
+        let connected = Watchdog.shared.armed || BluetoothService.isConnected(name)
+        if connected {
             Watchdog.shared.disarm()
             _ = BluetoothService.disconnect(name)
             Log.info("toggle → disconnected '\(name)'")
         } else {
-            let name = Watchdog.shared.targetDeviceName
             if BluetoothService.connect(name) {
                 if Preferences.watchdogEnabled {
                     Watchdog.shared.arm(deviceName: name)
+                } else {
+                    Log.info("watchdog OFF (pref), connected without arm")
                 }
                 Log.info("toggle → connected '\(name)'")
             } else {
