@@ -55,6 +55,13 @@ swift build -c release        # 需要 macOS 13+ 和 Xcode CLT
 
 ## 双机协作规矩（Windows ↔ Mac 经共享文件夹）
 
+- ⚠️ **不要直接运行共享文件夹里的 dist\AirPodsBuddy.exe**——dist 在
+  gitignore 里，同步不保证最新（2026-08-19 事故：用户跑了共享目录里的
+  v1.3.1 旧 exe，抱怨"图标不更新"，其实 v1.4.0 部署在 AppData 没被运行）。
+  Windows 上正确入口 = 桌面快捷方式（指向
+  `%LOCALAPPDATA%\BluetoothDeviceConnector\AirPodsBuddy.exe`）。
+  判断跑的是哪个：看日志 boot 行的 scriptdir。
+
 - 本文件夹是**含 .git 的完整仓库副本**（E:\共享\创业\BluetoothDeviceConnector）
 - **在 Mac 上开工前**：`git pull --rebase origin main`（拿远端最新）
 - **在 Mac 上提交后**：`git push origin main`；提醒用户回 Windows 时也 `git pull`
