@@ -7,7 +7,7 @@
 <div align="center">
   <img src="https://img.shields.io/badge/Platform-Windows-blue?style=for-the-badge" alt="Platform">
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="MIT License">
-  <img src="https://img.shields.io/badge/Version-1.3.0-brightgreen?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/badge/Version-1.8.2-brightgreen?style=for-the-badge" alt="Version">
   <img src="https://img.shields.io/badge/%E5%8D%95%E6%96%87%E4%BB%B6-2.6MB-orange?style=for-the-badge" alt="Single exe 2.6MB">
 </div>
 
@@ -42,11 +42,18 @@
 
 ## ✨ 功能
 
-- 🚀 **一键连接/断开**：大圆形立体按钮；**左键单击托盘图标即切换连接状态**（右键才弹菜单）
+- 🚀 **一键连接/断开**：大圆钮一点即连；**左键单击托盘图标直接切换**（右键才弹菜单）
+- 🧚 **星星布丁小宠物**：点托盘后她从右下角弹出来陪你等连接——等待张望→
+  连上开心跳跃撒💕→断开挥手拜拜，全帧动画+桌面级透明（素材取自
+  Codex 版星星布丁宠物精灵图）
 - 🥇 **设备优先级**：列表 ▲▼ 调整顺序，"一键连接"永远先连你最想要的那个；
   苹果设备（AirPods / Beats）默认排前面，其他耳机标"其他"不捣乱
-- 🔵 **托盘状态图标**：未连接=原版布丁，已连接=绿圈布丁，一眼看出状态
+- 🔵 **三态托盘图标**：未连接=可爱脸 / 已连接=心动脸+绿环 / 连接中=加油脸+旋转弧
+- 🎨 **Apple 风界面**：奶油黄白底+蜂蜜金主按钮，macOS 级克制质感，长名字优雅截断
 - 🖱️ **无边框窗口可拖动**：按住顶栏/标题区即可移动
+- ℹ️ 降噪/通透：Windows 用户态无法访问 Apple 控制通道（需内核驱动，见
+  [MagicPods](https://github.com/steam3d/MagicPods-Windows) 路线），菜单内已
+  诚实说明并指路；Mac 版不存在此限制
 - 🖥️ **托盘常驻**：关窗=缩托盘，开机自启，随时唤出
 - 🎨 **米白简约 UI**：WebView2 渲染，圆角卡片、呼吸状态灯、手绘设备图形
 - 🔒 **纯本地**：不联网上传任何数据（唯一网络行为=检查 GitHub 新版本）
