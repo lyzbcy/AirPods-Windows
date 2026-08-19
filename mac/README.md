@@ -36,6 +36,11 @@ Mac 端复用上游 ChromuSx 的 `macos-helper` Swift 核心逻辑
 
 ## 构建与运行（在你的 Mac 上）
 
+**日常用**：双击 `run.command`（自动增量编译 + 启动，编译失败会留住窗口
+显示错误）。首次双击若被 Gatekeeper 拦，右键 → 打开 一次即可。
+
+**手动方式**：
+
 ```bash
 cd mac/AirPodsBuddyMac
 swift build -c release
