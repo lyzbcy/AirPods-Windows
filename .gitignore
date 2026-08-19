@@ -16,7 +16,7 @@ streamdeck-plugin/macos-helper/.build/
 Thumbs.db
 dist/
 logs/
-tools/
+tools/*
 device_priority.txt
 
 # SwiftPM build output (Mac)
