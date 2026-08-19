@@ -10,7 +10,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\WebView2\WebView2.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.5.0"
+APP_VERSION   := "1.6.0"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/BluetoothDeviceConnector/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/BluetoothDeviceConnector/releases/latest"
 
@@ -253,6 +253,27 @@ WatchTrayState() {
     UpdateTrayIcon()
 }
 
+; Windows 原生无法切换 AirPods 降噪/通透（Apple AAP 私有协议走 BLE）。
+; 探测已装的第三方组件并启动；没有则指路推荐项目。
+TryNoiseControl() {
+    lp := EnvGet("LOCALAPPDATA")
+    candidates := [
+        lp "\Programs\MagicPods\MagicPods.exe",
+        "C:\Program Files\MagicPods\MagicPods.exe",
+        lp "\Programs\librepods-windows\librepods-windows.exe",
+        "C:\Program Files\librepods-windows\librepods-windows.exe"
+    ]
+    for p in candidates {
+        if FileExist(p) {
+            Run('"' p '"')
+            TrayTip("AirPods 小助手", "已启动降噪控制组件 🎧", 1)
+            return
+        }
+    }
+    TrayTip("AirPods 小助手", "切换降噪/通透需要额外组件（Apple 私有协议）`n即将打开推荐项目页", 3)
+    Run("https://github.com/steam3d/MagicPods-Windows")
+}
+
 ; 左键单击托盘图标 = 在"连接首选设备 / 断开全部"之间切换
 ToggleQuickAction() {
     if AnyConnected()
@@ -315,7 +336,10 @@ PetEnsure() {
         return false
     }
     petWv := petWvc.CoreWebView2
-    try petWvc.DefaultBackgroundColor := 0x00000000   ; 透明背景
+    try {
+        petWvc.DefaultBackgroundColor := 0x00000000   ; 透明背景
+        LogMsg("pet bg=" Format("{:08X}", petWvc.DefaultBackgroundColor))
+    }
     try {
         petWv.Settings.AreDevToolsEnabled := false
         petWv.Settings.AreDefaultContextMenusEnabled := false
@@ -334,6 +358,9 @@ PetShow(state) {
     x := A_ScreenWidth - W - 12
     y := A_ScreenHeight - H - 56
     petGui.Show("x" x " y" y " w" W " h" H " NoActivate")
+    ; 主窗口同款坑：隐窗创建的 WebView2 控制器 IsVisible=false 会挂起渲染（白屏）
+    petWvc.Fill()
+    petWvc.IsVisible := true
     petVisible := true
     PetApply(state)
     SetTimer(PetFade, -9000)
@@ -450,8 +477,10 @@ SyncWebView()
 LogMsg("window shown, controller IsVisible=" wvc.IsVisible)
 A_IconTip := "AirPods 小助手 v" APP_VERSION
 
+trayToggleName := "⇄ 切换连接"
 A_TrayMenu.Delete()
-A_TrayMenu.Add("⇄ 切换连接（左键直达）", (*) => ToggleQuickAction())
+A_TrayMenu.Add(trayToggleName, (*) => ToggleQuickAction())
+A_TrayMenu.Add("🎧 降噪/通透模式…", (*) => TryNoiseControl())
 A_TrayMenu.Add("打开界面", (*) => (myGui.Show(), SyncWebView()))
 A_TrayMenu.Add()
 A_TrayMenu.Add("🎧 一键连接", (*) => TrayQuickAction("connect"))
@@ -459,8 +488,12 @@ A_TrayMenu.Add("🚫 一键断开", (*) => TrayQuickAction("disconnect"))
 A_TrayMenu.Add()
 A_TrayMenu.Add("检查更新", (*) => CheckUpdate(true))
 A_TrayMenu.Add("退出", (*) => ExitApp())
-A_TrayMenu.Default := "⇄ 切换连接（左键直达）"   ; 单击左键即触发，右键才弹菜单
-A_TrayMenu.Click := 1
+try {
+    A_TrayMenu.Default := trayToggleName   ; 单击左键即触发，右键才弹菜单
+    A_TrayMenu.Click := 1
+} catch as e {
+    LogMsg("tray default set failed: " e.Message, "ERROR")
+}
 lastTrayOn := -1
 UpdateTrayIcon(true)
 SetTimer(WatchTrayState, 2000)   ; 独立看门：托盘状态不依赖前端轮询

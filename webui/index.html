@@ -5,230 +5,255 @@
 <title>AirPods 小助手</title>
 <style>
   :root{
-    --bg:#FAF7F2; --card:#FFFFFF; --ink:#3F3A35; --sub:#9A9086;
-    --line:#EEE8DF; --accent:#A08668; --accent-d:#8A7055;
-    --ok:#6E9B5F; --err:#B85C50; --chip:#F6F0E8;
+    --bg1:#FFF8F3; --bg2:#FFEDF3;           /* 奶油→腮红渐变底 */
+    --pink:#FF9FBE; --pink-d:#EF7FA5; --pink-dd:#D9608C;
+    --lav:#BCABF2; --mint:#8FDCC3; --peach:#FFC9A3;
+    --ink:#5A4640; --sub:#AC9890;
+    --card:#FFFFFF; --line:#FFE3ED;
   }
   *{margin:0;padding:0;box-sizing:border-box;-webkit-user-select:none;user-select:none}
   html,body{height:100%}
   body{
-    font-family:"Segoe UI Variable Text","Segoe UI","Microsoft YaHei UI",system-ui,sans-serif;
-    background:var(--bg); color:var(--ink); overflow:hidden; border-radius:12px;
+    font-family:"Segoe UI Variable Display","Segoe UI","Microsoft YaHei UI",system-ui,sans-serif;
+    color:var(--ink);overflow:hidden;border-radius:14px;
+    background:
+      radial-gradient(circle at 12px 12px, rgba(255,159,190,.10) 3px, transparent 4px),
+      radial-gradient(circle at 12px 12px, rgba(188,171,242,.08) 3px, transparent 4px),
+      linear-gradient(165deg, var(--bg1) 0%, var(--bg2) 62%, #FFE7EE 100%);
+    background-size:34px 34px, 34px 34px, 100% 100%;
+    background-position:0 0, 17px 17px, 0 0;
   }
-  /* ambient blobs */
-  .blob{position:fixed;border-radius:50%;filter:blur(70px);opacity:.5;pointer-events:none;z-index:0}
-  .blob.b1{width:240px;height:240px;background:#F2E4D3;top:-70px;right:-60px;animation:drift1 16s ease-in-out infinite alternate}
-  .blob.b2{width:200px;height:200px;background:#EDE7DC;bottom:-60px;left:-60px;animation:drift2 20s ease-in-out infinite alternate}
-  @keyframes drift1{to{transform:translate(-40px,30px) scale(1.12)}}
-  @keyframes drift2{to{transform:translate(35px,-25px) scale(.92)}}
+  /* 漂浮云朵与星星 */
+  .sky{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+  .cloud{position:absolute;border-radius:50%;background:rgba(255,255,255,.55);filter:blur(2px)}
+  .cloud.c1{width:120px;height:44px;top:6%;left:-30px;animation:driftC 26s linear infinite}
+  .cloud.c2{width:80px;height:30px;top:16%;left:-50px;animation:driftC 34s linear infinite 8s}
+  @keyframes driftC{to{transform:translateX(600px)}}
+  .star{position:absolute;color:var(--pink);opacity:.5;animation:twinkle 3s ease-in-out infinite}
+  .star.s1{top:9%;right:14%;font-size:13px}
+  .star.s2{top:30%;right:7%;font-size:9px;animation-delay:1.1s;color:var(--lav)}
+  .star.s3{top:52%;left:6%;font-size:10px;animation-delay:2s;color:var(--peach)}
+  @keyframes twinkle{50%{transform:scale(1.35) rotate(18deg);opacity:.9}}
 
   .app{position:relative;z-index:1;height:100%;display:flex;flex-direction:column}
 
-  /* topbar = drag zone */
-  .topbar{height:38px;display:flex;align-items:center;justify-content:flex-end;padding:0 12px;cursor:default}
-  .wbtn{width:30px;height:30px;border:none;border-radius:50%;background:transparent;color:var(--sub);
+  /* 顶栏（拖动区） */
+  .topbar{height:38px;display:flex;align-items:center;justify-content:flex-end;padding:0 12px}
+  .wbtn{width:30px;height:30px;border:none;border-radius:50%;background:transparent;color:#C9A9AC;
     font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;
-    transition:background .18s,color .18s,transform .18s}
-  .wbtn:hover{background:#F0EAE0;color:var(--ink)}
-  .wbtn:active{transform:scale(.9)}
-  .wbtn.close:hover{background:#E8C7C2;color:#9c4b40}
+    transition:all .18s}
+  .wbtn:hover{background:#FFDDE8;color:var(--pink-dd);transform:scale(1.08)}
+  .wbtn:active{transform:scale(.88)}
+  .wbtn.close:hover{background:#FFC9D6;color:#C2455F}
 
   .content{flex:1;overflow-y:auto;padding:0 20px;scrollbar-width:none}
   .content::-webkit-scrollbar{display:none}
 
-  /* header */
-  header{display:flex;align-items:center;gap:12px;padding:2px 0 12px}
+  /* 头部：贴纸风标题 */
+  header{display:flex;align-items:center;gap:12px;padding:2px 0 10px}
   .stack{display:flex}
-  .stack img{width:40px;height:40px;border-radius:50%;border:3px solid var(--bg);
-    box-shadow:0 3px 10px rgba(63,58,53,.12);object-fit:cover;
-    transition:transform .22s cubic-bezier(.34,1.56,.64,1);cursor:default}
-  .stack img:not(:first-child){margin-left:-11px}
-  .stack:hover img{transform:translateY(-6px) rotate(-4deg)}
-  .stack:hover img:nth-child(2){transition-delay:.03s}
-  .stack:hover img:nth-child(3){transition-delay:.06s}
-  .stack:hover img:nth-child(4){transition-delay:.09s}
-  .title h1{font-size:18px;font-weight:600;letter-spacing:.5px}
+  .stack img{width:42px;height:42px;border-radius:50%;border:3.5px solid #fff;
+    box-shadow:0 4px 12px rgba(239,127,165,.28);object-fit:cover;
+    transition:transform .25s cubic-bezier(.34,1.56,.64,1)}
+  .stack img:not(:first-child){margin-left:-12px}
+  .stack:hover img{transform:translateY(-7px) rotate(-6deg)}
+  .stack:hover img:nth-child(2){transition-delay:.04s}
+  .stack:hover img:nth-child(3){transition-delay:.08s}
+  .stack:hover img:nth-child(4){transition-delay:.12s}
+  .title h1{font-size:19px;font-weight:800;letter-spacing:.5px;color:var(--ink);
+    text-shadow:0 2px 0 rgba(255,255,255,.9)}
   .title .ver{font-size:11px;color:var(--sub);margin-top:1px}
-  .badge{margin-left:auto;font-size:11px;color:var(--accent);background:var(--chip);
-    border-radius:999px;padding:3px 11px;font-weight:500}
+  .badge{margin-left:auto;font-size:11px;font-weight:700;color:var(--pink-dd);
+    background:#fff;border:2px solid var(--line);border-radius:999px;padding:4px 12px;
+    box-shadow:0 3px 8px rgba(239,127,165,.15);display:flex;align-items:center;gap:5px}
 
-  /* ===== hero orb ===== */
-  .hero{display:flex;flex-direction:column;align-items:center;padding:6px 0 4px}
-  .orb{width:148px;height:148px;border-radius:50%;border:none;cursor:pointer;color:#fff;
-    background:radial-gradient(circle at 32% 26%, #CDB394, #A08668 58%, #7E6448);
-    box-shadow:0 16px 34px rgba(140,112,85,.42),
-      inset 0 4px 9px rgba(255,255,255,.55),
-      inset 0 -10px 16px rgba(80,58,40,.38);
+  /* ===== 糖果主按钮 ===== */
+  .hero{display:flex;flex-direction:column;align-items:center;padding:4px 0 2px;position:relative}
+  .hero::before{content:"";position:absolute;top:50%;left:50%;width:172px;height:172px;
+    border-radius:50%;border:2.5px dashed var(--pink);opacity:.45;
+    transform:translate(-50%,-46%);animation:spinSlow 14s linear infinite}
+  @keyframes spinSlow{to{transform:translate(-50%,-46%) rotate(360deg)}}
+  .orb{width:150px;height:150px;border-radius:50%;border:5px solid #fff;cursor:pointer;color:#fff;
+    background:radial-gradient(circle at 32% 26%, #FFC7DA, var(--pink) 55%, var(--pink-d) 82%, var(--pink-dd));
+    box-shadow:0 14px 30px rgba(239,127,165,.45), 0 4px 10px rgba(217,96,140,.25),
+      inset 0 5px 10px rgba(255,255,255,.55), inset 0 -12px 18px rgba(198,74,117,.42);
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
-    transition:transform .16s cubic-bezier(.34,1.56,.64,1), box-shadow .16s}
-  .orb:hover{transform:translateY(-2px);box-shadow:0 20px 40px rgba(140,112,85,.5),
-      inset 0 4px 9px rgba(255,255,255,.6), inset 0 -10px 16px rgba(80,58,40,.38)}
-  .orb:active{transform:scale(.93)}
-  .orb.on{background:radial-gradient(circle at 32% 26%, #93BE82, #6E9B5F 58%, #557A47);
-    box-shadow:0 16px 34px rgba(110,155,95,.42),
-      inset 0 4px 9px rgba(255,255,255,.5), inset 0 -10px 16px rgba(60,90,48,.38)}
-  .orb.busy{pointer-events:none;filter:saturate(.6) brightness(.96)}
-  .orb svg{width:44px;height:44px}
-  .orb .oname{font-size:12.5px;font-weight:600;max-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .orb .ost{font-size:10.5px;opacity:.85}
-  .ohint{font-size:11px;color:var(--sub);margin-top:9px;letter-spacing:.5px}
+    transition:transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .18s;position:relative;z-index:1}
+  .orb::after{content:"";position:absolute;top:12%;left:20%;width:34%;height:22%;
+    background:rgba(255,255,255,.75);border-radius:50%;filter:blur(4px);transform:rotate(-18deg)}
+  .orb:hover{transform:translateY(-3px) scale(1.02)}
+  .orb:active{transform:scale(.92)}
+  .orb.on{background:radial-gradient(circle at 32% 26%, #B4E9CF, var(--mint) 55%, #5FBF9C 82%, #3FA07D);
+    box-shadow:0 14px 30px rgba(109,196,163,.42), 0 4px 10px rgba(63,160,125,.22),
+      inset 0 5px 10px rgba(255,255,255,.5), inset 0 -12px 18px rgba(38,120,89,.4)}
+  .orb.busy{pointer-events:none;filter:saturate(.55) brightness(.97)}
+  .orb svg{width:42px;height:42px}
+  .orb .oname{font-size:12.5px;font-weight:800;max-width:108px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    text-shadow:0 1px 2px rgba(160,50,95,.35)}
+  .orb .ost{font-size:10.5px;opacity:.92}
+  .ohint{font-size:11px;color:var(--sub);margin-top:10px;letter-spacing:.5px;
+    display:flex;align-items:center;gap:6px}
+  .ohint::before,.ohint::after{content:"✿";color:var(--pink);font-size:9px}
 
-  /* section */
-  .sec{display:flex;align-items:center;margin:10px 0 10px}
-  .sec h2{font-size:13px;font-weight:600;letter-spacing:1px;color:var(--ink)}
+  /* 分区标题：手绘感波浪线 */
+  .sec{display:flex;align-items:center;margin:12px 0 10px}
+  .sec h2{font-size:14px;font-weight:800;letter-spacing:2px;color:var(--ink);
+    background:linear-gradient(transparent 78%, rgba(255,159,190,.5) 78%)}
   .sec .cnt{font-size:11px;color:var(--sub);margin-left:8px}
-  .refresh{margin-left:auto;width:28px;height:28px;border:none;border-radius:50%;background:transparent;
-    color:var(--sub);cursor:pointer;display:flex;align-items:center;justify-content:center;
-    transition:background .18s,color .18s,transform .18s}
-  .refresh:hover{background:var(--chip);color:var(--accent)}
-  .refresh:active{transform:scale(.88)}
-  .refresh svg{transition:transform .5s cubic-bezier(.34,1.2,.64,1)}
+  .refresh{margin-left:auto;width:30px;height:30px;border:none;border-radius:50%;background:#fff;
+    border:2px solid var(--line);color:var(--pink-d);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;transition:all .18s;
+    box-shadow:0 3px 8px rgba(239,127,165,.14)}
+  .refresh:hover{transform:rotate(40deg) scale(1.08);color:var(--pink-dd)}
+  .refresh:active{transform:scale(.85)}
+  .refresh svg{transition:transform .5s}
   .refresh.spin svg{transform:rotate(360deg)}
 
-  /* ===== device cards ===== */
-  .card{background:var(--card);border:1px solid var(--line);border-radius:22px;
-    padding:12px 14px;display:flex;align-items:center;gap:11px;margin-bottom:10px;
-    box-shadow:0 2px 10px rgba(63,58,53,.04);
+  /* ===== 贴纸风设备卡 ===== */
+  .card{background:var(--card);border:3px solid #fff;border-radius:24px;
+    padding:11px 13px;display:flex;align-items:center;gap:11px;margin-bottom:11px;
+    box-shadow:0 5px 16px rgba(239,127,165,.16), 0 1px 3px rgba(239,127,165,.10);
     opacity:0;transform:translateY(14px);
     animation:rise .5s cubic-bezier(.22,.9,.36,1) forwards;
-    transition:box-shadow .2s,transform .2s,border-color .2s}
-  .card:hover{box-shadow:0 8px 22px rgba(63,58,53,.09);transform:translateY(-1px);border-color:#E3DACB}
-  @keyframes rise{to{opacity:1;transform:none}}
+    transition:box-shadow .2s,transform .2s}
+  .card:nth-child(even){transform:translateY(14px) rotate(.5deg)}
+  .card:nth-child(odd){transform:translateY(14px) rotate(-.5deg)}
+  .card:hover{box-shadow:0 10px 24px rgba(239,127,165,.26);transform:translateY(-2px) rotate(0deg)}
+  @keyframes rise{to{opacity:1;transform:translateY(0)}}
   .chip{width:52px;height:52px;border-radius:50%;flex:none;
-    background:radial-gradient(circle at 34% 30%, #FBF5EC, var(--chip) 70%);
-    box-shadow:inset 0 2px 4px rgba(255,255,255,.9), inset 0 -3px 6px rgba(63,58,53,.06);
+    background:radial-gradient(circle at 34% 30%, #FFF3F7, #FFE3ED 75%);
+    box-shadow:inset 0 2px 4px rgba(255,255,255,.95), inset 0 -3px 6px rgba(239,127,165,.12);
     display:flex;align-items:center;justify-content:center}
   .chip svg{width:36px;height:36px}
   .info{flex:1;min-width:0}
-  .name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  .name{font-size:13px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
     display:flex;align-items:center;gap:6px}
-  .tag{font-size:9.5px;font-weight:600;letter-spacing:.5px;border-radius:999px;padding:1.5px 7px;flex:none}
-  .tag.apple{background:#EDEFE7;color:#6E9B5F}
-  .tag.other{background:#F1EBE2;color:#B3A794}
-  .prio-mark{font-size:9.5px;color:var(--accent);background:var(--chip);border-radius:999px;padding:1.5px 7px;flex:none;font-weight:600}
+  .tag{font-size:9.5px;font-weight:800;letter-spacing:.5px;border-radius:999px;padding:2px 8px;flex:none;
+    border:1.5px solid transparent}
+  .tag.apple{background:#E9F9F0;color:#4CA87E;border-color:#C4EDD8}
+  .tag.other{background:#F3EFFC;color:#8F7ECB;border-color:#DFD6F5}
+  .prio-mark{font-size:9.5px;font-weight:800;color:var(--pink-dd);background:#FFE9F1;
+    border:1.5px solid #FFD3E2;border-radius:999px;padding:2px 8px;flex:none}
   .st{display:flex;align-items:center;gap:6px;margin-top:4px;font-size:11px;color:var(--sub)}
-  .dot{width:7px;height:7px;border-radius:50%;background:#CFC6B8;position:relative;flex:none}
-  .dot.on{background:var(--ok)}
-  .dot.on::after{content:"";position:absolute;inset:-3px;border-radius:50%;border:2px solid var(--ok);
+  .dot{width:8px;height:8px;border-radius:50%;background:#DCC9CC;position:relative;flex:none}
+  .dot.on{background:#5FBF9C}
+  .dot.on::after{content:"";position:absolute;inset:-3.5px;border-radius:50%;border:2px solid #5FBF9C;
     opacity:.55;animation:pulse 2s ease-out infinite}
-  @keyframes pulse{0%{transform:scale(.5);opacity:.7}70%{transform:scale(1.25);opacity:0}100%{opacity:0}}
+  @keyframes pulse{0%{transform:scale(.45);opacity:.8}70%{transform:scale(1.3);opacity:0}100%{opacity:0}}
 
-  /* priority mini round buttons */
   .prio{display:flex;flex-direction:column;gap:4px;flex:none}
-  .pbtn{width:24px;height:24px;border:none;border-radius:50%;background:var(--chip);color:var(--accent-d);
-    font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;
-    box-shadow:inset 0 1px 2px rgba(255,255,255,.9), 0 1px 2px rgba(63,58,53,.08);
-    transition:all .15s}
-  .pbtn:hover{background:#EFE5D4;transform:translateY(-1px)}
-  .pbtn:active{transform:scale(.85)}
-  .pbtn[disabled]{opacity:.3;pointer-events:none}
+  .pbtn{width:24px;height:24px;border:none;border-radius:50%;background:#fff;border:2px solid var(--line);
+    color:var(--pink-d);font-size:8.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 2px 5px rgba(239,127,165,.14);transition:all .15s}
+  .pbtn:hover{background:#FFDDE8;transform:translateY(-1px)}
+  .pbtn:active{transform:scale(.82)}
+  .pbtn[disabled]{opacity:.28;pointer-events:none}
 
-  /* big round 3D action button */
-  .act{width:46px;height:46px;border-radius:50%;border:none;cursor:pointer;flex:none;
+  .act{width:46px;height:46px;border-radius:50%;border:3.5px solid #fff;cursor:pointer;flex:none;
     display:flex;align-items:center;justify-content:center;color:#fff;
-    background:radial-gradient(circle at 32% 28%, #BCA284, #A08668 60%, #83684C);
-    box-shadow:0 6px 14px rgba(160,134,104,.42),
-      inset 0 3px 6px rgba(255,255,255,.45), inset 0 -6px 10px rgba(80,58,40,.32);
-    transition:transform .16s cubic-bezier(.34,1.56,.64,1), box-shadow .16s}
-  .act:hover{transform:translateY(-2px)}
-  .act:active{transform:scale(.9)}
-  .act.on{background:radial-gradient(circle at 32% 28%, #8FB17E, #6E9B5F 60%, #557A47);
-    box-shadow:0 6px 14px rgba(110,155,95,.4),
-      inset 0 3px 6px rgba(255,255,255,.4), inset 0 -6px 10px rgba(55,82,44,.32)}
+    background:radial-gradient(circle at 32% 28%, #FFC7DA, var(--pink) 58%, var(--pink-dd));
+    box-shadow:0 6px 14px rgba(239,127,165,.42), inset 0 3px 6px rgba(255,255,255,.5), inset 0 -6px 10px rgba(198,74,117,.32);
+    transition:transform .16s cubic-bezier(.34,1.56,.64,1)}
+  .act:hover{transform:translateY(-2px) scale(1.04)}
+  .act:active{transform:scale(.88)}
+  .act.on{background:radial-gradient(circle at 32% 28%, #B4E9CF, var(--mint) 58%, #3FA07D);
+    box-shadow:0 6px 14px rgba(109,196,163,.4), inset 0 3px 6px rgba(255,255,255,.5), inset 0 -6px 10px rgba(38,120,89,.32)}
   .act.busy{pointer-events:none;opacity:.85}
   .act .spin{width:15px;height:15px;border:2.5px solid rgba(255,255,255,.35);border-top-color:#fff;
     border-radius:50%;display:inline-block;animation:rot .7s linear infinite}
   @keyframes rot{to{transform:rotate(360deg)}}
 
-  .del{width:30px;height:30px;border:none;border-radius:50%;background:transparent;color:#C9BFB1;
-    cursor:pointer;flex:none;display:flex;align-items:center;justify-content:center;
-    transition:background .18s,color .18s,transform .18s}
-  .del:hover{background:#F3E3DF;color:var(--err)}
-  .del:active{transform:scale(.85)}
+  .del{width:30px;height:30px;border:none;border-radius:50%;background:transparent;color:#D9B8BC;
+    cursor:pointer;flex:none;display:flex;align-items:center;justify-content:center;transition:all .18s}
+  .del:hover{background:#FFDDE8;color:#E05C7B}
+  .del:active{transform:scale(.82)}
 
-  /* add card */
-  .add{border:2px dashed #DDD2C0;border-radius:22px;background:rgba(255,255,255,.5);
-    padding:13px;display:flex;align-items:center;justify-content:center;gap:10px;margin:4px 0 12px;
+  /* 添加卡 */
+  .add{border:2.5px dashed var(--pink);border-radius:24px;background:rgba(255,255,255,.6);
+    padding:12px;display:flex;align-items:center;justify-content:center;gap:10px;margin:4px 0 12px;
     cursor:pointer;transition:all .2s}
-  .add:hover{border-color:var(--accent);background:#fff;box-shadow:0 6px 18px rgba(160,134,104,.12)}
-  .add .plus{width:30px;height:30px;border-radius:50%;background:var(--chip);color:var(--accent);
-    display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;
-    box-shadow:inset 0 1px 2px rgba(255,255,255,.9);
+  .add:hover{background:#fff;box-shadow:0 8px 20px rgba(239,127,165,.2);border-color:var(--pink-d)}
+  .add .plus{width:32px;height:32px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#FFC7DA,var(--pink));
+    color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;
+    box-shadow:inset 0 2px 4px rgba(255,255,255,.5);
     transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
-  .add:hover .plus{transform:rotate(90deg) scale(1.1)}
-  .add span{font-size:12.5px;color:var(--accent-d);font-weight:500;letter-spacing:1px}
+  .add:hover .plus{transform:rotate(90deg) scale(1.12)}
+  .add span{font-size:12.5px;color:var(--pink-dd);font-weight:700;letter-spacing:1px}
 
-  /* empty */
   .empty{text-align:center;padding:18px 0 6px;animation:rise .5s forwards}
   .empty img{width:84px;height:84px;animation:float 3.2s ease-in-out infinite}
   @keyframes float{50%{transform:translateY(-8px)}}
   .empty p{color:var(--sub);font-size:12px;margin-top:10px}
 
   footer{display:flex;align-items:center;padding:8px 20px 12px;font-size:11px;color:var(--sub)}
-  .about-link{margin-left:auto;color:var(--accent);cursor:pointer;letter-spacing:.5px;
-    display:flex;align-items:center;gap:4px;transition:color .18s}
-  .about-link:hover{color:var(--accent-d)}
-  .about-link u{text-decoration:underline dotted 1px;text-underline-offset:3px}
+  .about-link{margin-left:auto;color:var(--pink-d);cursor:pointer;letter-spacing:.5px;
+    display:flex;align-items:center;gap:4px;transition:color .18s;font-weight:600}
+  .about-link:hover{color:var(--pink-dd)}
+  .about-link u{text-decoration:underline dotted 1.5px;text-underline-offset:3px}
 
-  /* toast */
   #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);
-    background:rgba(63,58,53,.92);color:#FBF8F3;font-size:12.5px;padding:10px 20px;border-radius:999px;
+    background:rgba(90,70,64,.92);color:#FFF6F0;font-size:12.5px;padding:10px 20px;border-radius:999px;
     opacity:0;pointer-events:none;transition:all .3s cubic-bezier(.22,.9,.36,1);z-index:50;
-    box-shadow:0 8px 24px rgba(63,58,53,.3);letter-spacing:.5px}
+    box-shadow:0 8px 24px rgba(90,70,64,.3);letter-spacing:.5px}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
-  /* modal */
-  .mask{position:fixed;inset:0;background:rgba(63,58,53,.28);backdrop-filter:blur(6px);
+  .mask{position:fixed;inset:0;background:rgba(90,70,64,.26);backdrop-filter:blur(6px);
     display:none;align-items:center;justify-content:center;z-index:40;opacity:0;transition:opacity .25s}
   .mask.open{display:flex}
   .mask.in{opacity:1}
-  .dlg{background:var(--bg);border-radius:26px;width:min(400px,88%);
-    box-shadow:0 24px 60px rgba(63,58,53,.25);padding:26px 26px 22px;
+  .dlg{background:linear-gradient(170deg,#FFFDFB,#FFF4F8);border-radius:30px;width:min(400px,88%);
+    border:3px solid #fff;
+    box-shadow:0 24px 60px rgba(217,96,140,.28);padding:26px 26px 22px;
     transform:scale(.9) translateY(10px);transition:transform .3s cubic-bezier(.34,1.4,.64,1)}
   .mask.in .dlg{transform:none}
-  .dlg h3{font-size:16px;display:flex;align-items:center;gap:10px}
-  .dlg h3 img{width:40px;height:40px;border-radius:14px}
+  .dlg h3{font-size:16px;display:flex;align-items:center;gap:10px;font-weight:800}
+  .dlg h3 img{width:42px;height:42px;border-radius:14px;border:2.5px solid #fff;
+    box-shadow:0 3px 8px rgba(239,127,165,.25)}
   .dlg .desc{font-size:12px;color:var(--sub);margin-top:4px}
   .steps{margin:18px 0 4px}
-  .step{display:flex;gap:12px;padding:9px 0;border-bottom:1px dashed var(--line)}
+  .step{display:flex;gap:12px;padding:9px 0;border-bottom:1.5px dashed var(--line)}
   .step:last-child{border-bottom:none}
-  .step .n{width:22px;height:22px;border-radius:50%;background:var(--chip);color:var(--accent-d);
-    font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none;margin-top:1px}
+  .step .n{width:23px;height:23px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#FFC7DA,var(--pink));
+    color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none;margin-top:1px;
+    box-shadow:inset 0 1.5px 3px rgba(255,255,255,.5)}
   .step div b{font-size:12.5px;display:block}
   .step div span{font-size:11.5px;color:var(--sub);line-height:1.55;display:block;margin-top:2px}
   .dlg .row{display:flex;gap:10px;margin-top:18px}
   .dlg .row .btn{flex:1;padding:11px 0}
   .qrs{display:flex;gap:12px;margin-top:18px}
-  .qr{flex:1;background:#fff;border:1px solid var(--line);border-radius:18px;padding:12px 8px;text-align:center}
+  .qr{flex:1;background:#fff;border:2px solid var(--line);border-radius:18px;padding:12px 8px;text-align:center;
+    transition:transform .18s}
+  .qr:hover{transform:translateY(-2px)}
   .qr img{width:104px;height:104px;border-radius:8px}
   .qr b{font-size:12px;display:block;margin-top:8px}
   .qr span{font-size:10.5px;color:var(--sub)}
-  .upd-meta{font-size:12px;color:var(--sub);margin:14px 0 2px;background:var(--chip);
-    border-radius:14px;padding:10px 14px;line-height:1.7}
+  .upd-meta{font-size:12px;color:var(--sub);margin:14px 0 2px;background:#fff;
+    border:2px solid var(--line);border-radius:16px;padding:10px 14px;line-height:1.7}
   .upd-meta b{color:var(--ink)}
-  #updState{font-size:12px;margin-top:10px;min-height:18px;color:var(--accent-d)}
+  #updState{font-size:12px;margin-top:10px;min-height:18px;color:var(--pink-dd)}
 
-  /* pill buttons with 3D feel */
-  .btn{border:none;border-radius:999px;padding:9px 18px;font-size:12.5px;font-weight:600;
+  .btn{border:none;border-radius:999px;padding:9px 18px;font-size:12.5px;font-weight:800;
     cursor:pointer;letter-spacing:1px;flex:none;
-    transition:transform .16s,box-shadow .16s,background .16s,color .16s}
+    transition:transform .16s,box-shadow .16s}
   .btn:active{transform:scale(.94)}
-  .btn.primary{color:#fff;
-    background:linear-gradient(160deg,#B6977A,#96795B);
-    box-shadow:0 5px 14px rgba(160,134,104,.42), inset 0 2px 4px rgba(255,255,255,.35);
-    }
-  .btn.primary:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(160,134,104,.5), inset 0 2px 4px rgba(255,255,255,.35)}
-  .btn.ghost{background:transparent;color:var(--sub);border:1.5px solid var(--line)}
-  .btn.ghost:hover{color:var(--ink);border-color:#D8CDBA;background:#FBF9F5}
+  .btn.primary{color:#fff;border:2.5px solid #fff;
+    background:linear-gradient(155deg,#FFAECB,#F283A8 60%,#E06A94);
+    box-shadow:0 5px 14px rgba(239,127,165,.45), inset 0 2px 4px rgba(255,255,255,.5)}
+  .btn.primary:hover{transform:translateY(-1.5px)}
+  .btn.ghost{background:#fff;color:var(--sub);border:2px solid var(--line)}
+  .btn.ghost:hover{color:var(--pink-dd);border-color:#FFD3E2;background:#FFF6F9}
   .btn.busy{pointer-events:none;opacity:.85;min-width:64px}
 </style>
 </head>
 <body>
-<div class="blob b1"></div><div class="blob b2"></div>
+<div class="sky">
+  <div class="cloud c1"></div><div class="cloud c2"></div>
+  <span class="star s1">★</span><span class="star s2">★</span><span class="star s3">★</span>
+</div>
 <div class="app">
 
   <div class="topbar" id="topbar">
-    <button class="wbtn" onclick="rpc('winmin')" title="最小化">&#x2013;</button>
+    <button class="wbtn" onclick="rpc('winmin')" title="最小化到托盘">&#x2013;</button>
     <button class="wbtn close" onclick="rpc('winclose')" title="关闭（缩到托盘）">&#x2715;</button>
   </div>
 
@@ -242,9 +267,9 @@
       </div>
       <div class="title">
         <h1>AirPods 小助手</h1>
-        <div class="ver" id="ver">v1.3.0</div>
+        <div class="ver" id="ver">v1.6.0</div>
       </div>
-      <div class="badge" id="badge">就绪</div>
+      <div class="badge" id="badge">♡ 就绪</div>
     </header>
 
     <div class="hero">
@@ -255,7 +280,7 @@
     <div class="sec">
       <h2>我的耳机</h2><span class="cnt" id="cnt"></span>
       <button class="refresh" id="refresh" title="刷新">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round">
           <path d="M20 11a8 8 0 1 0-2.34 6.34"/><path d="M20 4v7h-7"/>
         </svg>
       </button>
@@ -269,7 +294,7 @@
   </div>
 
   <footer>
-    <span id="footver">v1.3.0</span>
+    <span id="footver">v1.6.0</span>
     <span class="about-link" onclick="openAbout()"><u>关于捞鱼</u> 🐟</span>
   </footer>
 </div>
@@ -318,7 +343,7 @@
     <div class="desc" style="margin-top:8px">删除后需要重新配对才能再次连接</div>
     <div class="row">
       <button class="btn ghost" onclick="closeModal('mDel')">再想想</button>
-      <button class="btn primary" style="background:linear-gradient(160deg,#C07A6E,#A9604F);box-shadow:0 5px 14px rgba(184,92,80,.4), inset 0 2px 4px rgba(255,255,255,.3)" onclick="confirmDel()">删除</button>
+      <button class="btn primary" style="background:linear-gradient(155deg,#FFA3A3,#F07878 60%,#E05C5C);box-shadow:0 5px 14px rgba(240,120,120,.42), inset 0 2px 4px rgba(255,255,255,.45)" onclick="confirmDel()">删除</button>
     </div>
   </div>
 </div>
@@ -356,9 +381,9 @@ let toastT;
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
   clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2400)}
 
-/* ---------- device art ---------- */
+/* ---------- device art（描边换成粉调） ---------- */
 function art(kind){
-  const s='<g fill="none" stroke="#A08668" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round">';
+  const s='<g fill="none" stroke="#EF7FA5" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round">';
   if(kind==='pro') return `<svg viewBox="0 0 64 64">${s}
     <path d="M17 30V17a7 7 0 0 1 14 0v13"/><path d="M20 30l1.5 17a2.5 2.5 0 0 0 5 0L28 30"/>
     <path d="M37 30V17a7 7 0 0 1 14 0v13"/><path d="M40 30l1.5 17a2.5 2.5 0 0 0 5 0L48 30"/>
@@ -411,11 +436,11 @@ function render(){
   if(!devices.length){
     box.innerHTML=`<div class="empty"><img src="assets/face_cheer.png">
       <p>还没有配对过的耳机<br>点下方「添加新耳机」吧</p></div>`;
-    document.getElementById('badge').textContent='无设备';
+    document.getElementById('badge').textContent='♡ 就绪';
     return;
   }
   const on=devices.filter(d=>d.connected).length;
-  document.getElementById('badge').textContent=on?(on+' 已连接'):'就绪';
+  document.getElementById('badge').textContent=on?('♥ '+on+' 已连接'):'♡ 就绪';
   box.innerHTML=devices.map((d,i)=>`
     <div class="card" style="animation-delay:${i*60}ms">
       <div class="chip">${art(kindOf(d.name))}</div>
@@ -454,7 +479,7 @@ function renderOrb(){
   orb.innerHTML=`${art(kindOf(t.name))}<span class="oname">${esc(t.name)}</span>
     <span class="ost">${t.connected?'已连接 · 点按断开':'未连接 · 点按连接'}</span>`;
   orb.onclick=()=>doAction(null,t.name,t.connected?'disconnect':'connect');
-  hint.textContent=t.connected?'当前按优先级首选的它已连接':'一键按优先级连接 · 列表可用 ▲▼ 调整顺序';
+  hint.textContent=t.connected?'当前首选耳机已连接 ♥':'一键按优先级连接 · 列表 ▲▼ 调整顺序';
 }
 async function movePrio(i,dir){
   const j=i+dir;
@@ -470,7 +495,7 @@ async function doAction(btn,name,act){
   const b=btn||document.getElementById('orb');
   const restore=b.innerHTML,cls=b.className;
   b.classList.add('busy');b.innerHTML='<span class="spin"></span>';
-  document.getElementById('badge').textContent=(act==='connect'?'正在连接':'正在断开')+'…';
+  document.getElementById('badge').textContent=(act==='connect'?'连接中…':'断开中…');
   const r=await rpc(act,name);
   b.classList.remove('busy');b.className=cls;b.innerHTML=restore;
   if(r==='ok') toast((act==='connect'?'已连接 💕':'已断开 💤'));

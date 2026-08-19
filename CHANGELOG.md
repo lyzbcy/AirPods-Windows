@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-08-19
+
+### Fixed
+- **Tray left-click dead**: the default menu item name (with full-width parens) failed to match and the swallowed error silently disabled single-click activation; now set via a shared variable with try/catch logging.
+- **Pet popup rendered blank**: the pet WebView2 was created on a hidden window — the same IsVisible=false suspension bug as the original main-window white screen (pitfall C in doc/05, now bitten twice). `PetShow` now re-fills bounds and forces `IsVisible := true`; background transparency is verified via a readback log line.
+
+### Added
+- **Kawaii restyle** (user request): blush-pink candy design — cream→blush gradient with polka dots, drifting clouds and twinkling stars, sticker cards (white borders, slight tilt), candy orb button with rotating dashed ring and gloss, pink-tinted shadows, hand-drawn squiggle section title, sticker tags. All functionality unchanged.
+- **Noise-control menu entry (experimental)**: tray right-click → "🎧 降噪/通透模式…". Windows cannot switch AirPods ANC natively (Apple AAP over BLE); the entry detects installed helpers (MagicPods-Windows / librepods-windows) and launches them, otherwise points to the recommended project.
+
+
 ## [1.5.0] - 2026-08-19
 
 ### Added
