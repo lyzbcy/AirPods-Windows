@@ -52,3 +52,11 @@ swift build -c release        # 需要 macOS 13+ 和 Xcode CLT
   （直接 bash 调用会静默失败，见 doc/05 坑 B1）
 - 本机安全软件会间歇性删 .ps1/.ahk 文件——重要脚本必须进 git
 - 用户设备：Windows 开发机 + MacBook（通过 E:\共享 同步此仓库）
+
+## 双机协作规矩（Windows ↔ Mac 经共享文件夹）
+
+- 本文件夹是**含 .git 的完整仓库副本**（E:\共享\创业\BluetoothDeviceConnector）
+- **在 Mac 上开工前**：`git pull --rebase origin main`（拿远端最新）
+- **在 Mac 上提交后**：`git push origin main`；提醒用户回 Windows 时也 `git pull`
+- 两台机器**不要同时改同一文件后各自提交**——会冲突
+- Windows 侧的正主仓库在 `E:\github\BluetoothDeviceConnector`（构建/发版在这边做）
