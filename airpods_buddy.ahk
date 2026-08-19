@@ -10,7 +10,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\WebView2\WebView2.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.8.0"
+APP_VERSION   := "1.8.1"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/BluetoothDeviceConnector/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/BluetoothDeviceConnector/releases/latest"
 
@@ -303,8 +303,10 @@ RunNoiseMode(mode) {
         TrayTip("AirPods 小助手", "已切换「" target.name "」→ " modeName " 🎧", 1)
         LogMsg("noise mode ok: " modeName)
     } else {
-        TrayTip("AirPods 小助手", "切换失败（该设备可能不支持，或耳机刚断开）", 3)
-        LogMsg("noise mode FAILED exit=" code, "WARN")
+        ; 根因（子 Agent 实证）：Windows 用户态 Winsock L2CAP 不可用（bind 都
+        ; 报 10050），Apple 控制通道需内核驱动（MagicPods 即此路线）。
+        TrayTip("AirPods 小助手", "Windows 无法直接切降噪（需内核驱动）`n建议安装 MagicPods：magicpods.app", 3)
+        LogMsg("noise mode FAILED exit=" code "（详见 noise_debug.log）", "WARN")
     }
 }
 
@@ -537,7 +539,7 @@ A_TrayMenu.Add("检查更新", (*) => CheckUpdate(true))
 A_TrayMenu.Add("退出", (*) => ExitApp())
 try {
     A_TrayMenu.Default := trayToggleName   ; 单击左键即触发，右键才弹菜单
-    A_TrayMenu.Click := 1
+    A_TrayMenu.ClickCount := 1   ; v2 属性名是 ClickCount；v1 的 Click 会被当普通属性静默赋值（左键单击失效根因，v1.8.1 修复）
 } catch as e {
     LogMsg("tray default set failed: " e.Message, "ERROR")
 }

@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.1] - 2026-08-19
+
+### Fixed
+- **Tray left-click dead (finally, evidence-based)**: `A_TrayMenu.Click := 1` is v1 syntax; v2's property is `ClickCount`. Assigning the wrong name silently creates a plain property (no error), leaving the real threshold at double-click. A/B-verified via UIA-simulated real clicks (subagent). One-line fix.
+- **noise_mode.ps1 rewritten** (subagent): byte-reversed MAC from AHK normalized, 12-byte payload, AAP handshake packet before the command, two marshaling crashes fixed, PSM 0x1001 + SDP fallback chain, full step-by-step diagnostics to noise_debug.log.
+
+### Known limitation (documented honestly)
+- Native noise control is **blocked by Windows itself**: user-mode Winsock L2CAP is non-functional (even bind() fails with 10050; corroborated by MagicPods shipping a kernel driver for exactly this). The menu entry now explains this and points users to MagicPods instead of a misleading generic error.
+
+
 ## [1.8.0] - 2026-08-19
 
 ### Changed
