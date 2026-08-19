@@ -1,7 +1,9 @@
-# AirPodsBuddyMac · Mac 版小助手（v0.1 脚手架）
+# AirPodsBuddyMac · Mac 版小助手（v0.1.1）
 
-> 状态：**代码就绪，未在本机编译验证**（开发机是 Windows，没有 Mac）。
-> 在 Mac 上跑一次 `swift build` 即可验证，遇到编译错误直接丢给 AI 修。
+> 状态：**✅ 已编译通过（2026-08-19，macOS 15 / arm64）+ 冒烟测试通过**
+> （启动正常、日志正常写入、零弹窗）。真机 AirPods 全流程测试待做（见路线图）。
+> 修了两处编译错误：`CFString("")` → `"" as CFString` 声明式初始化；
+> `Watchdog.tick()` 从 `private` 改为 `internal`（StatusBarController 启动时要调）。
 
 ## 为什么做 Mac 版
 
@@ -51,8 +53,11 @@ swift build -c release
 
 ## 路线图
 
-- [ ] Mac 上首次编译验证 + 真机 AirPods 全流程测试
-- [ ] 看门狗实际抗"iPhone 抢走"效果验证（连接后拿 iPhone 靠近试）
+- [x] ~~Mac 上首次编译验证~~ ✅ 2026-08-19（见顶部状态；AudioRouter 有一个
+      CFString `UnsafeMutableRawPointer` 编译警告，是 CoreAudio 取设备名的
+      通行写法，运行时无害，暂不处理）
+- [ ] 冒烟之外的真机验证：连接/断开/切换目标/看门狗抗抢（连上后拿 iPhone
+      靠近播放）/ 输出锁定（手动切到扬声器，2s 内应被改回）
 - [ ] 打包 .app + 图标（星星布丁）+ 签名/公证 + DMG 分发
 - [ ] SMAppService 一键开机自启
 - [ ] Phase 2：WKWebView 加载共享 `webui/index.html`（需抽一层

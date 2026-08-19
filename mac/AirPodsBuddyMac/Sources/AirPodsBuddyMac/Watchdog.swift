@@ -46,7 +46,7 @@ final class Watchdog {
         tick()
     }
 
-    private func tick() {
+    func tick() {
         guard armed, !targetDeviceName.isEmpty else { return }
 
         // 1) 连接被抢走 → 重连

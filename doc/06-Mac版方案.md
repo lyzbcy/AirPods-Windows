@@ -37,17 +37,23 @@
 
 ## 构建状态与坑（重要）
 
-- ⚠️ **未编译验证**：开发机是 Windows，没有 macOS/Xcode。
-  上 Mac 后：`cd mac/AirPodsBuddyMac && swift build -c release`
-- 已知风险点（若编译报错先查这里）：
-  1. `AudioRouter.swift` 的 CoreAudio 属性调用（kAudioObjectPropertyElementMain
-     需要 macOS 12+；老系统用 kAudioObjectPropertyElementMaster）
-  2. `popUpMenu()` 的 `performClick` 弹菜单 hack——如左键失灵，改用
+- ✅ **2026-08-19 已在 Mac 上编译通过**（`swift build -c release`，
+  macOS arm64）+ 冒烟测试通过（启动正常、日志写入、零弹窗）。
+- 修复记录（给后来人）：
+  1. `AudioRouter.swift` `CFString("")` 不能直接构造 → 改
+     `var name: CFString = "" as CFString`。仍有一个
+     `UnsafeMutableRawPointer` 编译警告（CoreAudio 取设备名的通行写法，
+     运行时无害，暂不处理）
+  2. `Watchdog.tick()` 原是 `private`，StatusBarController 启动要对齐
+     状态 → 改 `internal`
+  3. `kAudioObjectPropertyElementMain` 在 macOS 13+ 直接可用，没踩坑
+- 其余风险点（真机验证时留意）：
+  1. `popUpMenu()` 的 `performClick` 弹菜单 hack——如左键失灵，改用
      `menu.popUp(positioning:at:in:)` 直弹
-  3. IOBluetooth 无沙盒要求，但 macOS 可能把 app 识别为无签名，
+  2. IOBluetooth 无沙盒要求，但 macOS 可能把 app 识别为无签名，
      首次连接可能要求蓝牙权限确认
 - 测试清单：连接/断开/切换目标/看门狗抗抢（连上后拿 iPhone 靠近播放）/
-  输出锁定（连着时手动把输出切到扬声器，2s 内应被改回）
+  输出锁定（连着时手动把输出切到扬声器，2s 内应被改回）——**待真机做**
 
 ## Windows 侧未做（Mac 教训反哺的候选项）
 

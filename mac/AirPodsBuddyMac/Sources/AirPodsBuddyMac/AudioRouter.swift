@@ -75,7 +75,7 @@ enum AudioRouter {
     }
 
     private static func deviceName(_ id: AudioDeviceID) -> String {
-        var name = CFString("")
+        var name: CFString = "" as CFString
         var size = UInt32(MemoryLayout<CFString>.size)
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioObjectPropertyName,

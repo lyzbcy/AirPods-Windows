@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed (macOS)
+- **Mac first successful build**: `swift build -c release` passes on a real Mac (arm64). Two scaffold bugs fixed: `CFString("")` is not constructible in Swift (→ `var name: CFString = "" as CFString`), and `Watchdog.tick()` was `private` while `StatusBarController` calls it on startup (→ `internal`). Smoke test passed: app boots, writes to `~/Library/Logs/AirPodsBuddyMac.log`, zero popups. Real-AirPods field testing (connect / anti-hijack / output lock) still pending — see `doc/06`. Also added `mac/AirPodsBuddyMac/.build/` to `.gitignore`.
+
 ## [1.3.1] - 2026-08-19
 
 ### Fixed
