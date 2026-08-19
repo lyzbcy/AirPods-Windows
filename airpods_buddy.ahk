@@ -10,7 +10,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\WebView2\WebView2.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.7.1"
+APP_VERSION   := "1.8.0"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/BluetoothDeviceConnector/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/BluetoothDeviceConnector/releases/latest"
 
@@ -701,7 +701,7 @@ FindAllAudioDevices() {
             devices.Push({
                 name: StrGet(info.Ptr + 64, "UTF-16"),
                 info: info,
-                connected: NumGet(info, 20, "uint") = 1
+                connected: NumGet(info, 20, "uint") != 0   ; Windows 填的是位标志(实测32)，非零即已连接
             })
         }
         if !DllCall("Bthprops.cpl\BluetoothFindNextDevice", "ptr", searchHandle, "ptr", deviceInfo)

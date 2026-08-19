@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2026-08-19
+
+### Fixed
+- **Connection state always read as disconnected (the big one)**: Windows fills the BLUETOOTH_DEVICE_INFO flag fields with bit values (connected reads 32, remembered 16, authenticated 8 — verified against live connected AirPods), but the code compared , so every check failed. Now any nonzero value counts as true. This also explains the seemingly-dead tray left-click: the action fired, but the icon (same detection), the pet popup (off-screen), and the UI all reported nothing — every feedback channel was broken at once.
+
+
 ## [1.7.1] - 2026-08-19
 
 ### Fixed
