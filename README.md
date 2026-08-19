@@ -13,6 +13,7 @@
 
 <p align="center">
 <strong>给 Windows 的一口甜：点一下，AirPods 就连上。</strong><br>
+<sub>🏠 <a href=https://lyzbcy.github.io/airpods-buddy.html>产品介绍页</a> · 📦 <a href=https://github.com/lyzbcy/BluetoothDeviceConnector/releases/latest>下载</a></sub><br>
 奶油黄白 Apple 风 · 常驻托盘 · 优先级连接 · 纯本地零上传<br>
 <sub>Mac 版开发中（核心：防自动跳走看门狗）→ <a href="mac/README.md">mac/README.md</a></sub>
 </p>
