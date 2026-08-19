@@ -10,7 +10,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\WebView2\WebView2.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.4.0"
+APP_VERSION   := "1.5.0"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/BluetoothDeviceConnector/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/BluetoothDeviceConnector/releases/latest"
 
@@ -151,6 +151,7 @@ if A_IsCompiled {
     DirCreate(appRoot)
     ; always overwrite: prevents stale/partial extractions
     FileInstall "webui\index_built.html", appRoot "\index_built.html", 1
+    FileInstall "webui\pet_built.html", appRoot "\pet_built.html", 1
     FileInstall "lib\WebView2\64bit\WebView2Loader.dll", appRoot "\WebView2Loader.dll", 1
     FileInstall "assets\face_off.ico", appRoot "\face_off.ico", 1
     FileInstall "assets\face_on.ico", appRoot "\face_on.ico", 1
@@ -162,6 +163,19 @@ if A_IsCompiled {
     FileInstall "assets\loading_5.ico", appRoot "\loading_5.ico", 1
 }
 LogMsg("boot v" APP_VERSION " compiled=" A_IsCompiled " scriptdir=" A_ScriptDir)
+
+; /testpet：宠物弹窗演示模式（QA/截图验证用）
+if (A_Args.Length = 1 && A_Args[1] = "/testpet") {
+    if PetEnsure() {
+        for i, s in ["connecting", "ok", "disconnecting", "off", "fail"] {
+            (i = 1) ? PetShow(s) : PetUpdate(s)
+            Sleep(1700)
+        }
+        PetFade()
+        Sleep(700)
+    }
+    ExitApp(0)
+}
 if !A_IsCompiled && FileExist(A_ScriptDir "\assets\star_pudding.ico")
     TraySetIcon(A_ScriptDir "\assets\star_pudding.ico")
 
@@ -245,6 +259,114 @@ ToggleQuickAction() {
         TrayQuickAction("disconnect")
     else
         TrayQuickAction("connect")
+}
+
+; ------------------------- Pet popup ----------------------------------
+; 托盘操作的萌系反馈：点一下，星星布丁从右下角弹出来陪你等连接。
+; 素材来自 ~/.codex/pets/xingxing-pudding（hatch-pet 8x9 atlas 规范，
+; 裁剪出 6 行重压为 webui/assets/xingxing_pet.webp，52KB）。
+petGui := 0
+petWvc := 0
+petWv := 0
+petVisible := false
+petReady := false
+petPending := ""
+
+PetOnMsg(core, args) {
+    global petReady, petPending
+    try {
+        m := args.TryGetWebMessageAsString()
+        if (m = "petready") {
+            petReady := true
+            if (petPending != "") {
+                PetApply(petPending)
+                petPending := ""
+            }
+        }
+    }
+}
+
+PetApply(state) {
+    global petWv, petReady, petPending
+    if !petReady {
+        petPending := state   ; 页面还没就绪：先存起来，petready 后补播
+        return
+    }
+    try petWv.ExecuteScriptAsync('showPopup();setState("' state '")')
+}
+
+PetEnsure() {
+    global petGui, petWvc, petWv, wvDll, appRoot
+    if (petGui != 0)
+        return true
+    p := A_IsCompiled ? (appRoot "\pet_built.html") : (A_ScriptDir "\webui\pet_built.html")
+    if !FileExist(p) {
+        LogMsg("pet html missing: " p, "WARN")
+        return false
+    }
+    petGui := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x08000000", "AirPodsPet")
+    petGui.MarginX := 0, petGui.MarginY := 0
+    petGui.Show("w300 h420 Hide")
+    try {
+        petWvc := WebView2.create(petGui.Hwnd,, 0, EnvGet("LOCALAPPDATA") "\AirPodsBuddy_webview",, 0, wvDll)
+    } catch as e {
+        LogMsg("pet webview create failed: " e.Message, "WARN")
+        petGui := 0
+        return false
+    }
+    petWv := petWvc.CoreWebView2
+    try petWvc.DefaultBackgroundColor := 0x00000000   ; 透明背景
+    try {
+        petWv.Settings.AreDevToolsEnabled := false
+        petWv.Settings.AreDefaultContextMenusEnabled := false
+    }
+    petWv.add_WebMessageReceived(PetOnMsg)
+    petWv.NavigateToString(FileRead(p, "UTF-8"))
+    petGui.OnEvent("Close", (*) => petGui.Hide())
+    return true
+}
+
+PetShow(state) {
+    global petGui, petVisible
+    if !PetEnsure()
+        return
+    W := 300, H := 420
+    x := A_ScreenWidth - W - 12
+    y := A_ScreenHeight - H - 56
+    petGui.Show("x" x " y" y " w" W " h" H " NoActivate")
+    petVisible := true
+    PetApply(state)
+    SetTimer(PetFade, -9000)
+}
+
+PetUpdate(state) {
+    global petVisible
+    if !petVisible
+        return
+    global petWv, petReady
+    if !petReady
+        return   ; 首帧还没播就到了终态：直接走 PetFinish 的定时即可
+    try petWv.ExecuteScriptAsync('setState("' state '")')
+}
+
+PetFinish(state) {
+    PetUpdate(state)
+    SetTimer(PetFade, -1400)
+}
+
+PetFade() {
+    global petVisible
+    if !petVisible
+        return
+    SetTimer(PetFade, 0)
+    try petWv.ExecuteScriptAsync('hidePopup()')
+    SetTimer(PetHideNow, -400)
+}
+
+PetHideNow() {
+    global petGui, petVisible
+    petGui.Hide()
+    petVisible := false
 }
 
 ; ------------------------- Window ------------------------------------
@@ -370,25 +492,34 @@ TrayQuickAction(action) {
             TrayTip("AirPods 小助手", "「" devices[1].name "」已经连着啦 ✅", 1)
             return
         }
+        PetShow("connecting")
         SetTrayLoading(true)
         r := DoAction(target.name, "connect")
         SetTrayLoading(false)
+        PetFinish(r = "ok" ? "ok" : "fail")
         if (r = "ok")
             TrayTip("AirPods 小助手", "已连接 💕 «" target.name "»", 1)
         else
             TrayTip("AirPods 小助手", "连接失败 «" target.name "»", 3)
     } else {
         any := false
+        first := true
         for dev in devices {
             if dev.connected {
                 any := true
+                if (first) {
+                    PetShow("disconnecting")
+                    first := false
+                }
                 SetTrayLoading(true)
                 DoAction(dev.name, "disconnect")
                 SetTrayLoading(false)
             }
         }
-        if any
+        if any {
+            PetFinish("off")
             TrayTip("AirPods 小助手", "已断开全部耳机 💤", 1)
+        }
         else
             TrayTip("AirPods 小助手", "当前没有连接中的耳机", 2)
     }

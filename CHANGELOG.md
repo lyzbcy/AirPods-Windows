@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-08-19
+
+### Added
+- **Star Pudding pet popup** (user request, the "moe" upgrade): clicking the tray icon now pops out the 星星布丁 girl from the bottom-right corner — waiting pose + "连接中…" while connecting, jumping + hearts + "连上啦！💕" on success, waving "已断开 💤 拜拜~" on disconnect, deflated "没连上 QAQ" on failure. Transparent always-on-top no-activate WebView2 window with spring pop-in/fade-out.
+- Assets pipeline: `webui/build_pet.ps1` inlines the pet spritesheet (cropped 6-row atlas from `~/.codex/pets/xingxing-pudding`, 52KB webp) into `webui/pet_built.html`; frame durations follow the hatch-pet spec.
+- `/testpet` CLI mode: cycles all five popup states for QA/screenshots.
+- petready handshake so the first state is never lost to page load.
+
+
 ## [1.4.0] - 2026-08-19
 
 ### Added
