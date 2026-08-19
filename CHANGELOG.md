@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Connecting busy-state (both platforms)**: headset connect takes a few seconds and users re-clicked because nothing seemed to happen. Mac now shows a braille spinner in the menu bar ("连接中…"), ignores clicks mid-operation, and runs Bluetooth work off the main thread so the UI never freezes (it used to block up to 8s). Windows blinks the tray icon between on/off states with an "操作进行中…" tooltip during `DoAction` (covers both tray clicks and UI buttons). Note: Windows tray left-click toggle already exists since v1.3.1 (`A_TrayMenu.Default` + `Click := 1`); if it doesn't work on the Windows machine, the running exe is stale — rebuild with `compile_autohotkey.ps1` after `git pull`.
 - **Dev/test launchers**: double-clickable `mac/AirPodsBuddyMac/run.command` (auto incremental build + launch, keeps window open on failure) and `run.bat` (root, detached-start of `dist/AirPodsBuddy.exe` respecting pitfall B1). These are for daily development; unified packaging (.app/DMG + Windows installer) comes at release time per roadmap.
 
 ### Fixed (macOS)

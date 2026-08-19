@@ -31,6 +31,7 @@ final class StatusBarController: NSObject {
     // MARK: - 状态图标
 
     private func refreshIcon() {
+        guard !isBusy else { return }   // 中间态动画期间不要覆盖转圈图标
         // 图标以"耳机实际连着"为准，而不是看门狗 armed——否则看门狗关掉后
         // 已连接也永远显示 💤（真机日志抓到的坑）
         let connected = Watchdog.shared.armed
@@ -56,25 +57,67 @@ final class StatusBarController: NSObject {
     /// 左键单击：连接态→断开；断开态→连接（并启动防跳看门狗）
     /// 状态以"耳机实际是否连着"为准（armed 或 isConnected 任一为真都算连着），
     /// 否则看门狗关闭时左键永远走"连接"分支、无法断开（真机日志抓到的坑）
+    ///
+    /// 连接较慢（最多 8s）：进入 ⏳ 转圈中间态，连接中忽略点击防止重复触发；
+    /// 蓝牙操作放后台线程，不冻结菜单栏 UI。
     private func toggle() {
+        guard !isBusy else { return }   // 中间态防重复点击
         let name = Watchdog.shared.targetDeviceName
         let connected = Watchdog.shared.armed || BluetoothService.isConnected(name)
+        isBusy = true
         if connected {
-            Watchdog.shared.disarm()
-            _ = BluetoothService.disconnect(name)
-            Log.info("toggle → disconnected '\(name)'")
+            startBusyAnimation()
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                Watchdog.shared.disarm()
+                _ = BluetoothService.disconnect(name)
+                Log.info("toggle → disconnected '\(name)'")
+                DispatchQueue.main.async { self?.finishBusy() }
+            }
         } else {
-            if BluetoothService.connect(name) {
-                if Preferences.watchdogEnabled {
-                    Watchdog.shared.arm(deviceName: name)
-                } else {
-                    Log.info("watchdog OFF (pref), connected without arm")
+            startBusyAnimation()
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                let ok = BluetoothService.connect(name)
+                DispatchQueue.main.async {
+                    if ok {
+                        if Preferences.watchdogEnabled {
+                            Watchdog.shared.arm(deviceName: name)
+                        } else {
+                            Log.info("watchdog OFF (pref), connected without arm")
+                        }
+                        Log.info("toggle → connected '\(name)'")
+                    } else {
+                        Log.error("toggle connect failed for '\(name)'")
+                    }
+                    self?.finishBusy()
                 }
-                Log.info("toggle → connected '\(name)'")
-            } else {
-                Log.error("toggle connect failed for '\(name)'")
             }
         }
+    }
+
+    // MARK: - 中间态（连接/断开等待动画）
+
+    private var isBusy = false
+    private var busyTimer: Timer?
+    private var busyFrame = 0
+    /// 盲文转圈帧——纯文本字形，菜单栏渲染稳定，比彩色 emoji 动画可靠
+    private let spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+
+    private func startBusyAnimation() {
+        statusItem.button?.toolTip = "AirPods 小助手 · 连接中…（请稍候）"
+        busyFrame = 0
+        busyTimer?.invalidate()
+        busyTimer = Timer.scheduledTimer(withTimeInterval: 0.12, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            self.busyFrame = (self.busyFrame + 1) % self.spinnerFrames.count
+            self.statusItem.button?.image =
+                EmojiIcon.image(for: self.spinnerFrames[self.busyFrame])
+        }
+    }
+
+    private func finishBusy() {
+        busyTimer?.invalidate()
+        busyTimer = nil
+        isBusy = false
         refreshIcon()
     }
 
@@ -138,13 +181,21 @@ final class StatusBarController: NSObject {
 
     @objc private func pickDevice(_ sender: NSMenuItem) {
         guard let name = sender.representedObject as? String else { return }
+        guard !isBusy else { return }
         Preferences.targetDeviceName = name
         Watchdog.shared.disarm()
         Watchdog.shared.arm(deviceName: name)   // 选择即切换目标并尝试连接
-        if BluetoothService.connect(name) {
-            Log.info("picked & connected '\(name)'")
+        isBusy = true
+        startBusyAnimation()
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let ok = BluetoothService.connect(name)
+            if ok {
+                Log.info("picked & connected '\(name)'")
+            } else {
+                Log.error("picked but connect failed for '\(name)'")
+            }
+            DispatchQueue.main.async { self?.finishBusy() }
         }
-        refreshIcon()
     }
 
     @objc private func toggleWatchdog() {

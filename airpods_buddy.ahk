@@ -195,6 +195,31 @@ UpdateTrayIcon() {
     A_IconTip := on ? "AirPods 小助手 · 已连接（左键切换）" : "AirPods 小助手 · 未连接（左键切换）"
 }
 
+; 连接/断开中间态：操作期间托盘图标在两态间闪烁 + tooltip 提示，
+; 告诉用户"正在处理，不用重复点击"（对应 Mac 版 ⏳ 转圈）
+busyAnimFrame := false
+
+StartBusyAnim() {
+    SetTimer(BusyAnimTick, 250)
+    BusyAnimTick()
+}
+
+BusyAnimTick() {
+    global busyAnimFrame
+    busyAnimFrame := !busyAnimFrame
+    p := TrayIconPath(busyAnimFrame)
+    if p
+        TraySetIcon(p)
+    A_IconTip := "AirPods 小助手 · 操作进行中…（请稍候，不用重复点击）"
+}
+
+StopBusyAnim() {
+    global lastTrayOn
+    SetTimer(BusyAnimTick, 0)
+    lastTrayOn := -1   ; 强制立刻刷回真实状态图标
+    UpdateTrayIcon()
+}
+
 ; 左键单击托盘图标 = 在"连接首选设备 / 断开全部"之间切换
 ToggleQuickAction() {
     if AnyConnected()
@@ -458,6 +483,7 @@ DoAction(name, action) {
     if !dev
         return "notfound"
     busy := true
+    StartBusyAnim()
     if (action = "connect") {
         hfOn := (audioProfile = "a2dp-hfp") ? 1 : 0
         hf := ToggleBluetoothService(dev.info, "{0000111e-0000-1000-8000-00805f9b34fb}", hfOn, maxRetries)
@@ -470,6 +496,7 @@ DoAction(name, action) {
     if !ok
         LogMsg("DoAction " action " '" name "' failed: HFP=" hf " A2DP=" a2, "WARN")
     busy := false
+    StopBusyAnim()
     return ok ? "ok" : "fail"
 }
 
