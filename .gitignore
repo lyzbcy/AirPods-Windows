@@ -22,3 +22,5 @@ device_priority.txt
 # SwiftPM build output (Mac)
 mac/AirPodsBuddyMac/.build/
 !tools/noise_mode.ps1
+apb*_*.ahk
+chk_*.ahk
