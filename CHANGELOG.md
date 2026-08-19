@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.8.0] - 2026-08-19
 
+### Changed
+- **Apple-style redesign by a clean-context subagent** (per user request): cream/yellow-white palette (#FBF9F4 base, honey #D4A967 accents), macOS-grade cards (16px radius, hairline border, restrained shadows), Big Sur capsule buttons, sage-green connected state; all cutesy decorations (polka dots, clouds, stars, sticker tilt) removed; long device names now truncate with ellipsis while tags stay in a fixed right column.
+
 ### Fixed
 - **Connection state always read as disconnected (the big one)**: Windows fills the BLUETOOTH_DEVICE_INFO flag fields with bit values (connected reads 32, remembered 16, authenticated 8 — verified against live connected AirPods), but the code compared , so every check failed. Now any nonzero value counts as true. This also explains the seemingly-dead tray left-click: the action fired, but the icon (same detection), the pet popup (off-screen), and the UI all reported nothing — every feedback channel was broken at once.
 
