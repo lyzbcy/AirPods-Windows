@@ -72,6 +72,9 @@
 
 - 蓝牙核心逻辑复用自 [ChromuSx/BluetoothDeviceConnector](https://github.com/ChromuSx/BluetoothDeviceConnector)（MIT）
 - WebView2 承载使用 [thqby 的 WebView2-AHK 库](https://github.com/thqby/ahk2_lib)
+- 降噪/通透切换基于 [librepods](https://github.com/librepods-org/librepods) 项目逆向发现的
+  Apple AAP 协议规范（L2CAP 服务 `74ec2172-...` + 0x0D 监听模式指令）独立实现，
+  感谢他们的开创性逆向工作 🙏（协议规范以事实引用，实现为本项目独立编写）
 - 用爱发电 · 捞鱼 & 星星布丁 💕
 
 ## 📄 License

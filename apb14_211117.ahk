@@ -152,7 +152,9 @@ if A_IsCompiled {
     ; always overwrite: prevents stale/partial extractions
     FileInstall "webui\index_built.html", appRoot "\index_built.html", 1
     FileInstall "webui\pet_built.html", appRoot "\pet_built.html", 1
-    FileInstall "tools\noise_mode.ps1", appRoot "\noise_mode.ps1", 1
+    FileInstall "tools
+oise_mode.ps1", appRoot "
+oise_mode.ps1", 1
     FileInstall "lib\WebView2\64bit\WebView2Loader.dll", appRoot "\WebView2Loader.dll", 1
     FileInstall "assets\face_off.ico", appRoot "\face_off.ico", 1
     FileInstall "assets\face_on.ico", appRoot "\face_on.ico", 1
@@ -287,15 +289,16 @@ NoiseTarget() {
 }
 
 RunNoiseMode(mode) {
-    modes := Map("off", "关闭", "anc", "降噪", "trans", "通透", "adapt", "自适应")
-    modeName := modes[mode]
+    modeName := {off: "关闭", anc: "降噪", trans: "通透", adapt: "自适应"}[mode]
     target := NoiseTarget()
     if !target {
         TrayTip("AirPods 小助手", "没有连接中的耳机，先连接再切模式", 3)
         return
     }
     addr := DevAddrString(target.info)
-    ps1 := A_IsCompiled ? (appRoot "\noise_mode.ps1") : (A_ScriptDir "\tools\noise_mode.ps1")
+    ps1 := A_IsCompiled ? (appRoot "
+oise_mode.ps1") : (A_ScriptDir "	ools
+oise_mode.ps1")
     LogMsg("noise mode " mode " -> " target.name " (" addr ")")
     code := 0
     RunWait(A_ComSpec ' /c powershell -NoProfile -ExecutionPolicy Bypass -File "' ps1 '" -Mac ' addr ' -Mode ' mode,, "Hide", &code)
