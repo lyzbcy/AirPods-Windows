@@ -10,7 +10,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\WebView2\WebView2.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.3.1"
+APP_VERSION   := "1.4.0"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/BluetoothDeviceConnector/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/BluetoothDeviceConnector/releases/latest"
 
@@ -152,8 +152,14 @@ if A_IsCompiled {
     ; always overwrite: prevents stale/partial extractions
     FileInstall "webui\index_built.html", appRoot "\index_built.html", 1
     FileInstall "lib\WebView2\64bit\WebView2Loader.dll", appRoot "\WebView2Loader.dll", 1
-    FileInstall "assets\star_pudding_on.ico", appRoot "\star_pudding_on.ico", 1
-    FileInstall "assets\star_pudding.ico", appRoot "\star_pudding_off.ico", 1
+    FileInstall "assets\face_off.ico", appRoot "\face_off.ico", 1
+    FileInstall "assets\face_on.ico", appRoot "\face_on.ico", 1
+    FileInstall "assets\loading_0.ico", appRoot "\loading_0.ico", 1
+    FileInstall "assets\loading_1.ico", appRoot "\loading_1.ico", 1
+    FileInstall "assets\loading_2.ico", appRoot "\loading_2.ico", 1
+    FileInstall "assets\loading_3.ico", appRoot "\loading_3.ico", 1
+    FileInstall "assets\loading_4.ico", appRoot "\loading_4.ico", 1
+    FileInstall "assets\loading_5.ico", appRoot "\loading_5.ico", 1
 }
 LogMsg("boot v" APP_VERSION " compiled=" A_IsCompiled " scriptdir=" A_ScriptDir)
 if !A_IsCompiled && FileExist(A_ScriptDir "\assets\star_pudding.ico")
@@ -173,50 +179,63 @@ AnyConnected() {
     return false
 }
 
-; 托盘状态图标：断开=原版布丁，连接=绿圈布丁；只在状态变化时切换防闪烁
-TrayIconPath(onState) {
+; ------------------------- Tray icon state machine --------------------
+; 三态（学习 Mac 版）：未连接=可爱脸 / 已连接=心动脸+绿环 /
+; 连接中=加油脸+旋转弧动画（防用户在慢连接期间重复操作）
+TrayIconDir() {
     global appRoot
-    if A_IsCompiled
-        p := appRoot (onState ? "\star_pudding_on.ico" : "\star_pudding_off.ico")
-    else
-        p := A_ScriptDir "\assets\" (onState ? "star_pudding_on.ico" : "star_pudding.ico")
-    return FileExist(p) ? p : 0
+    return A_IsCompiled ? appRoot : A_ScriptDir "\assets"
 }
 
-UpdateTrayIcon() {
-    global lastTrayOn
+trayLoading := false
+trayLoadFrame := 0
+lastTrayOn := -1
+
+UpdateTrayIcon(force := false) {
+    global lastTrayOn, trayLoading
+    if trayLoading
+        return
     on := AnyConnected()
-    if (on = lastTrayOn)
+    if (!force && on = lastTrayOn)
         return
     lastTrayOn := on
-    p := TrayIconPath(on)
-    if p
+    p := TrayIconDir() . (on ? "\face_on.ico" : "\face_off.ico")
+    if FileExist(p)
         TraySetIcon(p)
-    A_IconTip := on ? "AirPods 小助手 · 已连接（左键切换）" : "AirPods 小助手 · 未连接（左键切换）"
+    A_IconTip := on ? "AirPods 小助手 · 已连接（左键断开）" : "AirPods 小助手 · 未连接（左键连接）"
 }
 
-; 连接/断开中间态：操作期间托盘图标在两态间闪烁 + tooltip 提示，
-; 告诉用户"正在处理，不用重复点击"（对应 Mac 版 ⏳ 转圈）
-busyAnimFrame := false
-
-StartBusyAnim() {
-    SetTimer(BusyAnimTick, 250)
-    BusyAnimTick()
+SetTrayLoading(on) {
+    global trayLoading, trayLoadFrame
+    if (on && !trayLoading) {
+        trayLoading := true
+        trayLoadFrame := 0
+        SetTimer(TrayLoadingTick, 130)
+        TrayLoadingTick()
+    } else if (!on && trayLoading) {
+        trayLoading := false
+        SetTimer(TrayLoadingTick, 0)
+        UpdateTrayIcon(true)
+    }
 }
 
-BusyAnimTick() {
-    global busyAnimFrame
-    busyAnimFrame := !busyAnimFrame
-    p := TrayIconPath(busyAnimFrame)
-    if p
+TrayLoadingTick() {
+    global trayLoadFrame
+    p := TrayIconDir() "\loading_" trayLoadFrame ".ico"
+    if FileExist(p)
         TraySetIcon(p)
-    A_IconTip := "AirPods 小助手 · 操作进行中…（请稍候，不用重复点击）"
+    A_IconTip := "AirPods 小助手 · 连接中…"
+    trayLoadFrame := Mod(trayLoadFrame + 1, 6)
 }
 
-StopBusyAnim() {
-    global lastTrayOn
-    SetTimer(BusyAnimTick, 0)
-    lastTrayOn := -1   ; 强制立刻刷回真实状态图标
+; 独立看门：不依赖前端 statuspoll（窗口隐藏时 WebView2 会节流定时器，
+; 曾导致托盘图标不更新）。每 2 秒自己枚举设备并刷新图标。
+WatchTrayState() {
+    global trayLoading
+    if trayLoading
+        return
+    FindAllAudioDevices()
+    SortDevices()
     UpdateTrayIcon()
 }
 
@@ -321,7 +340,8 @@ A_TrayMenu.Add("退出", (*) => ExitApp())
 A_TrayMenu.Default := "⇄ 切换连接（左键直达）"   ; 单击左键即触发，右键才弹菜单
 A_TrayMenu.Click := 1
 lastTrayOn := -1
-UpdateTrayIcon()
+UpdateTrayIcon(true)
+SetTimer(WatchTrayState, 2000)   ; 独立看门：托盘状态不依赖前端轮询
 
 ; tray quick action follows the device priority order:
 ;   connect    -> connect the FIRST non-connected device in sorted order
@@ -350,7 +370,9 @@ TrayQuickAction(action) {
             TrayTip("AirPods 小助手", "「" devices[1].name "」已经连着啦 ✅", 1)
             return
         }
+        SetTrayLoading(true)
         r := DoAction(target.name, "connect")
+        SetTrayLoading(false)
         if (r = "ok")
             TrayTip("AirPods 小助手", "已连接 💕 «" target.name "»", 1)
         else
@@ -360,7 +382,9 @@ TrayQuickAction(action) {
         for dev in devices {
             if dev.connected {
                 any := true
+                SetTrayLoading(true)
                 DoAction(dev.name, "disconnect")
+                SetTrayLoading(false)
             }
         }
         if any
@@ -397,8 +421,8 @@ WebMessageHandler(core, args) {
         ; (ReferenceError) or pre-parsed objects (JSON.parse throws "[object Object]").
         case "list", "statuspoll": Reply(id, JsonStr(BuildDevicesJson())), UpdateTrayIcon()
         case "getversion":        Reply(id, JsonStr(APP_VERSION))
-        case "connect":           Reply(id, JsonStr(DoAction(arg1, "connect")))
-        case "disconnect":        Reply(id, JsonStr(DoAction(arg1, "disconnect")))
+        case "connect":           SetTrayLoading(true), Reply(id, JsonStr(DoAction(arg1, "connect"))), SetTrayLoading(false)
+        case "disconnect":        SetTrayLoading(true), Reply(id, JsonStr(DoAction(arg1, "disconnect"))), SetTrayLoading(false)
         case "remove":            Reply(id, JsonStr(RemoveDevice(arg1)))
         case "add":               Run("ms-settings:bluetooth"), Reply(id, "true")
         case "winmin":            myGui.Hide(), Reply(id, "true")   ; 最小化即缩托盘：不占任务栏（初心），随时托盘唤出
@@ -483,7 +507,7 @@ DoAction(name, action) {
     if !dev
         return "notfound"
     busy := true
-    StartBusyAnim()
+    SetTrayLoading(true)
     if (action = "connect") {
         hfOn := (audioProfile = "a2dp-hfp") ? 1 : 0
         hf := ToggleBluetoothService(dev.info, "{0000111e-0000-1000-8000-00805f9b34fb}", hfOn, maxRetries)
@@ -496,7 +520,7 @@ DoAction(name, action) {
     if !ok
         LogMsg("DoAction " action " '" name "' failed: HFP=" hf " A2DP=" a2, "WARN")
     busy := false
-    StopBusyAnim()
+    SetTrayLoading(false)
     return ok ? "ok" : "fail"
 }
 

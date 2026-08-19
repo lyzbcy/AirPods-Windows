@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-08-19
+
+### Added
+- **Three-state tray icons with curated sticker faces** (Mac parity, user request): disconnected = 可爱 face on cream base, connected = 心动 face on green ring, connecting = 加油 face + 6-frame rotating-arc spinner. Regenerate via `assets/make_tray_icons.ps1`. Supersedes the v-unreleased two-frame blink on Windows (same intent, richer states).
+- **Independent tray watchdog (2s)**: tray state no longer depends on the web UI's `statuspoll` — hidden WebView2 windows get throttled timers, which previously stalled icon updates.
+- Centralized busy-state: `DoAction` now wraps every path (tray left-click, menu, UI buttons) in `SetTrayLoading(true/false)`.
+
+
 ## [Unreleased]
 
 ### Added
