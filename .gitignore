@@ -15,3 +15,6 @@ streamdeck-plugin/macos-helper/.build/
 .DS_Store
 Thumbs.db
 dist/
+logs/
+tools/
+device_priority.txt

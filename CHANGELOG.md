@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2026-08-19
+
+### Fixed
+- **Window dragging (take 2)**: the `WM_NCLBUTTONDOWN` bridge was blocked by WebView2's mouse capture; replaced with a manual drag loop (`GetCursorPos` + `SetWindowPos` while LButton held) which works regardless of capture.
+
+### Added
+- **Tray left-click toggle**: single left-click on the tray icon now toggles connect/disconnect (menu moved to right-click only) — one step instead of two.
+- **Tray status icons**: disconnected = original pudding icon, connected = green-ring pudding (`assets/star_pudding_on.ico`, generated via `make_ico.ps1`); icon and tooltip update on state change.
+- **macOS variant started**: `mac/AirPodsBuddyMac` Swift menu-bar app scaffold — left-click toggle, emoji state icons, and an anti-hijack watchdog (reconnects the AirPods and re-locks CoreAudio default output every 2s; only a user-initiated disconnect stops it). Reuses upstream's IOBluetooth core. See `mac/README.md` (not yet compiled — no Mac on the dev machine).
+
+## [1.3.0] - 2026-08-19
+
+### Added
+- **Window dragging**: grab the top bar / header to move the borderless window (JS bridge → `WM_NCLBUTTONDOWN`).
+- **Device priority system**: reorder devices with ▲▼ per card (persisted to `device_priority.txt`); "one-click connect" (tray & hero orb) now follows this user-defined order; Apple devices (AirPods/Beats) sort ahead of others by default, others get an "其他" tag.
+- **Hero orb**: big circular 3D connect button showing the current priority target; tap to connect/disconnect.
+- Rounder, more minimal UI: circular 3D action buttons, pill cards (radius 22), squarer window (460×600), Esc closes modals.
+- **Proper app icon**: `star_pudding.ico` embedded at compile time — tray/taskbar now show the pudding avatar instead of the default "H".
+
+### Fixed
+- `TypeError: Expected a Number but got a String` in device sorting — AHK v2 `<` is numeric-only; use `StrCompare` for name ordering.
+- Device JSON was silently truncated (multi-line juxtaposition doesn't continue statements in v2) — single-line concatenation.
+
+## [1.2.0] - 2026-08-19
+
+### Fixed
+- **White screen on launch**: WebView2 controller created on a hidden window starts with `IsVisible=false`, suspending rendering while page JS keeps running. Now `SyncWebView()` re-fills bounds and forces visibility on every show/resize.
+- **AHK error dialog popups**: a diagnostic timer accessed `.Result` on a Promise-resolved string, causing unhandled rejection dialogs. Diagnostics removed in favor of the new logging system.
+- **Device list never rendered**: `Reply()` injected bare JSON so the frontend `JSON.parse()`d already-parsed objects ("[object Object]" errors every 4s). All non-literal payloads are now wrapped with `JsonStr()`.
+- **App exited on window close** instead of staying in tray: added `Persistent`.
+
+### Added
+- Logging system: daily files under `<exe dir>\logs\`, 7-day retention, three-level write fallback (UTF-8 → CP0 → OutputDebugString) so logging can never crash the app.
+- Global `OnError` trap: uncaught errors are logged silently instead of popping dialogs on the user's face.
+- Frontend forwards `window.onerror` / `unhandledrejection` to the AHK log (`[JS-ERROR]` entries).
+- WebView2 creation retries 3× (works around transient AV interference `0x800704C7`).
+- `doc/` knowledge base (progressive disclosure) for humans and AI assistants.
+
+### Changed
+- Replaced v1-only `EnvSub` with `DateAdd` (v2 has no EnvSub — undefined function calls fail script load silently).
+
 ## [1.1.0.1-beta.2] - 2026-07-12
 
 ### Fixed
