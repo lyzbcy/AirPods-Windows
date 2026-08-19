@@ -10,7 +10,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\WebView2\WebView2.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.7.0"
+APP_VERSION   := "1.7.1"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/BluetoothDeviceConnector/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/BluetoothDeviceConnector/releases/latest"
 
@@ -388,10 +388,18 @@ PetShow(state) {
     global petGui, petVisible
     if !PetEnsure()
         return
-    W := 300, H := 420
-    x := A_ScreenWidth - W - 12
-    y := A_ScreenHeight - H - 56
-    petGui.Show("x" x " y" y " w" W " h" H " NoActivate")
+    ; DPI 陷阱：A_ScreenWidth 是物理像素，Gui.Show 的 x/y 是逻辑坐标（会被
+    ; 系统再缩放），直接相减会把窗口摆出屏幕。这里全部走物理坐标链：
+    ; 工作区(SPI) -> 窗口实际矩形 -> SetWindowPos 原生定位。
+    petGui.Show("w300 h420 NoActivate")
+    wa := Buffer(16), rc := Buffer(16)
+    DllCall("user32\SystemParametersInfoW", "uint", 0x0030, "uint", 0, "ptr", wa, "uint", 0)
+    DllCall("user32\GetWindowRect", "ptr", petGui.Hwnd, "ptr", rc)
+    w := NumGet(rc, 8, "int") - NumGet(rc, 0, "int")
+    h := NumGet(rc, 12, "int") - NumGet(rc, 4, "int")
+    px := NumGet(wa, 8, "int") - w - 16
+    py := NumGet(wa, 12, "int") - h - 12
+    DllCall("user32\SetWindowPos", "ptr", petGui.Hwnd, "ptr", 0, "int", px, "int", py, "int", 0, "int", 0, "uint", 0x0005)
     ; 主窗口同款坑：隐窗创建的 WebView2 控制器 IsVisible=false 会挂起渲染（白屏）
     petWvc.Fill()
     petWvc.IsVisible := true

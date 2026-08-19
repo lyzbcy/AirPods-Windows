@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.1] - 2026-08-19
+
+### Fixed
+- **Pet popup flew off-screen on 150% DPI**: mixing physical pixels (A_ScreenWidth) with logical Gui.Show coordinates multiplied the offset by the scale factor, leaving only a corner visible. Positioning now uses a pure physical chain (SPI work area -> GetWindowRect -> SetWindowPos), verified fully visible 16px from the screen corner.
+
+
 ## [1.7.0] - 2026-08-19
 
 ### Added
