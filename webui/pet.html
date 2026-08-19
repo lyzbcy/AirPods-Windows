@@ -5,28 +5,28 @@
 <title>星星布丁</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;user-select:none;-webkit-user-select:none}
+  /* 透明方案：webview DefaultBackgroundColor=透明 + AHK 侧 Gui 黑底颜色键挖穿。
+     body/stage 保持 transparent，只画精灵和气泡；动画不用 opacity（见下）。 */
   html,body{width:100%;height:100%;background:transparent;overflow:hidden;
     font-family:"Segoe UI Variable Text","Segoe UI","Microsoft YaHei UI",system-ui,sans-serif}
-  .stage{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;
-    justify-content:flex-end;padding-bottom:10px}
-  .card{background:rgba(255,253,250,.96);border:1.5px solid #EEE4D6;border-radius:26px;
-    box-shadow:0 14px 38px rgba(63,58,53,.18), inset 0 2px 0 rgba(255,255,255,.9);
-    padding:14px 18px 12px;display:flex;flex-direction:column;align-items:center;
-    transform:translateY(40px) scale(.6);opacity:0;
-    transition:transform .45s cubic-bezier(.34,1.56,.64,1), opacity .3s}
-  .stage.in .card{transform:translateY(0) scale(1);opacity:1}
-  .stage.out .card{transform:translateY(24px) scale(.86);opacity:0;transition:all .35s ease-in}
-  .sprite{width:192px;height:208px;background-repeat:no-repeat;
-    background-size:192px 1248px;image-rendering:auto;
-    filter:drop-shadow(0 6px 10px rgba(63,58,53,.18))}
-  .bubble{margin-top:8px;font-size:15px;font-weight:700;color:#4A4038;letter-spacing:1px;
-    background:#FBF4EA;border-radius:999px;padding:7px 18px;white-space:nowrap;
-    box-shadow:inset 0 1px 2px rgba(255,255,255,.9)}
+  .stage{position:fixed;inset:0;background:transparent;display:flex;flex-direction:column;
+    align-items:center;justify-content:flex-end;padding-bottom:16px}
+  .card{display:flex;flex-direction:column;align-items:center;
+    transform:translateY(46px) scale(.55);
+    transition:transform .45s cubic-bezier(.34,1.56,.64,1)}
+  .stage.in .card{transform:translateY(0) scale(1)}
+  .stage.out .card{transform:translateY(26px) scale(.78);transition:transform .3s ease-in}
+  /* 精灵图 1536x1248（8 列 x 6 行全宽），整体 0.625 缩放：格 120x130，图 960x780 */
+  .sprite{width:120px;height:130px;background-repeat:no-repeat;
+    background-size:960px 780px;image-rendering:auto}
+  .bubble{margin-top:8px;font-size:14px;font-weight:700;color:#FFF;letter-spacing:1px;
+    background:rgba(40,32,28,.62);border-radius:999px;padding:6px 16px;white-space:nowrap}
   .dots::after{content:"";animation:dots 1.2s steps(4,end) infinite}
   @keyframes dots{0%{content:""}25%{content:"·"}50%{content:"· ·"}75%{content:"· · ·"}}
-  .heart{position:absolute;font-size:20px;animation:floatUp 1.4s ease-out forwards;pointer-events:none}
-  @keyframes floatUp{from{transform:translateY(0) scale(.6);opacity:1}
-    to{transform:translateY(-56px) scale(1.3);opacity:0}}
+  .heart{position:absolute;font-size:18px;animation:floatUp 1.4s ease-out forwards;
+    pointer-events:none}
+  @keyframes floatUp{from{transform:translateY(0) scale(.6)}
+    to{transform:translateY(-56px) scale(0)}}
 </style>
 </head>
 <body>
@@ -39,7 +39,7 @@
 <script>
 /* 星星布丁宠物弹窗 —— 精灵图行序（裁剪后）:
    0 idle | 1 waving | 2 jumping | 3 failed | 4 waiting | 5 review
-   每帧 192x208，帧时长遵循 hatch-pet 规范 */
+   显示尺寸格 120x130（源 192x208 的 0.625），帧时长遵循 hatch-pet 规范 */
 const ROWS = {
   idle:        {row:0, frames:[280,110,110,140,140,320]},
   waving:      {row:1, frames:[140,140,140,280]},
@@ -56,7 +56,7 @@ const TEXT = {
   fail:          {anim:'failed',  text:'没连上 QAQ'},
   idle:          {anim:'idle',     text:'我在呢'},
 };
-const FW = 192, FH = 208;
+const FW = 120, FH = 130;
 let curRow = 0, timer = null, frame = 0;
 
 function playRow(name) {
@@ -78,8 +78,8 @@ function spawnHearts(n) {
       const h = document.createElement('span');
       h.className = 'heart';
       h.textContent = Math.random() < .5 ? '💕' : '✨';
-      h.style.left = (40 + Math.random() * 130) + 'px';
-      h.style.top = (150 + Math.random() * 40) + 'px';
+      h.style.left = (42 + Math.random() * 108) + 'px';
+      h.style.top = (95 + Math.random() * 30) + 'px';
       card.appendChild(h);
       setTimeout(() => h.remove(), 1500);
     }, i * 160);

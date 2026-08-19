@@ -10,7 +10,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\WebView2\WebView2.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.8.1"
+APP_VERSION   := "1.8.2"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/BluetoothDeviceConnector/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/BluetoothDeviceConnector/releases/latest"
 
@@ -320,8 +320,8 @@ ToggleQuickAction() {
 
 ; ------------------------- Pet popup ----------------------------------
 ; 托盘操作的萌系反馈：点一下，星星布丁从右下角弹出来陪你等连接。
-; 素材来自 ~/.codex/pets/xingxing-pudding（hatch-pet 8x9 atlas 规范，
-; 裁剪出 6 行重压为 webui/assets/xingxing_pet.webp，52KB）。
+; 素材来自 ~/.codex/pets/xingxing-pudding（hatch-pet 8x11 atlas 规范，
+; 裁全宽 8 列 x 6 行(1536x1248)为 webui/assets/xingxing_pet.webp，~290KB）。
 petGui := 0
 petWvc := 0
 petWv := 0
@@ -335,7 +335,9 @@ PetOnMsg(core, args) {
         m := args.TryGetWebMessageAsString()
         if (m = "petready") {
             petReady := true
-            if (petPending != "") {
+            ; IsSet 守卫：/testpet 在 auto-exec 前段就调用 Pet 系列，
+            ; 此时顶层 pet* 全局初始化(见下方)还没执行到，直接读会 UnsetError
+            if (IsSet(petPending) && petPending != "") {
                 PetApply(petPending)
                 petPending := ""
             }
@@ -345,7 +347,7 @@ PetOnMsg(core, args) {
 
 PetApply(state) {
     global petWv, petReady, petPending
-    if !petReady {
+    if (!IsSet(petReady) || !petReady) {
         petPending := state   ; 页面还没就绪：先存起来，petready 后补播
         return
     }
@@ -354,7 +356,7 @@ PetApply(state) {
 
 PetEnsure() {
     global petGui, petWvc, petWv, wvDll, appRoot
-    if (petGui != 0)
+    if (IsSet(petGui) && petGui != 0)
         return true
     p := A_IsCompiled ? (appRoot "\pet_built.html") : (A_ScriptDir "\webui\pet_built.html")
     if !FileExist(p) {
@@ -363,7 +365,14 @@ PetEnsure() {
     }
     petGui := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x08000000", "AirPodsPet")
     petGui.MarginX := 0, petGui.MarginY := 0
-    petGui.Show("w300 h420 Hide")
+    petGui.BackColor := "000000"   ; Gui 底色黑 = 颜色键色；webview 透明处露出黑再被挖穿
+    petGui.Show("w200 h260 Hide")
+    ; 透明方案：webview 用 DefaultBackgroundColor=真透明（旧版日志回读 00000000，
+    ; 用户看到的"白"是 Gui 自身白底+白卡）；Gui 自身黑底再用颜色键挖穿。
+    ; 注意 LWA_COLORKEY 只作用于顶层 GDI 表面，所以键色放在 Gui 底色而不是页面里。
+    WinSetTransColor("000000", petGui)
+    ex := DllCall("user32\GetWindowLongW", "ptr", petGui.Hwnd, "int", -20, "int")
+    LogMsg("pet transcolor 000000 hwnd=" petGui.Hwnd " exstyle=" Format("0x{:X}", ex))
     try {
         petWvc := WebView2.create(petGui.Hwnd,, 0, EnvGet("LOCALAPPDATA") "\AirPodsBuddy_webview",, 0, wvDll)
     } catch as e {
@@ -373,8 +382,8 @@ PetEnsure() {
     }
     petWv := petWvc.CoreWebView2
     try {
-        petWvc.DefaultBackgroundColor := 0x00000000   ; 透明背景
-        LogMsg("pet bg=" Format("{:08X}", petWvc.DefaultBackgroundColor))
+        petWvc.DefaultBackgroundColor := 0x00000000   ; webview 真透明（有效，旧版验证过）
+        LogMsg("pet bg readback=" Format("{:08X}", petWvc.DefaultBackgroundColor))
     }
     try {
         petWv.Settings.AreDevToolsEnabled := false
@@ -393,7 +402,7 @@ PetShow(state) {
     ; DPI 陷阱：A_ScreenWidth 是物理像素，Gui.Show 的 x/y 是逻辑坐标（会被
     ; 系统再缩放），直接相减会把窗口摆出屏幕。这里全部走物理坐标链：
     ; 工作区(SPI) -> 窗口实际矩形 -> SetWindowPos 原生定位。
-    petGui.Show("w300 h420 NoActivate")
+    petGui.Show("w200 h260 NoActivate")
     wa := Buffer(16), rc := Buffer(16)
     DllCall("user32\SystemParametersInfoW", "uint", 0x0030, "uint", 0, "ptr", wa, "uint", 0)
     DllCall("user32\GetWindowRect", "ptr", petGui.Hwnd, "ptr", rc)
@@ -412,10 +421,10 @@ PetShow(state) {
 
 PetUpdate(state) {
     global petVisible
-    if !petVisible
+    if (!IsSet(petVisible) || !petVisible)
         return
     global petWv, petReady
-    if !petReady
+    if (!IsSet(petReady) || !petReady)
         return   ; 首帧还没播就到了终态：直接走 PetFinish 的定时即可
     try petWv.ExecuteScriptAsync('setState("' state '")')
 }
@@ -426,8 +435,8 @@ PetFinish(state) {
 }
 
 PetFade() {
-    global petVisible
-    if !petVisible
+    global petVisible, petWv
+    if (!IsSet(petVisible) || !petVisible)
         return
     SetTimer(PetFade, 0)
     try petWv.ExecuteScriptAsync('hidePopup()')

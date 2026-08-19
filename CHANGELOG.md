@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.2] - 2026-08-19
+
+### Fixed (pet popup, all four user reports; subagent with empirical verification)
+- **Missing frames**: the spritesheet crop kept only column 0 (192px) of the 8-column atlas — every frame beyond the first rendered blank. Re-cropped full width (1536x1248) and corrected `background-size`; all 35 used frames verified non-empty per alpha count.
+- **True transparency, no background**: the white came from the AHK Gui surface + the white card (WebView2 `DefaultBackgroundColor=0x00000000` actually works in HWND mode). White card removed; sprite now floats on the desktop like the original Codex pet, with a small dark translucent status bubble. Full-window magenta color-key was tested and rejected (DirectComposition bypasses LWA_COLORKEY).
+- **Size halved**: window 300x420 -> 200x260 logical, sprite 192x208 -> 120x130.
+- Latent bug: `/testpet` ran before pet globals were initialized (UnsetError swallowed by OnError broke the ready handshake) — guarded with IsSet().
+
+
 ## [1.8.1] - 2026-08-19
 
 ### Fixed
