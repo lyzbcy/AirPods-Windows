@@ -8,7 +8,7 @@
   <img src="https://img.shields.io/badge/Platform-Windows-blue?style=for-the-badge" alt="Platform">
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="MIT License">
   <img src="https://img.shields.io/badge/Version-1.8.3-brightgreen?style=for-the-badge" alt="Version">
-  <img src="https://img.shields.io/badge/%E5%8D%95%E6%96%87%E4%BB%B6-2.6MB-orange?style=for-the-badge" alt="Single exe 2.6MB">
+  <img src="https://img.shields.io/badge/%E5%8D%95%E6%96%87%E4%BB%B6-3.4MB-orange?style=for-the-badge" alt="Single exe 3.4MB">
 </div>
 
 <p align="center">
@@ -39,7 +39,7 @@
 > [PodBridge](https://github.com/bhemsen/PodBridge)、
 > [MagicPods](https://apps.microsoft.com/detail/9p6skkfkshkm)——
 > 它们证明了一件事：**Windows 用户苦"连 AirPods 繁琐"久矣**。
-> 我们的差异点：**2.6MB 单文件、零依赖零后台服务、纯本地零遥测、优先级连接、界面是和星星布丁一起调出来的米白可爱风** 💕
+> 我们的差异点：**3.4MB 单文件、零依赖零后台服务、纯本地零遥测、优先级连接、界面是和星星布丁一起调出来的米白可爱风** 💕
 
 ## ✨ 功能
 
