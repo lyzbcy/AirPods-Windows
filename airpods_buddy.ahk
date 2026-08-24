@@ -10,9 +10,9 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\WebView2\WebView2.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.8.2"
-UPDATE_API    := "https://api.github.com/repos/lyzbcy/BluetoothDeviceConnector/releases/latest"
-RELEASE_PAGE  := "https://github.com/lyzbcy/BluetoothDeviceConnector/releases/latest"
+APP_VERSION   := "1.8.3"
+UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
+RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 
 audioProfile := "a2dp-hfp"
 maxRetries := 10

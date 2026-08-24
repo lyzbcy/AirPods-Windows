@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Size halved**: window 300x420 -> 200x260 logical, sprite 192x208 -> 120x130.
 - Latent bug: `/testpet` ran before pet globals were initialized (UnsetError swallowed by OnError broke the ready handshake) — guarded with IsSet().
 
+## [1.8.3] - 2026-08-24
+
+### Changed
+- **Repository renamed**: `BluetoothDeviceConnector` → `AirPods-Windows` (a name people can actually find). `UPDATE_API` / `RELEASE_PAGE` now point at the new repo directly instead of relying on GitHub redirects.
+- All download/source links updated (README, landing `index.html`, product page `airpods-buddy.html`; download buttons now deep-link the zip asset).
+- **First release since v1.1.2**: ships every fix from v1.2.0–v1.8.2. Most importantly for existing users, this kills the boot-time error dialog — *"This value of type String has no property named Result"* roughly 3.5 s after every launch — caused by the leftover `[vp2]` diagnostic probe in v1.1.2 (removed in v1.2.0). Existing installs auto-update; the popup never meant the app was broken.
 
 ## [1.8.1] - 2026-08-19
 

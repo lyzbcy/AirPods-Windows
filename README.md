@@ -7,13 +7,13 @@
 <div align="center">
   <img src="https://img.shields.io/badge/Platform-Windows-blue?style=for-the-badge" alt="Platform">
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="MIT License">
-  <img src="https://img.shields.io/badge/Version-1.8.2-brightgreen?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/badge/Version-1.8.3-brightgreen?style=for-the-badge" alt="Version">
   <img src="https://img.shields.io/badge/%E5%8D%95%E6%96%87%E4%BB%B6-2.6MB-orange?style=for-the-badge" alt="Single exe 2.6MB">
 </div>
 
 <p align="center">
 <strong>给 Windows 的一口甜：点一下，AirPods 就连上。</strong><br>
-<sub>🏠 <a href=https://lyzbcy.github.io/airpods-buddy.html>产品介绍页</a> · 📦 <a href=https://github.com/lyzbcy/BluetoothDeviceConnector/releases/latest>下载</a></sub><br>
+<sub>🏠 <a href=https://lyzbcy.github.io/airpods-buddy.html>产品介绍页</a> · 📦 <a href=https://github.com/lyzbcy/AirPods-Windows/releases/latest>下载</a></sub><br>
 奶油黄白 Apple 风 · 常驻托盘 · 优先级连接 · 纯本地零上传<br>
 <sub>Mac 版开发中（核心：防自动跳走看门狗）→ <a href="mac/README.md">mac/README.md</a></sub>
 </p>
@@ -62,7 +62,7 @@
 
 ## 📥 下载使用（三步）
 
-1. 到 [Releases](https://github.com/lyzbcy/BluetoothDeviceConnector/releases/latest) 下载 `AirPodsBuddy-Windows.zip`
+1. 到 [Releases](https://github.com/lyzbcy/AirPods-Windows/releases/latest) 下载 `AirPodsBuddy-Windows.zip`
 2. 解压，双击 `AirPodsBuddy.exe`（无需安装；建议放到固定位置）
 3. 耳机先在 Windows 蓝牙设置里配对过一次，之后就只用点它了
 
