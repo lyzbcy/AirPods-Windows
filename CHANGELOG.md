@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.4] - 2026-08-25
+
+### Fixed (WebView2 Runtime 缺失自愈——0x80070002 不再劝退新手)
+- **根因**：WebView2 控件**不复用**用户已装的 Edge 浏览器（只认 WebView2 Runtime 或 Edge Beta/Dev/Canary 通道）。精简系统/服务器镜像/被"优化工具"清理过的机器上 Runtime 常缺失 → 启动即 0x80070002"找不到文件"报错退出。旧提示"请安装微软 Edge"是误导——装了也没用（2026-08-25 在一台装着 Edge 151 的机器上实证：Edge 在、Runtime 无、照样报错）。
+- **自愈流程**：启动时用官方 API `GetAvailableCoreWebView2BrowserVersionString` 探测 → 缺失则询问并自动下载微软官方 Evergreen Bootstrapper（约 2MB）`/silent /install` 静默安装后自动继续 → 断网/用户拒绝/UAC 被拒时**降级直接借用本机 Edge 目录**当运行时（同一套内核）→ 全失败才弹手动指引（一键打开官方下载页，文案明确说"装 Edge 浏览器是没用的"）。宠物窗口（PetEnsure）同样吃到降级目录。
+- **顺手排掉的隐形炸弹**：AHK v2 `DllCall` 输出参数必须传 VarRef（`"ptr*", &info`）；传值（`info := 0`）**不报错但指针永远不回填**——若未测试直接发布，探针会在**有**运行时的机器上误报缺失、每次开机弹修复窗（函数级测试实证：hr=0 成功但指针为空）。已记入 doc/05 C 节。
+
+### Changed
+- 构建工具链（便携 AutoHotkey v2 + Ahk2Exe，均在 `tools/`，gitignore）在本副本就位，Ahk2Exe 编译参数与 doc/02 §7 一致（`/silent /compress 0`）。
+
 ## [1.8.2] - 2026-08-19
 
 ### Fixed (pet popup, all four user reports; subagent with empirical verification)

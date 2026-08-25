@@ -10,9 +10,11 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\WebView2\WebView2.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.8.3"
+APP_VERSION   := "1.8.4"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
+; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
+WEBVIEW2_SETUP_URL := "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
 
 audioProfile := "a2dp-hfp"
 maxRetries := 10
@@ -355,7 +357,7 @@ PetApply(state) {
 }
 
 PetEnsure() {
-    global petGui, petWvc, petWv, wvDll, appRoot
+    global petGui, petWvc, petWv, wvDll, appRoot, wv2Fallback
     if (IsSet(petGui) && petGui != 0)
         return true
     p := A_IsCompiled ? (appRoot "\pet_built.html") : (A_ScriptDir "\webui\pet_built.html")
@@ -374,7 +376,7 @@ PetEnsure() {
     ex := DllCall("user32\GetWindowLongW", "ptr", petGui.Hwnd, "int", -20, "int")
     LogMsg("pet transcolor 000000 hwnd=" petGui.Hwnd " exstyle=" Format("0x{:X}", ex))
     try {
-        petWvc := WebView2.create(petGui.Hwnd,, 0, EnvGet("LOCALAPPDATA") "\AirPodsBuddy_webview",, 0, wvDll)
+        petWvc := WebView2.create(petGui.Hwnd,, 0, EnvGet("LOCALAPPDATA") "\AirPodsBuddy_webview", wv2Fallback, 0, wvDll)
     } catch as e {
         LogMsg("pet webview create failed: " e.Message, "WARN")
         petGui := 0
@@ -477,17 +479,93 @@ myGui.Show("w" WinW " h" WinH " Hide")
 DllCall("dwmapi\DwmSetWindowAttribute", "ptr", myGui.Hwnd, "int", 33, "int*", 2, "int", 4)
 
 ; ------------------------- WebView2 ----------------------------------
+; WebView2 控件不会复用用户已装的 Edge 浏览器，只认 WebView2 Runtime
+; （或 Edge Beta/Dev/Canary 通道）。精简系统/服务器镜像/被"优化工具"
+; 清理过的机器上常常没有 → 0x80070002"找不到文件"，重试救不了。
+; 自愈流程：探测 → 缺失则引导自动下载官方安装器静默装上 → 断网时
+; 降级直接借用本机 Edge 目录 → 全失败才提示手动处理。
+wv2Fallback := ""   ; 降级 Edge 目录（空=系统运行时可用），PetEnsure 也要用
+
+; 用官方加载器 API 探测可用运行时版本，找不到返回 ''
+WebView2RuntimeVersion() {
+    global wvDll
+    info := 0   ; 输出参数必须传 VarRef(&info)：传值会静默不回填，
+    try {       ; 导致有运行时也误报缺失（本机实测 hr=0 但指针为空）
+        hr := DllCall(wvDll "\GetAvailableCoreWebView2BrowserVersionString", "wstr", "", "ptr*", &info, "int")
+        if (hr >= 0 && info) {
+            ver := StrGet(info)
+            DllCall("ole32\CoTaskMemFree", "ptr", info)
+            return ver
+        }
+    } catch as e {
+        LogMsg("WebView2 runtime probe failed: " e.Message, "WARN")
+    }
+    return ""
+}
+
+; 断网降级：借本机 Edge 浏览器目录当运行时（同一套内核，官方默认不
+; 用它而已），返回最高版本目录，找不到返回 ''
+EdgeFallbackDir() {
+    best := "", ver := "0.0.0.0"
+    for root in [EnvGet("ProgramFiles(x86)"), EnvGet("ProgramFiles"), EnvGet("LOCALAPPDATA")]
+        loop files root "\Microsoft\Edge\Application\*", "D"
+            if FileExist(A_LoopFileFullPath "\msedge.exe")
+                && RegExMatch(A_LoopFilePath, "\\([\d.]+)$", &m) && VerCompare(m[1], ver) > 0
+                best := A_LoopFileFullPath, ver := m[1]
+    return best
+}
+
+; 自愈入口。返回值作为 WebView2.create 的 edgeRuntime 参数：
+; '' = 系统运行时可用/已装好（走加载器默认查找）；非空 = 降级 Edge 目录
+EnsureWebView2Runtime() {
+    global WEBVIEW2_SETUP_URL
+    if (WebView2RuntimeVersion() != "")
+        return ""
+    LogMsg("WebView2 runtime missing, auto-repair starting", "WARN")
+    if MsgBox("系统缺少界面引擎组件 WebView2 Runtime（微软官方组件，约 2MB）。`n`n是否现在自动下载并安装？`n安装完成后程序会自动继续。", "AirPods 小助手", "YesNo Icon!") != "Yes" {
+        LogMsg("user declined auto-install, trying Edge fallback", "WARN")
+        return EdgeFallbackDir()
+    }
+    busy := Gui("+AlwaysOnTop -Caption +ToolWindow")
+    busy.SetFont("s10")
+    busy.BackColor := "FFFFFF"
+    busy.AddText("w300 Center", "正在下载界面组件（约 2 MB）…`n来自微软官方，请稍候")
+    busy.Show()
+    exe := A_Temp "\AirPodsBuddy_WebView2Setup.exe"
+    try {
+        Download WEBVIEW2_SETUP_URL, exe
+        code := RunWait('"' exe '" /silent /install')
+        LogMsg("WebView2 setup exit code " code)
+        if (WebView2RuntimeVersion() != "") {
+            LogMsg("WebView2 runtime installed via auto-repair")
+            return ""
+        }
+    } catch as e {
+        LogMsg("WebView2 auto-repair failed: " e.Message, "WARN")
+    } finally {
+        try busy.Destroy()
+        try FileDelete(exe)
+    }
+    ; 下载/安装没成功（断网、UAC 被拒、被安全软件拦截）：降级借 Edge 目录
+    LogMsg("auto-repair unsuccessful, falling back to local Edge", "WARN")
+    return EdgeFallbackDir()
+}
+
+wv2Fallback := EnsureWebView2Runtime()
+if (wv2Fallback != "")
+    LogMsg("using Edge fallback dir: " wv2Fallback, "WARN")
 ; 创建失败（如被安全软件瞬时拦截 0x800704C7）时自动重试
 wvc := 0
 loop 3 {
     try {
-        wvc := WebView2.create(myGui.Hwnd,, 0, EnvGet("LOCALAPPDATA") "\AirPodsBuddy_webview",, 0, wvDll)
+        wvc := WebView2.create(myGui.Hwnd,, 0, EnvGet("LOCALAPPDATA") "\AirPodsBuddy_webview", wv2Fallback, 0, wvDll)
         break
     } catch as e {
         LogMsg("WebView2 init attempt " A_Index " failed: " e.Message, "WARN")
         if (A_Index = 3) {
             LogMsg("WebView2 init failed permanently", "ERROR")
-            MsgBox("界面引擎(WebView2)初始化失败：`n" e.Message "`n`n请安装微软 Edge 或 WebView2 Runtime 后重试，`n或将本程序加入安全软件白名单。", "AirPods 小助手", "Icon!")
+            if MsgBox("界面引擎（WebView2）初始化失败：`n" e.Message "`n`n通常是系统缺少 WebView2 Runtime（精简版系统较常见），`n或被安全软件拦截。安装 Edge 浏览器是没有用的哦。`n`n点「是」打开官方下载页，安装完成后重新运行本程序；`n仍失败的话，请把本程序加入安全软件白名单。", "AirPods 小助手", "YesNo Icon!") = "Yes"
+                Run(WEBVIEW2_SETUP_URL)
             ExitApp(1)
         }
         Sleep(1200)
