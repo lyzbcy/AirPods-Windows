@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Landing page restored (rollback)**: an accidental push from a diverged local copy had replaced the interactive landing page (v2.x: clickable app-window mock with connect states / priority sorting, pet sprite demo, tray cards) with a simplified static version (-602 lines). Rolled back to the v2.2.0 interactive page and bumped its `PAGE_VER` to 2.2.1 so cached visitors auto-refresh back. Root cause + prevention rules documented in doc/05 B7.
-- **v1.9.0 GitHub Release published** (exe attached) — the tag had been pushed without a release, so in-app update checks and the landing version chip still saw v1.8.4 as latest.
+- **v1.9.0 GitHub Release published** — the tag had been pushed without a release, so in-app update checks and the landing version chip still saw v1.8.4 as latest. Initial publish attached a bare `AirPodsBuddy.exe`, breaking the landing-page download link (404) since both it and the in-app updater expect the asset name `AirPodsBuddy-Windows.zip`; the correctly-structured zip (exe + 使用说明.txt, same layout as v1.8.4) was uploaded and verified.
 
 
 ## [1.8.4] - 2026-08-25
