@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Star-ask component** (不打扰用户的求好评 spec): after the 10th successful connect (and every 50 after), a gentle card asks for a GitHub star; dismissed = 15-day cooldown, tracked in `app_settings.ini` (`stardone`/`openrepo` bridges).
 
 ### Fixed
-- **Landing page showcase** (lyzbcy.github.io/airpods-buddy.html): the old pet screenshot had the pet at ~20px and unreadable — replaced with a 3-pose sticker composite (`pet-showcase.png`: wait / jump / wave). Also: invalid `rotate(8deg)` hero style → `transform:`, size copy unified to 3.4MB, `PAGE_VERSION` → v1.9.0.
+- **Landing page restored (rollback)**: an accidental push from a diverged local copy had replaced the interactive landing page (v2.x: clickable app-window mock with connect states / priority sorting, pet sprite demo, tray cards) with a simplified static version (-602 lines). Rolled back to the v2.2.0 interactive page and bumped its `PAGE_VER` to 2.2.1 so cached visitors auto-refresh back. Root cause + prevention rules documented in doc/05 B7.
 - **v1.9.0 GitHub Release published** (exe attached) — the tag had been pushed without a release, so in-app update checks and the landing version chip still saw v1.8.4 as latest.
 
 
