@@ -288,6 +288,16 @@
 </div>
 
 <div id="toast"></div>
+<div class="mask" id="mStar">
+  <div class="dlg" style="width:min(360px,88%)">
+    <h3><img src="assets/face_heart.png">求个小星星 🙏</h3>
+    <div class="desc">你已经用小助手连了 10 次耳机啦～<br>如果她帮到你了，愿意去 GitHub 给我们点一个 star 吗？<br>这对我继续做下去真的很重要。</div>
+    <div class="row">
+      <button class="btn ghost" onclick="starLater()">以后再说</button>
+      <button class="btn primary" onclick="starGo()">⭐ 去点 star</button>
+    </div>
+  </div>
+</div>
 
 <!-- add help modal -->
 <div class="mask" id="mHelp">
@@ -341,9 +351,11 @@
   <div class="dlg">
     <h3><img src="assets/face_heart.png">发现新版本</h3>
     <div class="upd-meta">最新版本 <b id="updVer">-</b>　当前版本 <b id="updCur">-</b><br>建议更新以获得最新功能与修复</div>
+    <div class="upd-meta" style="font-size:11.5px">💡 国内用户建议先开启代理再一键更新（下载源在 GitHub，直连可能很慢或失败）</div>
     <div id="updState"></div>
     <div class="row">
       <button class="btn ghost" onclick="closeModal('mUpd')">下次再说</button>
+      <button class="btn ghost" onclick="rpc('openrelease')">打开发布页</button>
       <button class="btn primary" id="updGo" onclick="doUpdate()">🚀 一键更新</button>
     </div>
   </div>
@@ -353,7 +365,7 @@
 const SEP='\x1F'; let seq=0; const pending={};
 function rpc(cmd,...args){const id=++seq;chrome.webview.postMessage(cmd+SEP+id+SEP+args.join(SEP));return new Promise(r=>pending[id]=r)}
 window.__rpc=(id,data)=>{const f=pending[id];if(f){f(data);delete pending[id]}};
-window.__event=(name,data)=>{if(name==='update')showUpdate(data)};
+window.__event=(name,data)=>{if(name==='update')showUpdate(data);if(name==='starask')showStarAsk()};
 /* forward JS errors to the AHK-side log */
 window.addEventListener('error',e=>{try{chrome.webview.postMessage('jserror'+SEP+'0'+SEP+((e.message||'unknown')+' @ '+(e.filename||'inline')+':'+(e.linno||e.lineno||0)))}catch(_){}});
 window.addEventListener('unhandledrejection',e=>{try{chrome.webview.postMessage('jserror'+SEP+'0'+SEP+('promise: '+((e.reason&&e.reason.message)||String(e.reason))))}catch(_){}});
@@ -524,9 +536,15 @@ async function doUpdate(){
   go.classList.add('busy');go.innerHTML='<span class="spin"></span>更新中';
   const r=await rpc('doupdate',updUrl);
   go.classList.remove('busy');go.innerHTML='🚀 一键更新';
-  st.textContent = (r==='ok')?'✅ 完成，即将重启到新版本…':'更新失败：'+r+'（可到发布页手动下载）';
+  st.textContent = (r==='ok')?'✅ 完成，即将重启到新版本…':'更新失败：'+r;
+  if(r!=='ok'){const g2=document.createElement('button');g2.className='btn ghost';g2.style.cssText='margin-top:8px;padding:7px 16px;font-size:12px';g2.textContent='→ 去发布页手动下载';g2.onclick=()=>rpc('openrelease');st.appendChild(g2)}
 }
 
+
+/* ---------- star ask（不打扰规范：15 天冷却在 AHK 侧记账） ---------- */
+function showStarAsk(){openModal('mStar')}
+function starGo(){rpc('openrepo');rpc('stardone');closeModal('mStar');toast('谢谢你！💕')}
+function starLater(){rpc('stardone');closeModal('mStar')}
 /* ---------- boot ---------- */
 (async()=>{
   try { rpc('bootok','vp='+innerWidth+'x'+innerHeight+' dpr='+devicePixelRatio); } catch(e) {}

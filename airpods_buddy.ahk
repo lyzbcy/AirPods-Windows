@@ -10,7 +10,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\WebView2\WebView2.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.8.4"
+APP_VERSION   := "1.9.0"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -65,6 +65,7 @@ LoadPriority()
 
 ; ------------------------- Device priority ---------------------------
 ; 用户自定义的"一键连接"优先顺序（每行一个设备名），Apple 设备默认排前。
+SETTINGS_PATH := A_ScriptDir "pp_settings.ini"
 PRIO_PATH := A_ScriptDir "\device_priority.txt"
 priorityList := []
 
@@ -696,6 +697,66 @@ TrayQuickAction(action) {
 
 SetTimer(CheckUpdate, -3000)
 
+
+; ============ 求好评组件（组件库规范：不打扰用户） ============
+SettingRead(key, default) {
+    global SETTINGS_PATH
+    try {
+        if FileExist(SETTINGS_PATH) {
+            loop read SETTINGS_PATH {
+                line := Trim(A_LoopReadLine)
+                p := InStr(line, "=")
+                if (p && SubStr(line, 1, p - 1) = key)
+                    return SubStr(line, p + 1)
+            }
+        }
+    }
+    return default
+}
+
+SettingWrite(key, value) {
+    global SETTINGS_PATH
+    lines := []
+    try {
+        if FileExist(SETTINGS_PATH) {
+            loop read SETTINGS_PATH {
+                line := Trim(A_LoopReadLine)
+                p := InStr(line, "=")
+                if (p && SubStr(line, 1, p - 1) = key)
+                    continue
+                if (line != "")
+                    lines.Push(line)
+            }
+        }
+    }
+    lines.Push(key "=" value)
+    try {
+        FileDelete(SETTINGS_PATH)
+        FileAppend(Join(lines, "`n") "`n", SETTINGS_PATH, "UTF-8")
+    }
+}
+
+connectCount := 0
+
+OnConnectSuccess() {
+    global connectCount, wv
+    connectCount := SettingRead("connect_count", "0") + 0
+    connectCount++
+    SettingWrite("connect_count", connectCount)
+    if (connectCount = 10 || Mod(connectCount, 50) = 0) {
+        last := SettingRead("star_ask_last", "0") + 0
+        days := (A_Now - last) / 86400
+        if (last = 0 || days > 15) {
+            LogMsg("star ask shown (connect #" connectCount ")")
+            try wv.ExecuteScriptAsync('window.__event("starask", "true")')
+        }
+    }
+}
+
+StarAskShown() {
+    SettingWrite("star_ask_last", A_Now)
+}
+
 ; ------------------------- JS bridge ---------------------------------
 ; protocol: "cmd<SEP>id<SEP>arg1<SEP>arg2..."
 WebMessageHandler(core, args) {
@@ -727,6 +788,9 @@ WebMessageHandler(core, args) {
         case "add":               Run("ms-settings:bluetooth"), Reply(id, "true")
         case "winmin":            myGui.Hide(), Reply(id, "true")   ; 最小化即缩托盘：不占任务栏（初心），随时托盘唤出
         case "winclose":          myGui.Hide(), Reply(id, "true")
+        case "openrelease":        Run(RELEASE_PAGE), Reply(id, "true")
+        case "openrepo":           Run("https://github.com/lyzbcy/AirPods-Windows"), Reply(id, "true")
+        case "stardone":           StarAskShown(), Reply(id, "true")
         case "windrag":           StartWindowDrag(), Reply(id, "true")
         case "setprio":
             priorityList := StrSplit(arg1, Chr(31))
@@ -821,6 +885,8 @@ DoAction(name, action) {
         LogMsg("DoAction " action " '" name "' failed: HFP=" hf " A2DP=" a2, "WARN")
     busy := false
     SetTrayLoading(false)
+    if (ok && action = "connect")
+        OnConnectSuccess()
     return ok ? "ok" : "fail"
 }
 

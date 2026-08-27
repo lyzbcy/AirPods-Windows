@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2026-08-27
+
+### Added (adopted from the personal component library: 共享/tools/软件开发)
+- **Update UX completion** (自适应更新检测 spec): proxy tip for CN users in the update dialog; failure path now shows a one-click "打开发布页" fallback button (new `openrelease` bridge).
+- **Star-ask component** (不打扰用户的求好评 spec): after the 10th successful connect (and every 50 after), a gentle card asks for a GitHub star; dismissed = 15-day cooldown, tracked in `app_settings.ini` (`stardone`/`openrepo` bridges).
+
+
 ## [1.8.4] - 2026-08-25
 
 ### Fixed (WebView2 Runtime 缺失自愈——0x80070002 不再劝退新手)
