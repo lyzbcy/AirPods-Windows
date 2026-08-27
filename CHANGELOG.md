@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Update UX completion** (自适应更新检测 spec): proxy tip for CN users in the update dialog; failure path now shows a one-click "打开发布页" fallback button (new `openrelease` bridge).
 - **Star-ask component** (不打扰用户的求好评 spec): after the 10th successful connect (and every 50 after), a gentle card asks for a GitHub star; dismissed = 15-day cooldown, tracked in `app_settings.ini` (`stardone`/`openrepo` bridges).
 
+### Fixed
+- **Landing page showcase** (lyzbcy.github.io/airpods-buddy.html): the old pet screenshot had the pet at ~20px and unreadable — replaced with a 3-pose sticker composite (`pet-showcase.png`: wait / jump / wave). Also: invalid `rotate(8deg)` hero style → `transform:`, size copy unified to 3.4MB, `PAGE_VERSION` → v1.9.0.
+- **v1.9.0 GitHub Release published** (exe attached) — the tag had been pushed without a release, so in-app update checks and the landing version chip still saw v1.8.4 as latest.
+
 
 ## [1.8.4] - 2026-08-25
 
