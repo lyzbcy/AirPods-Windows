@@ -10,7 +10,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\WebView2\WebView2.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.0"
+APP_VERSION   := "1.9.1"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -737,6 +737,53 @@ SettingWrite(key, value) {
 }
 
 connectCount := 0
+audioVerifyGen := 0   ; 音频抢占验证的代数号：新操作/断开时 +1，作废旧轮询
+
+; ------------------- 音频抢占验证（v1.9.1） --------------------------
+; 蓝牙层连接成功 ≠ 音频通道建立：手机正在放歌时 AirPods 不对电脑开放
+; A2DP（实测：占用时该设备的 AudioEndpoint 根本不出现，空闲时 4~8s 内
+; 到 OK）。连接成功后轮询端点，起来了才算真抢到，否则如实提醒用户。
+; Windows 无公开 API 参与音源仲裁（Mac 的"谁播放跟谁走"做不到），
+; 我们的上限 = 手机空闲时抢过来 + 抢不到时把情况说清楚。
+StartAudioVerify(name) {
+    global audioVerifyGen
+    AudioVerifyTick(name, 7, ++audioVerifyGen)
+}
+
+AudioVerifyTick(name, left, gen) {
+    global audioVerifyGen
+    if (gen != audioVerifyGen)
+        return   ; 已被断开/新连接取代，本轮作废
+    if (AudioEndpointAlive(name)) {
+        LogMsg("audio endpoint verified: '" name "'")
+        PushEvent("toast", JsonStr("🎧 音频已切到电脑"))
+        return
+    }
+    if (left <= 1) {
+        LogMsg("audio endpoint NOT up after ~9s (held by phone?): '" name "'", "WARN")
+        PetUpdate("fail")
+        TrayTip("AirPods 小助手", "已连上 «" name "»，但声音还被手机占着`n暂停手机音乐后，再点一次连接即可抢过来", 4)
+        PushEvent("audioheld", JsonStr(name))
+        return
+    }
+    fn := (*) => AudioVerifyTick(name, left - 1, gen)
+    SetTimer(fn, -1500)
+}
+
+AudioEndpointAlive(name) {
+    safe := StrReplace(name, "'", "''")
+    q := "SELECT ConfigManagerErrorCode FROM Win32_PnPEntity WHERE PnPClass='AudioEndpoint' AND Name LIKE '%" safe "%'"
+    try {
+        wmi := ComObject("WbemScripting.SWbemLocator").ConnectServer(".", "root\cimv2")
+        for dev in wmi.ExecQuery(q)
+            if (dev.ConfigManagerErrorCode = 0)
+                return true
+    } catch as e {
+        LogMsg("audio endpoint WMI query failed: " e.Message, "WARN")
+    }
+    return false
+}
+
 
 OnConnectSuccess() {
     global connectCount, wv
@@ -864,7 +911,7 @@ FindAllAudioDevices() {
 }
 
 DoAction(name, action) {
-    global busy, devices, audioProfile, maxRetries
+    global busy, devices, audioProfile, maxRetries, audioVerifyGen
     if busy
         return "busy"
     dev := FindDevByName(name)
@@ -877,6 +924,7 @@ DoAction(name, action) {
         hf := ToggleBluetoothService(dev.info, "{0000111e-0000-1000-8000-00805f9b34fb}", hfOn, maxRetries)
         a2 := ToggleBluetoothService(dev.info, "{0000110b-0000-1000-8000-00805f9b34fb}", 1, maxRetries)
     } else {
+        audioVerifyGen++   ; 断开：作废进行中的音频验证
         hf := ToggleBluetoothService(dev.info, "{0000111e-0000-1000-8000-00805f9b34fb}", 0, maxRetries)
         a2 := ToggleBluetoothService(dev.info, "{0000110b-0000-1000-8000-00805f9b34fb}", 0, maxRetries)
     }
@@ -885,8 +933,10 @@ DoAction(name, action) {
         LogMsg("DoAction " action " '" name "' failed: HFP=" hf " A2DP=" a2, "WARN")
     busy := false
     SetTrayLoading(false)
-    if (ok && action = "connect")
+    if (ok && action = "connect") {
         OnConnectSuccess()
+        StartAudioVerify(name)   ; 蓝牙层 OK ≠ 音频真过来，异步核实
+    }
     return ok ? "ok" : "fail"
 }
 

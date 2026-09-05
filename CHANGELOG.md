@@ -2,8 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.9.1] - 2026-09-05
+
+### Added
+- **Audio-grab verification** (honest connect): after a successful Bluetooth connect, the app polls the device's audio endpoint (WMI `Win32_PnPEntity`, class `AudioEndpoint`) for ~9s. Endpoint up → toast 「🎧 音频已切到电脑」; never up → pet fail pose + device row shows 「已连接 · 音频被手机占用」 + tray tip with the fix (pause phone music, click connect again). Kills the "shows 已连接 but audio still on the phone" trap: Windows has no API to arbitrate AirPods' active audio source (Mac-style "follow whoever plays" is impossible), and when the phone holds the A2DP stream the endpoint never comes up on PC — now the app says so instead of pretending. Also observed: if the PC stays silent after grabbing, AirPods multipoint hops back to the phone on its own.
+
+### Fixed
+- Latent bug: AHK-side `toast` events (update-check results) were pushed but never handled by the front-end — `window.__event` now routes them.
 
 ## [1.9.0] - 2026-08-27
 

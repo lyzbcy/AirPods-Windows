@@ -365,7 +365,8 @@
 const SEP='\x1F'; let seq=0; const pending={};
 function rpc(cmd,...args){const id=++seq;chrome.webview.postMessage(cmd+SEP+id+SEP+args.join(SEP));return new Promise(r=>pending[id]=r)}
 window.__rpc=(id,data)=>{const f=pending[id];if(f){f(data);delete pending[id]}};
-window.__event=(name,data)=>{if(name==='update')showUpdate(data);if(name==='starask')showStarAsk()};
+window.__event=(name,data)=>{if(name==='update')showUpdate(data);if(name==='starask')showStarAsk();
+  if(name==='toast')toast(data);if(name==='audioheld')onAudioHeld(data)};
 /* forward JS errors to the AHK-side log */
 window.addEventListener('error',e=>{try{chrome.webview.postMessage('jserror'+SEP+'0'+SEP+((e.message||'unknown')+' @ '+(e.filename||'inline')+':'+(e.linno||e.lineno||0)))}catch(_){}});
 window.addEventListener('unhandledrejection',e=>{try{chrome.webview.postMessage('jserror'+SEP+'0'+SEP+('promise: '+((e.reason&&e.reason.message)||String(e.reason))))}catch(_){}});
@@ -448,7 +449,7 @@ function render(){
         <div class="name" title="${esc(d.name)}">${esc(d.name)}
           ${d.apple?'<span class="tag apple">苹果</span>':'<span class="tag other">其他</span>'}
           ${i<3?`<span class="prio-mark">优先 ${i+1}</span>`:''}</div>
-        <div class="st"><span class="dot ${d.connected?'on':''}"></span>${d.connected?'已连接':'未连接'}</div>
+        <div class="st" data-st="${esc(d.name)}"><span class="dot ${d.connected?'on':''}"></span>${d.connected?'已连接':'未连接'}</div>
       </div>
       <div class="prio">
         <button class="pbtn" data-up="${i}" ${i===0?'disabled':''} title="提高优先级">▲</button>
@@ -501,6 +502,13 @@ async function doAction(btn,name,act){
   if(r==='ok') toast((act==='connect'?'已连接 💕':'已断开 💤'));
   else toast('操作失败，请重试');
   refreshList();
+}
+
+/* 蓝牙已连上、但音频被手机占用（AHK 侧 AudioEndpoint 验证 ~9s 未通过） */
+function onAudioHeld(name){
+  toast('⚠️ 已连上，但声音还被手机占着：暂停手机音乐后，再点一次连接即可抢过来');
+  const st=document.querySelector('[data-st="'+CSS.escape(name)+'"]');
+  if(st) st.innerHTML='<span class="dot on"></span>已连接 · 音频被手机占用';
 }
 
 let delTarget='';
