@@ -10,7 +10,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\WebView2\WebView2.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.2"
+APP_VERSION   := "1.9.3"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）

@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.3] - 2026-09-05
+
+### Changed
+- **Sticker refresh (curated from 100+ 弹 5-star rated stickers)**: tray icons now use a consistent girl character across states — 未连接=发呆, 已连接=抱爱心(green ring), 连接中=奋笔疾书+spinner; new modal faces: star-ask=委屈求助, delete=招手; new assets face_plead/face_happy/face_peek reserved for toasts.
+- **UI review quick wins** (adversarial review scored usability 6.5 / aesthetics 7): orb has static default content (no more dead empty ball while fetching); badge now states 未连接/已连 N 台 with sage-green active tint; list fetch failure renders an error + retry link; toast duration scales with text length (up to 8s); priority label shows on every row and the orb hint names the exact next device; device name+tags flow inline (no 108px reserved dead space); ▲▼ buttons enlarged to 28px; footer drops the duplicate version; min-button glyph and connected-state text color fixed for contrast; pet bubble gets a tail pointing at the character.
+
 ## [1.9.2] - 2026-09-05
 
 ### Fixed

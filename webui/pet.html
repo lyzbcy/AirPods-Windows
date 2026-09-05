@@ -19,8 +19,11 @@
   /* 精灵图 1536x1248（8 列 x 6 行全宽），整体 0.625 缩放：格 120x130，图 960x780 */
   .sprite{width:120px;height:130px;background-repeat:no-repeat;
     background-size:960px 780px;image-rendering:auto}
-  .bubble{margin-top:8px;font-size:14px;font-weight:700;color:#FFF;letter-spacing:1px;
+  .bubble{position:relative;margin-top:8px;font-size:14px;font-weight:700;color:#FFF;letter-spacing:1px;
     background:rgba(40,32,28,.62);border-radius:999px;padding:6px 16px;white-space:nowrap}
+  /* 气泡尾巴：指向角色，不再是无主的药丸（评审 #10） */
+  .bubble::after{content:"";position:absolute;top:-4px;left:50%;margin-left:-5px;
+    width:10px;height:10px;background:inherit;transform:rotate(45deg);border-radius:2px}
   .dots::after{content:"";animation:dots 1.2s steps(4,end) infinite}
   @keyframes dots{0%{content:""}25%{content:"·"}50%{content:"· ·"}75%{content:"· · ·"}}
   .heart{position:absolute;font-size:18px;animation:floatUp 1.4s ease-out forwards;

@@ -53,7 +53,9 @@
   .title .ver{font-size:11px;color:var(--sub);margin-top:2px;font-weight:400}
   .badge{margin-left:auto;font-size:11px;font-weight:500;color:var(--honey-d);
     background:#fff;border:1px solid var(--line);border-radius:999px;padding:4px 12px;
-    box-shadow:0 1px 3px rgba(0,0,0,.04);display:flex;align-items:center;gap:5px}
+    box-shadow:0 1px 3px rgba(0,0,0,.04);display:flex;align-items:center;gap:5px;
+    transition:background-color .25s var(--ease),color .25s var(--ease),border-color .25s var(--ease)}
+  .badge.on{background:var(--sage-tint);color:#5F8A6E;border-color:rgba(127,168,140,.4)}
 
   /* ===== 主按钮（打磨蜂蜜圆钮） ===== */
   .hero{display:flex;flex-direction:column;align-items:center;padding:8px 0 10px}
@@ -105,28 +107,25 @@
   .chip svg g{stroke:#A5824C}
 
   .info{flex:1 1 auto;min-width:0}
-  /* 名字本体可收缩截断；标签组绝对定位固定在右侧独立区域，长名字不再挤压标签 */
-  .name{position:relative;display:block;min-width:0;max-width:100%;
-    font-size:13px;font-weight:600;color:var(--ink);line-height:19px;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-    padding-right:108px}
-  .name .tag,.name .prio-mark{position:absolute;top:50%;transform:translateY(-50%);
-    display:inline-flex;align-items:center;justify-content:center;
+  /* 名字+标签一行排布：名字可收缩截断，标签自然跟排不占死空间（评审 #5） */
+  .name{display:flex;align-items:center;gap:6px;min-width:0;max-width:100%;
+    font-size:13px;font-weight:600;color:var(--ink);line-height:19px}
+  .name .txt{flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .name .tag,.name .prio-mark{display:inline-flex;align-items:center;justify-content:center;
     font-size:10px;font-weight:500;letter-spacing:.2px;line-height:1;
     border-radius:999px;padding:3.5px 8px;flex:none;white-space:nowrap}
-  .name .tag{right:62px;min-width:38px}
-  .name .prio-mark{right:0;min-width:52px}
   .tag.apple{background:var(--sage-tint);color:#5F8A6E;border:1px solid rgba(127,168,140,.35)}
   .tag.other{background:#F6F1E7;color:#8A744F;border:1px solid rgba(200,155,90,.32)}
   .prio-mark{background:var(--honey-tint);color:var(--honey-d);border:1px solid rgba(200,155,90,.38)}
 
-  .st{display:flex;align-items:center;gap:5px;margin-top:3px;font-size:11px;color:var(--sub)}
+  .st{display:flex;align-items:center;gap:5px;margin-top:3px;font-size:11px;color:#6F6A5F}
+  .st.ok{color:var(--sage-d);font-weight:600}
   .dot{width:7px;height:7px;border-radius:50%;background:#CFC8BB;flex:none}
   .dot.on{background:var(--sage)}
 
-  .prio{display:flex;flex-direction:column;gap:4px;flex:none}
-  .pbtn{width:24px;height:24px;border:none;border-radius:50%;background:#fff;
-    border:1px solid var(--line2);color:#9A927F;font-size:8px;line-height:1;cursor:pointer;
+  .prio{display:flex;flex-direction:column;gap:6px;flex:none}
+  .pbtn{width:28px;height:28px;border:none;border-radius:50%;background:#fff;
+    border:1px solid var(--line2);color:#9A927F;font-size:10px;line-height:1;cursor:pointer;
     display:flex;align-items:center;justify-content:center;
     transition:background-color .2s var(--ease),color .2s var(--ease),transform .2s var(--ease)}
   .pbtn:hover{background:var(--honey-tint);color:var(--honey-d)}
@@ -246,7 +245,7 @@
 <div class="app">
 
   <div class="topbar" id="topbar">
-    <button class="wbtn" onclick="rpc('winmin')" title="最小化到托盘">&#x2013;</button>
+    <button class="wbtn" onclick="rpc('winmin')" title="最小化到托盘">&#x2212;</button>
     <button class="wbtn close" onclick="rpc('winclose')" title="关闭（缩到托盘）">&#x2715;</button>
   </div>
 
@@ -257,11 +256,15 @@
         <h1>AirPods 小助手</h1>
         <div class="ver" id="ver">v1.6.0</div>
       </div>
-      <div class="badge" id="badge">♡ 就绪</div>
+      <div class="badge" id="badge">未连接</div>
     </header>
 
     <div class="hero">
-      <button class="orb" id="orb" title="一键连接 / 断开"></button>
+      <button class="orb" id="orb" title="一键连接 / 断开">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>
+        <span class="oname">连接耳机</span>
+        <span class="ost">正在获取设备…</span>
+      </button>
       <div class="ohint" id="ohint">点大按钮按优先级连接</div>
     </div>
 
@@ -282,7 +285,6 @@
   </div>
 
   <footer>
-    <span id="footver">v1.6.0</span>
     <span class="about-link" onclick="openAbout()"><u>关于捞鱼</u> 🐟</span>
   </footer>
 </div>
@@ -290,7 +292,7 @@
 <div id="toast"></div>
 <div class="mask" id="mStar">
   <div class="dlg" style="width:min(360px,88%)">
-    <h3><img src="assets/face_heart.png">求个小星星 🙏</h3>
+    <h3><img src="assets/face_plead.png">求个小星星 🙏</h3>
     <div class="desc">你已经用小助手连了 10 次耳机啦～<br>如果她帮到你了，愿意去 GitHub 给我们点一个 star 吗？<br>这对我继续做下去真的很重要。</div>
     <div class="row">
       <button class="btn ghost" onclick="starLater()">以后再说</button>
@@ -380,7 +382,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){const m=document.qu
 /* ---------- toast ---------- */
 let toastT;
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
-  clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2400)}
+  clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),Math.min(2400+msg.length*90,8000))}
 
 /* ---------- device art（描边换成粉调） ---------- */
 function art(kind){
@@ -426,7 +428,13 @@ function parseList(r){
 }
 async function refreshList(){
   const r=await rpc('list');
-  const d=parseList(r);if(d===null)return;
+  const d=parseList(r);
+  if(d===null){
+    // 获取失败不再哑剧：明确报错 + 一键重试（评审 #1）
+    document.getElementById('devices').innerHTML=
+      `<div class="empty"><p>获取设备失败</p><p style="margin-top:8px"><u style="cursor:pointer;color:var(--honey-d)" onclick="refreshList()">点我重试</u></p></div>`;
+    return;
+  }
   devices=d;
   render();
 }
@@ -437,19 +445,21 @@ function render(){
   if(!devices.length){
     box.innerHTML=`<div class="empty"><img src="assets/face_cheer.png">
       <p>还没有配对过的耳机<br>点下方「添加新耳机」吧</p></div>`;
-    document.getElementById('badge').textContent='♡ 就绪';
+    const b=document.getElementById('badge');b.textContent='未连接';b.classList.remove('on');
     return;
   }
   const on=devices.filter(d=>d.connected).length;
-  document.getElementById('badge').textContent=on?('♥ '+on+' 已连接'):'♡ 就绪';
+  const bd=document.getElementById('badge');
+  bd.textContent=on?('已连 '+on+' 台'):'未连接';
+  bd.classList.toggle('on',on>0);
   box.innerHTML=devices.map((d,i)=>`
     <div class="card" style="animation-delay:${i*60}ms">
       <div class="chip">${art(kindOf(d.name))}</div>
       <div class="info">
-        <div class="name" title="${esc(d.name)}">${esc(d.name)}
+        <div class="name" title="${esc(d.name)}"><span class="txt">${esc(d.name)}</span>
           ${d.apple?'<span class="tag apple">苹果</span>':'<span class="tag other">其他</span>'}
-          ${i<3?`<span class="prio-mark">优先 ${i+1}</span>`:''}</div>
-        <div class="st" data-st="${esc(d.name)}"><span class="dot ${d.connected?'on':''}"></span>${d.connected?'已连接':'未连接'}</div>
+          <span class="prio-mark">优先 ${i+1}</span></div>
+        <div class="st ${d.connected?'ok':''}" data-st="${esc(d.name)}"><span class="dot ${d.connected?'on':''}"></span>${d.connected?'已连接':'未连接'}</div>
       </div>
       <div class="prio">
         <button class="pbtn" data-up="${i}" ${i===0?'disabled':''} title="提高优先级">▲</button>
@@ -480,7 +490,7 @@ function renderOrb(){
   orb.innerHTML=`${art(kindOf(t.name))}<span class="oname">${esc(t.name)}</span>
     <span class="ost">${t.connected?'已连接 · 点按断开':'未连接 · 点按连接'}</span>`;
   orb.onclick=()=>doAction(null,t.name,t.connected?'disconnect':'connect');
-  hint.textContent=t.connected?'当前首选耳机已连接 ♥':'一键按优先级连接 · 列表 ▲▼ 调整顺序';
+  hint.textContent=t.connected?('当前首选「'+t.name+'」已连接 ♥'):('下一步将连接「'+t.name+'」· 列表 ▲▼ 调整顺序');
 }
 async function movePrio(i,dir){
   const j=i+dir;
@@ -558,11 +568,12 @@ function starLater(){rpc('stardone');closeModal('mStar')}
   try { rpc('bootok','vp='+innerWidth+'x'+innerHeight+' dpr='+devicePixelRatio); } catch(e) {}
   const v=await rpc('getversion');
   document.getElementById('ver').textContent='v'+v;
-  document.getElementById('footver').textContent='v'+v;
   refreshList();
   setInterval(()=>rpc('statuspoll').then(r=>{const d=parseList(r);if(d===null)return;
     if(d.length===devices.length && d.every((x,i)=>x.connected===devices[i].connected)){
       return}
+    // 用户正悬停/操作时推迟重建，避免按钮被连根拔掉（评审 #7 最小防护）
+    if(document.querySelector('.card:hover')||document.querySelector('.busy')){return}
     devices=d;render()}),4000);
 })();
 </script>
