@@ -704,7 +704,7 @@ CheckUpdateReceipt() {
     p := A_ScriptDir "\update_result.txt"   ; 与 DoUpdate 的 exeDir(A_ScriptDir) 一致
     if !FileExist(p)
         return
-    r := Trim(FileRead(p, "UTF-8"))
+    r := Trim(StrReplace(FileRead(p, "UTF-8"), Chr(0xFEFF), ""))   ; 去 BOM（PS5.1 UTF8 写入带 BOM）
     try FileDelete(p)
     if (r = "ok") {
         LogMsg("update swap receipt: ok")
