@@ -544,7 +544,7 @@ async function doUpdate(){
   go.classList.add('busy');go.innerHTML='<span class="spin"></span>更新中';
   const r=await rpc('doupdate',updUrl);
   go.classList.remove('busy');go.innerHTML='🚀 一键更新';
-  st.textContent = (r==='ok')?'✅ 完成，即将重启到新版本…':'更新失败：'+r;
+  st.textContent = (r==='ok')?'✅ 更新包已就绪，正在重启完成替换…（若被安全软件拦截，重启后会如实提醒）':'更新失败：'+r;
   if(r!=='ok'){const g2=document.createElement('button');g2.className='btn ghost';g2.style.cssText='margin-top:8px;padding:7px 16px;font-size:12px';g2.textContent='→ 去发布页手动下载';g2.onclick=()=>rpc('openrelease');st.appendChild(g2)}
 }
 

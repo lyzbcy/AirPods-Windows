@@ -45,6 +45,12 @@ swift build -c release        # 需要 macOS 13+ 和 Xcode CLT
 2. **改完必须更新** `doc/04-项目进度.md` 和 `CHANGELOG.md`
 3. **在用户桌面上跑测试脚本要极其克制**（历史事故：弹窗轰炸用户）
 4. 提交信息写清楚"为什么"；不确定的决策记到 doc/04 待办里问用户
+5. **发 GitHub Release 必须先征得用户明确同意**——软件有真实存量用户，
+   发版=推送给所有用户（2026-09-05 事故：Agent 未征得同意连发 v1.9.0/
+   v1.9.1 两版，被用户严厉指出）。tag/commit/push 随意，**Release 打住**。
+6. **AI 沙箱 shell 拉起的进程带受限令牌**（对既有 exe 只有 RX）——要启动
+   用户侧应用，用 `explorer.exe <path>` 中转或让用户自己启动；沙箱直接
+   Start-Process 的应用连自更新都会静默失败（swapper 继承受限令牌）。
 
 ## 快速事实
 

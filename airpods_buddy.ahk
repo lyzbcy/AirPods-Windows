@@ -10,7 +10,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\WebView2\WebView2.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.1"
+APP_VERSION   := "1.9.2"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -696,6 +696,24 @@ TrayQuickAction(action) {
 }
 
 SetTimer(CheckUpdate, -3000)
+SetTimer(CheckUpdateReceipt, -3500)   ; v1.9.2：核对上次自动更新回执，如实告知
+
+; v1.9.2：上次更新置换的回执（swapper 写入 update_result.txt）。
+; ok → 确认 toast；fail → 多半被 360 等安全软件拦截，如实提醒用户。
+CheckUpdateReceipt() {
+    p := A_ScriptDir "\update_result.txt"   ; 与 DoUpdate 的 exeDir(A_ScriptDir) 一致
+    if !FileExist(p)
+        return
+    r := Trim(FileRead(p, "UTF-8"))
+    try FileDelete(p)
+    if (r = "ok") {
+        LogMsg("update swap receipt: ok")
+        PushEvent("toast", JsonStr("已成功更新到 v" APP_VERSION " ✅"))
+    } else {
+        LogMsg("update swap receipt: " r, "WARN")
+        PushEvent("toast", JsonStr("上次自动更新没完成（多半被安全软件拦截），仍在旧版本。把软件目录加入安全软件信任区后再更新一次即可"))
+    }
+}
 
 
 ; ============ 求好评组件（组件库规范：不打扰用户） ============
@@ -1057,13 +1075,23 @@ DoUpdate(dlUrl) {
         return "无法写入程序目录（权限不足）"
 
     ps1 := A_Temp "\AirPodsBuddy_swapper.ps1"
+    ; v1.9.2：换文件可能被安全软件（360 等）静默拦截 → 一律 -ErrorAction Stop，
+    ; 成败写入 update_result.txt 回执，下次启动核对并如实告知（不再假报成功）。
     FileAppend(
         "param([int]`$OldPid, [string]`$Dir)`n" .
-        "Wait-Process -Id `$OldPid -ErrorAction SilentlyContinue`n" .
-        "Start-Sleep -Milliseconds 800`n" .
-        "Move-Item -LiteralPath (Join-Path `$Dir 'AirPodsBuddy_new.exe') -Destination (Join-Path `$Dir 'AirPodsBuddy.exe') -Force`n" .
-        "Start-Process -FilePath (Join-Path `$Dir 'AirPodsBuddy.exe')`n" .
-        "Remove-Item -LiteralPath `$MyInvocation.MyCommand.Path -Force`n",
+        "try {`n" .
+        "  Wait-Process -Id `$OldPid -ErrorAction SilentlyContinue`n" .
+        "  Start-Sleep -Milliseconds 800`n" .
+        "  Move-Item -LiteralPath (Join-Path `$Dir 'AirPodsBuddy_new.exe') -Destination (Join-Path `$Dir 'AirPodsBuddy.exe') -Force -ErrorAction Stop`n" .
+        "  Set-Content -LiteralPath (Join-Path `$Dir 'update_result.txt') -Value 'ok' -Encoding UTF8`n" .
+        "} catch {`n" .
+        "  Set-Content -LiteralPath (Join-Path `$Dir 'update_result.txt') -Value ('fail ' + `$_.Exception.Message) -Encoding UTF8`n" .
+        "} finally {`n" .
+        "  Start-Process -FilePath (Join-Path `$Dir 'AirPodsBuddy.exe')`n" .
+        "  Start-Sleep -Milliseconds 500`n" .
+        "  Remove-Item -LiteralPath (Join-Path `$Dir 'AirPodsBuddy_new.exe') -Force -ErrorAction SilentlyContinue`n" .
+        "  Remove-Item -LiteralPath `$MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue`n" .
+        "}",
         ps1, "UTF-8")
     Run('powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' ps1 '" -OldPid ' ProcessExist() ' -Dir "' exeDir '"',, "Hide")
     SetTimer((*) => ExitApp(), -1200)   ; give the page time to show the result
