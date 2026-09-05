@@ -10,7 +10,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\WebView2\WebView2.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.3"
+APP_VERSION   := "1.9.4"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -666,11 +666,13 @@ TrayQuickAction(action) {
         SetTrayLoading(true)
         r := DoAction(target.name, "connect")
         SetTrayLoading(false)
-        PetFinish(r = "ok" ? "ok" : "fail")
-        if (r = "ok")
-            TrayTip("AirPods 小助手", "已连接 💕 «" target.name "»", 1)
-        else
+        if (r = "ok") {
+            ; 真实链路由 LinkVerifyTick 异步核实，完成后修正宠物与提示
+            TrayTip("AirPods 小助手", "正在连接 «" target.name "» …", 2)
+        } else {
+            PetFinish("fail")
             TrayTip("AirPods 小助手", "连接失败 «" target.name "»", 3)
+        }
     } else {
         any := false
         first := true
@@ -938,6 +940,10 @@ DoAction(name, action) {
     busy := true
     SetTrayLoading(true)
     if (action = "connect") {
+        ; 用户实测调优（2026-09-05）：先断后连——清掉半死链路，真实成功率显著提高
+        ToggleBluetoothService(dev.info, "{0000111e-0000-1000-8000-00805f9b34fb}", 0, 3)
+        ToggleBluetoothService(dev.info, "{0000110b-0000-1000-8000-00805f9b34fb}", 0, 3)
+        Sleep 400
         hfOn := (audioProfile = "a2dp-hfp") ? 1 : 0
         hf := ToggleBluetoothService(dev.info, "{0000111e-0000-1000-8000-00805f9b34fb}", hfOn, maxRetries)
         a2 := ToggleBluetoothService(dev.info, "{0000110b-0000-1000-8000-00805f9b34fb}", 1, maxRetries)
@@ -951,11 +957,64 @@ DoAction(name, action) {
         LogMsg("DoAction " action " '" name "' failed: HFP=" hf " A2DP=" a2, "WARN")
     busy := false
     SetTrayLoading(false)
-    if (ok && action = "connect") {
-        OnConnectSuccess()
-        StartAudioVerify(name)   ; 蓝牙层 OK ≠ 音频真过来，异步核实
-    }
+    if (ok && action = "connect")
+        StartLinkVerify(name)   ; 服务开关 ok ≠ 真连上，异步核实真实链路
     return ok ? "ok" : "fail"
+}
+
+; v1.9.4：真实链路核实。BluetoothSetServiceState 返回 ok ≠ 真连上
+; （设备太远/没电时照样返回 ok，用户实测 Beats 放远处仍报成功）。
+; 用 fConnected（真实链路位，实测 32=连）判定，约 9 秒内没起来就如实报失败。
+StartLinkVerify(name) {
+    global audioVerifyGen
+    LinkVerifyTick(name, 8, ++audioVerifyGen)
+}
+
+LinkVerifyTick(name, left, gen) {
+    global audioVerifyGen
+    if (gen != audioVerifyGen)
+        return
+    if (IsLinkUp(name)) {
+        LogMsg("link verified: '" name "'")
+        OnConnectSuccess()
+        PetUpdate("ok")
+        TrayTip("AirPods 小助手", "已连接 «" name "» 💕", 1)
+        PushEvent("linkok", JsonStr(name))
+        AudioVerifyTick(name, 7, gen)   ; 链路真通了，继续核实音频通道
+        return
+    }
+    if (left <= 1) {
+        LogMsg("link NOT up after ~9s: '" name "'", "WARN")
+        PetUpdate("fail")
+        TrayTip("AirPods 小助手", "没能连上 «" name "»`n耳机可能不在附近、没电，或正被手机使用", 4)
+        PushEvent("linkfail", JsonStr(name))
+        return
+    }
+    fn := (*) => LinkVerifyTick(name, left - 1, gen)
+    SetTimer(fn, -1200)
+}
+
+IsLinkUp(name) {
+    searchParams := Buffer(40, 0)
+    NumPut("uint", 40, searchParams, 0)
+    NumPut("uint", 1, searchParams, 4)
+    deviceInfo := Buffer(560, 0)
+    NumPut("uint", 560, deviceInfo, 0)
+    handle := DllCall("Bthprops.cpl\BluetoothFindFirstDevice", "ptr", searchParams, "ptr", deviceInfo, "ptr")
+    if !handle
+        return false
+    up := false
+    loop {
+        if (StrGet(deviceInfo.Ptr + 64, "UTF-16") = name) {
+            DllCall("Bthprops.cpl\BluetoothGetDeviceInfo", "ptr", 0, "ptr", deviceInfo, "uint")
+            up := NumGet(deviceInfo, 20, "uint") != 0   ; 位标志，非零即已连接
+            break
+        }
+        if !DllCall("Bthprops.cpl\BluetoothFindNextDevice", "ptr", handle, "ptr", deviceInfo)
+            break
+    }
+    DllCall("Bthprops.cpl\BluetoothFindDeviceClose", "ptr", handle)
+    return up
 }
 
 FindDevByName(name) {

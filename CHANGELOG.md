@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.4] - 2026-09-05
+
+### Added
+- **Honest connect v2 (user-discovered tuning)**: connect now disconnects first, waits 400ms, then re-enables services — clearing half-dead links (user empirically confirmed this raises real success rate). After service toggles, the app polls the REAL link state (`fConnected` via fresh enumeration) for ~9s: only then does it report 已连接; timeout = honest 「没能连上」 with likely causes. Kills the "Beats 放得远远的也报成功" lie. New `linkok`/`linkfail` events; star-ask now counts verified connects only.
+
+### Changed
+- **UI v2.1 (two adversarial-review rounds, direction: 简约/更黄/典雅动画)**: flat bright-yellow orb (#FFC53D) with dark-ink text (WCAG ~9:1) replacing the pseudo-3D brown ball; halo pulse moved to a compositor-friendly ::after; device cards slimmer (12px radius, neutral chips/tags — yellow now appears ONLY on the orb); ▲▼/delete revealed on hover with spring easing (rest state 30% visible, :focus-within fallback, fixed dead :active rule); orb hint no longer repeats the orb text; duplicate apple/other tag removed; modal buttons flattened (primary = near-black, no more brown gradients/inset highlights); pet window recomposed (bigger character, ground shadow, cream speech bubble top-right with tail).
+
 ## [1.9.3] - 2026-09-05
 
 ### Changed

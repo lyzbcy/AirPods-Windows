@@ -6,29 +6,39 @@
 <style>
   /* ============ Apple 风格 · 奶油黄白主题 ============ */
   :root{
-    --bg:#FBF9F4;
+    --bg:#FFFCF0;
     --card:#FFFFFF;
-    --ink:#3D3A35;            /* 深暖灰主文字 */
-    --sub:#8B857A;            /* 次级文字 */
-    --faint:#B6AFA2;
-    --honey:#C89B5A;          /* 蜂蜜主色 */
-    --honey-l:#D4A967;
-    --honey-d:#B0823F;
-    --honey-tint:#F6EFE2;
-    --sage:#7FA88C;           /* 鼠尾草绿：已连接 */
-    --sage-d:#658F73;
-    --sage-tint:#EBF2EC;
-    --danger:#D25744;
-    --line:rgba(0,0,0,.06);
-    --line2:rgba(61,58,53,.10);
+    --ink:#2A241A;            /* 深暖主文字 */
+    --sub:#93876F;            /* 次级文字 */
+    --faint:#BCB19B;
+    --yellow:#FFC53D;         /* 主黄：明亮正向（v2 提黄去棕） */
+    --yellow-l:#FFD24A;
+    --yellow-d:#E0A800;
+    --yellow-deep:#B98A00;
+    --yellow-tint:#FFF3C4;
+    --yellow-soft:#FFFBEA;
+    --sage:#5F9E77;           /* 鼠尾草绿：已连接 */
+    --sage-d:#4E8A65;
+    --sage-tint:#EAF3ED;
+    --danger:#E25B48;
+    --line:rgba(70,50,0,.07);
+    --line2:rgba(70,50,0,.12);
     --ease:cubic-bezier(0.25,0.1,0.25,1);
+    --pop:cubic-bezier(0.34,1.56,0.64,1);   /* 弹出感 */
+    /* 旧名映射（渐进迁移） */
+    --honey:#F0B429;
+    --honey-l:#FFC53D;
+    --honey-d:#B98A00;
+    --honey-tint:#FFF3C4;
   }
   *{margin:0;padding:0;box-sizing:border-box;-webkit-user-select:none;user-select:none}
   html,body{height:100%}
   body{
     font-family:-apple-system,"SF Pro Display","Segoe UI Variable Display","Segoe UI","Microsoft YaHei UI",system-ui,sans-serif;
     font-size:13px;color:var(--ink);overflow:hidden;border-radius:14px;
-    background:linear-gradient(180deg,#FCFAF6 0%,#FBF9F4 55%,#F7F2E9 100%);
+    background:
+      radial-gradient(620px 300px at 50% -90px, rgba(255,197,61,.16), transparent 70%),
+      linear-gradient(180deg,#FFFDF4 0%,#FFFCF0 60%,#FFF7DC 100%);
   }
   button{font-family:inherit}
   .app{height:100%;display:flex;flex-direction:column}
@@ -57,54 +67,60 @@
     transition:background-color .25s var(--ease),color .25s var(--ease),border-color .25s var(--ease)}
   .badge.on{background:var(--sage-tint);color:#5F8A6E;border-color:rgba(127,168,140,.4)}
 
-  /* ===== 主按钮（打磨蜂蜜圆钮） ===== */
-  .hero{display:flex;flex-direction:column;align-items:center;padding:8px 0 10px}
-  .orb{width:150px;height:150px;border-radius:50%;border:none;cursor:pointer;color:#fff;
-    background:radial-gradient(circle at 32% 26%,#E5C48E 0%,#D6AC6E 42%,#C49455 78%,#B98B47 100%);
-    box-shadow:0 8px 22px rgba(181,135,74,.28),0 2px 6px rgba(181,135,74,.16),
-      inset 0 2px 4px rgba(255,255,255,.55),inset 0 -10px 16px rgba(118,84,37,.22);
+  /* ===== 主按钮（v2.1：扁平明黄 + 深墨字，光晕走合成器） ===== */
+  .hero{display:flex;flex-direction:column;align-items:center;padding:6px 0 10px}
+  .orb{position:relative;width:118px;height:118px;border-radius:50%;border:none;cursor:pointer;color:#3D2F00;
+    background:linear-gradient(180deg,#FFD24A 0%,#FFC53D 100%);
+    box-shadow:0 8px 20px rgba(70,50,0,.14);
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
-    transition:transform .2s var(--ease),box-shadow .2s var(--ease),filter .2s var(--ease)}
-  .orb:hover{filter:brightness(1.04)}
-  .orb:active{transform:scale(.96);filter:brightness(.98)}
-  .orb.on{background:radial-gradient(circle at 32% 26%,#A6C7B1 0%,#8FB29C 42%,#7FA88C 78%,#6E967B 100%);
-    box-shadow:0 8px 22px rgba(110,150,123,.26),0 2px 6px rgba(110,150,123,.15),
-      inset 0 2px 4px rgba(255,255,255,.5),inset 0 -10px 16px rgba(74,108,84,.2)}
-  .orb.busy{pointer-events:none;filter:saturate(.6) brightness(.97);opacity:.85}
-  .orb svg{width:40px;height:40px}
-  .orb svg g{stroke:rgba(255,255,255,.95)}
-  .orb .oname{font-size:12.5px;font-weight:600;max-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .orb .ost{font-size:10.5px;opacity:.9}
-  .ohint{font-size:11.5px;color:var(--sub);margin-top:12px;letter-spacing:.2px}
+    transition:transform .22s var(--ease),box-shadow .25s var(--ease),background .25s var(--ease)}
+  .orb::after{content:'';position:absolute;inset:-7px;border-radius:50%;
+    box-shadow:0 0 0 6px rgba(255,197,61,.28);opacity:.35;pointer-events:none;
+    animation:pulse 4.5s ease-in-out infinite}
+  @keyframes pulse{50%{opacity:.85;transform:scale(1.02)}}
+  .orb:hover{transform:translateY(-2px);box-shadow:0 12px 26px rgba(70,50,0,.18)}
+  .orb:hover::after{animation:none;opacity:0}
+  .orb:active{transform:scale(.96)}
+  .orb.on{color:#14351F;background:linear-gradient(180deg,#79B78E 0%,#5F9E77 100%);
+    box-shadow:0 8px 20px rgba(70,50,0,.12)}
+  .orb.on::after{animation:none;opacity:0}
+  .orb.busy{pointer-events:none;opacity:.85;animation:none}
+  .orb.busy::after{animation:none;opacity:0}
+  .orb svg{width:32px;height:32px}
+  .orb svg g{stroke:#3D2F00}
+  .orb.on svg g{stroke:#14351F}
+  .orb .oname{font-size:12.5px;font-weight:700;max-width:104px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .orb .ost{font-size:10.5px;opacity:.62}
+  .ohint{font-size:11px;color:var(--sub);margin-top:10px;letter-spacing:.2px}
 
   /* 分区标题 */
   .sec{display:flex;align-items:center;margin:8px 0 10px;gap:8px}
   .sec h2{font-size:13px;font-weight:600;letter-spacing:.3px;color:var(--ink)}
   .sec .cnt{font-size:11px;color:var(--sub)}
-  .refresh{margin-left:auto;width:28px;height:28px;border:none;border-radius:50%;background:#fff;
-    border:1px solid var(--line);color:var(--honey);cursor:pointer;
+  .refresh{margin-left:auto;width:28px;height:28px;border:none;border-radius:9px;background:#fff;
+    border:1px solid var(--line);color:var(--yellow-d);cursor:pointer;
     display:flex;align-items:center;justify-content:center;
-    box-shadow:0 1px 3px rgba(0,0,0,.04);
-    transition:color .2s var(--ease),transform .2s var(--ease),box-shadow .2s var(--ease)}
-  .refresh:hover{color:var(--honey-d);box-shadow:0 2px 6px rgba(0,0,0,.07)}
+    transition:color .2s var(--ease),transform .2s var(--ease),border-color .2s var(--ease)}
+  .refresh:hover{color:var(--yellow-deep);border-color:rgba(255,181,0,.5)}
   .refresh:active{transform:scale(.9)}
   .refresh svg{transition:transform .5s var(--ease)}
   .refresh.spin svg{transform:rotate(360deg)}
 
-  /* ===== 设备卡：[图标][名字+状态(可收缩)][标签+优先级(固定)][操作(固定)] ===== */
-  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;
-    padding:12px 14px;display:flex;align-items:center;gap:12px;margin-bottom:10px;
-    box-shadow:0 1px 3px rgba(0,0,0,.04);
-    opacity:0;animation:rise .24s var(--ease) forwards;
-    transition:box-shadow .2s var(--ease),border-color .2s var(--ease)}
-  .card:hover{box-shadow:0 4px 12px rgba(0,0,0,.08)}
-  @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+  /* ===== 设备卡：v2 更利落的直率圆角 + 悬停弹出操作面板 ===== */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:11px 12px;display:flex;align-items:center;gap:11px;margin-bottom:9px;
+    box-shadow:0 1px 2px rgba(70,50,0,.04);
+    opacity:0;animation:rise .3s var(--ease) forwards;
+    transition:box-shadow .22s var(--ease),border-color .22s var(--ease),transform .22s var(--ease)}
+  .card:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(70,50,0,.09);
+    border-color:var(--line2)}
+  @keyframes rise{from{opacity:0;transform:translateY(9px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
 
-  .chip{width:44px;height:44px;border-radius:50%;flex:none;background:#F8F3EA;
-    box-shadow:inset 0 1px 2px rgba(255,255,255,.9),inset 0 0 0 1px rgba(0,0,0,.03);
+  .chip{width:40px;height:40px;border-radius:12px;flex:none;background:#F7F4EC;
+    border:1px solid var(--line);
     display:flex;align-items:center;justify-content:center}
-  .chip svg{width:28px;height:28px}
-  .chip svg g{stroke:#A5824C}
+  .chip svg{width:26px;height:26px}
+  .chip svg g{stroke:#8A744F}
 
   .info{flex:1 1 auto;min-width:0}
   /* 名字+标签一行排布：名字可收缩截断，标签自然跟排不占死空间（评审 #5） */
@@ -116,55 +132,63 @@
     border-radius:999px;padding:3.5px 8px;flex:none;white-space:nowrap}
   .tag.apple{background:var(--sage-tint);color:#5F8A6E;border:1px solid rgba(127,168,140,.35)}
   .tag.other{background:#F6F1E7;color:#8A744F;border:1px solid rgba(200,155,90,.32)}
-  .prio-mark{background:var(--honey-tint);color:var(--honey-d);border:1px solid rgba(200,155,90,.38)}
+  .prio-mark{background:#F7F4EC;color:#8A744F;border:1px solid var(--line2)}
 
   .st{display:flex;align-items:center;gap:5px;margin-top:3px;font-size:11px;color:#6F6A5F}
   .st.ok{color:var(--sage-d);font-weight:600}
   .dot{width:7px;height:7px;border-radius:50%;background:#CFC8BB;flex:none}
   .dot.on{background:var(--sage)}
 
-  .prio{display:flex;flex-direction:column;gap:6px;flex:none}
-  .pbtn{width:28px;height:28px;border:none;border-radius:50%;background:#fff;
+  /* 悬停弹出：▲▼ 优先级面板与删除静息若隐若现，移入卡片/键盘聚焦时弹出（评审 P3） */
+  .prio{display:flex;flex-direction:column;gap:6px;flex:none;
+    opacity:.3;transform:translateX(10px) scale(.9);pointer-events:none;
+    transition:opacity .18s var(--ease),transform .24s var(--pop)}
+  .card:hover .prio,.card:focus-within .prio{opacity:1;transform:translateX(0) scale(1);pointer-events:auto}
+  .pbtn{width:28px;height:28px;border:none;border-radius:9px;background:#fff;
     border:1px solid var(--line2);color:#9A927F;font-size:10px;line-height:1;cursor:pointer;
     display:flex;align-items:center;justify-content:center;
-    transition:background-color .2s var(--ease),color .2s var(--ease),transform .2s var(--ease)}
-  .pbtn:hover{background:var(--honey-tint);color:var(--honey-d)}
+    transition:background-color .18s var(--ease),color .18s var(--ease),transform .18s var(--ease),border-color .18s var(--ease)}
+  .pbtn:hover{background:var(--yellow-tint);color:var(--yellow-deep);border-color:rgba(255,181,0,.45)}
   .pbtn:active{transform:scale(.88)}
   .pbtn[disabled]{opacity:.28;pointer-events:none}
 
-  .act{width:44px;height:44px;border-radius:50%;cursor:pointer;flex:none;color:#fff;
-    border:1px solid rgba(255,255,255,.55);
+  .act{width:42px;height:42px;border-radius:50%;border:none;cursor:pointer;flex:none;color:#fff;
     display:flex;align-items:center;justify-content:center;
-    background:linear-gradient(180deg,#D8B076 0%,#C08E4F 100%);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 2px 6px rgba(181,135,74,.35);
-    transition:transform .2s var(--ease),filter .2s var(--ease),box-shadow .2s var(--ease)}
-  .act:hover{filter:brightness(1.05)}
+    background:linear-gradient(180deg,#FFD24A 0%,#FFC53D 100%);
+    box-shadow:0 2px 8px rgba(70,50,0,.10);
+    transition:transform .2s var(--ease),box-shadow .2s var(--ease),background .25s var(--ease)}
+  .act:hover{transform:scale(1.07);box-shadow:0 2px 8px rgba(70,50,0,.14)}
   .act:active{transform:scale(.94)}
-  .act.on{background:linear-gradient(180deg,#93B5A0 0%,#7FA88C 55%,#6E967B 100%);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 2px 6px rgba(110,150,123,.35)}
+  .act.on{background:linear-gradient(180deg,#79B78E 0%,#5F9E77 100%);
+    box-shadow:0 2px 8px rgba(70,50,0,.10)}
   .act.busy{pointer-events:none;opacity:.85}
   .spin{width:15px;height:15px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;
     border-radius:50%;display:inline-block;animation:rot .7s linear infinite}
   @keyframes rot{to{transform:rotate(360deg)}}
 
-  .del{width:28px;height:28px;border:none;border-radius:50%;background:transparent;color:#B3AC9E;
+  .del{width:28px;height:28px;border:none;border-radius:9px;background:transparent;color:#B3AC9E;
     cursor:pointer;flex:none;display:flex;align-items:center;justify-content:center;
-    transition:background-color .2s var(--ease),color .2s var(--ease),transform .2s var(--ease)}
-  .del:hover{background:#F7EAE7;color:var(--danger)}
-  .del:active{transform:scale(.88)}
+    opacity:.3;transform:translateX(10px);pointer-events:none;
+    transition:opacity .18s var(--ease),transform .24s var(--pop),background-color .18s var(--ease),color .18s var(--ease)}
+  .card:hover .del,.card:focus-within .del{opacity:1;transform:translateX(0);pointer-events:auto}
+  .card:hover .del:active{transform:translateX(0) scale(.88)}
+  .del:hover{background:#FDECE9;color:var(--danger)}
+
+  button:focus-visible,.add:focus-visible{outline:2px solid var(--yellow-d);outline-offset:2px}
 
   /* 添加卡 */
-  .add{border:1.5px dashed rgba(61,58,53,.18);border-radius:16px;background:rgba(255,255,255,.55);
-    padding:13px;display:flex;align-items:center;justify-content:center;gap:9px;margin:2px 0 12px;
+  .add{border:1.5px dashed rgba(255,181,0,.5);border-radius:12px;background:rgba(255,251,234,.6);
+    padding:12px;display:flex;align-items:center;justify-content:center;gap:9px;margin:2px 0 12px;
     cursor:pointer;
-    transition:background-color .2s var(--ease),border-color .2s var(--ease),box-shadow .2s var(--ease)}
-  .add:hover{background:#fff;border-color:rgba(200,155,90,.55);box-shadow:0 4px 12px rgba(0,0,0,.06)}
-  .add .plus{width:28px;height:28px;border-radius:50%;color:#fff;font-size:14px;font-weight:600;
+    transition:background-color .2s var(--ease),border-color .2s var(--ease),transform .2s var(--ease)}
+  .add:hover{background:#fff;border-color:rgba(255,181,0,.85);transform:translateY(-1px)}
+  .add .plus{width:26px;height:26px;border-radius:50%;color:#fff;font-size:14px;font-weight:600;
     display:flex;align-items:center;justify-content:center;
-    background:linear-gradient(180deg,#D8B076,#C08E4F);
-    border:1px solid rgba(255,255,255,.55);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 1px 3px rgba(181,135,74,.3)}
-  .add span{font-size:12px;color:var(--honey-d);font-weight:500;letter-spacing:.3px}
+    background:linear-gradient(180deg,#FFD24A,#FFC53D);
+    box-shadow:0 2px 8px rgba(255,181,0,.35);
+    transition:transform .2s var(--pop)}
+  .add:hover .plus{transform:rotate(90deg)}
+  .add span{font-size:12px;color:var(--yellow-deep);font-weight:500;letter-spacing:.3px}
 
   .empty{text-align:center;padding:20px 0 8px;animation:rise .24s var(--ease) both}
   .empty img{width:80px;height:80px}
@@ -227,17 +251,13 @@
     transition:transform .2s var(--ease),filter .2s var(--ease),box-shadow .2s var(--ease),
       background-color .2s var(--ease),border-color .2s var(--ease),color .2s var(--ease)}
   .btn:active{transform:scale(.97)}
-  .btn.primary{color:#fff;border:1px solid rgba(255,255,255,.55);
-    background:linear-gradient(180deg,#D4A967 0%,#C08E4F 100%);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 1px 3px rgba(181,135,74,.4)}
-  .btn.primary:hover{filter:brightness(1.05)}
-  .btn.ghost{background:linear-gradient(180deg,#FFFFFF,#FBF8F1);color:var(--ink);
+  .btn.primary{color:#FFF9EF;background:#2A241A;box-shadow:none}
+  .btn.primary:hover{background:#3A3123}
+  .btn.ghost{background:#fff;color:var(--ink);
     border:1px solid rgba(0,0,0,.10);box-shadow:0 1px 2px rgba(0,0,0,.04)}
   .btn.ghost:hover{border-color:rgba(0,0,0,.16);box-shadow:0 2px 6px rgba(0,0,0,.06)}
-  .btn.danger{color:#fff;border:1px solid rgba(255,255,255,.5);
-    background:linear-gradient(180deg,#DE6A57 0%,#D25744 100%);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 1px 3px rgba(210,87,68,.35)}
-  .btn.danger:hover{filter:brightness(1.05)}
+  .btn.danger{color:#fff;background:#E25B48;box-shadow:none}
+  .btn.danger:hover{background:#C94B39}
   .btn.busy{pointer-events:none;opacity:.85;min-width:64px}
 </style>
 </head>
@@ -368,7 +388,9 @@ const SEP='\x1F'; let seq=0; const pending={};
 function rpc(cmd,...args){const id=++seq;chrome.webview.postMessage(cmd+SEP+id+SEP+args.join(SEP));return new Promise(r=>pending[id]=r)}
 window.__rpc=(id,data)=>{const f=pending[id];if(f){f(data);delete pending[id]}};
 window.__event=(name,data)=>{if(name==='update')showUpdate(data);if(name==='starask')showStarAsk();
-  if(name==='toast')toast(data);if(name==='audioheld')onAudioHeld(data)};
+  if(name==='toast')toast(data);if(name==='audioheld')onAudioHeld(data);
+  if(name==='linkok'){toast('已连接 💕');refreshList()}
+  if(name==='linkfail'){toast('没能连上：耳机可能不在附近、没电，或正被手机占用');refreshList()}};
 /* forward JS errors to the AHK-side log */
 window.addEventListener('error',e=>{try{chrome.webview.postMessage('jserror'+SEP+'0'+SEP+((e.message||'unknown')+' @ '+(e.filename||'inline')+':'+(e.linno||e.lineno||0)))}catch(_){}});
 window.addEventListener('unhandledrejection',e=>{try{chrome.webview.postMessage('jserror'+SEP+'0'+SEP+('promise: '+((e.reason&&e.reason.message)||String(e.reason))))}catch(_){}});
@@ -457,7 +479,6 @@ function render(){
       <div class="chip">${art(kindOf(d.name))}</div>
       <div class="info">
         <div class="name" title="${esc(d.name)}"><span class="txt">${esc(d.name)}</span>
-          ${d.apple?'<span class="tag apple">苹果</span>':'<span class="tag other">其他</span>'}
           <span class="prio-mark">优先 ${i+1}</span></div>
         <div class="st ${d.connected?'ok':''}" data-st="${esc(d.name)}"><span class="dot ${d.connected?'on':''}"></span>${d.connected?'已连接':'未连接'}</div>
       </div>
@@ -490,7 +511,7 @@ function renderOrb(){
   orb.innerHTML=`${art(kindOf(t.name))}<span class="oname">${esc(t.name)}</span>
     <span class="ost">${t.connected?'已连接 · 点按断开':'未连接 · 点按连接'}</span>`;
   orb.onclick=()=>doAction(null,t.name,t.connected?'disconnect':'connect');
-  hint.textContent=t.connected?('当前首选「'+t.name+'」已连接 ♥'):('下一步将连接「'+t.name+'」· 列表 ▲▼ 调整顺序');
+  hint.textContent=t.connected?('「'+t.name+'」已连接 ♥'):('下一步将连接「'+t.name+'」');
 }
 async function movePrio(i,dir){
   const j=i+dir;
@@ -509,7 +530,7 @@ async function doAction(btn,name,act){
   document.getElementById('badge').textContent=(act==='connect'?'连接中…':'断开中…');
   const r=await rpc(act,name);
   b.classList.remove('busy');b.className=cls;b.innerHTML=restore;
-  if(r==='ok') toast((act==='connect'?'已连接 💕':'已断开 💤'));
+  if(r==='ok') toast((act==='connect')?'正在连接，稍候确认…':'已断开 💤');
   else toast('操作失败，请重试');
   refreshList();
 }
