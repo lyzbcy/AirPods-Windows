@@ -64,9 +64,15 @@ swift build -c release        # 需要 macOS 13+ 和 Xcode CLT
 - ⚠️ **不要直接运行共享文件夹里的 dist\AirPodsBuddy.exe**——dist 在
   gitignore 里，同步不保证最新（2026-08-19 事故：用户跑了共享目录里的
   v1.3.1 旧 exe，抱怨"图标不更新"，其实 v1.4.0 部署在 AppData 没被运行）。
-  Windows 上正确入口 = 桌面快捷方式（指向
-  `%LOCALAPPDATA%\BluetoothDeviceConnector\AirPodsBuddy.exe`）。
   判断跑的是哪个：看日志 boot 行的 scriptdir。
+- ⚠️ **（2026-09-05 起）用户机常驻目录 = `C:\Users\24676\Desktop\AirPodsBuddy\`**，
+  桌面/启动快捷方式都指向这里。旧 `%LOCALAPPDATA%\BluetoothDeviceConnector\`
+  里的 exe 被 360 内核驱动冻结（删/改全拒，ACL 全绿也拦——360AntiSteal/
+  360Box64/360FsFlt 在 360 界面退出后仍然驻留！），已成弃子，别再往那部署。
+  该目录可写 → 应用内自更新恢复正常。
+- ⚠️ **360 的驱动不随界面退出而卸载**，"退出 360"后写文件照样被拦。
+  要么 360 信任区加目录、要么彻底卸载/重启验证。bat 必须 CRLF+纯 ASCII
+  （LF-only 会被 cmd 解析成碎片命令报错）。
 
 - 本文件夹是**含 .git 的完整仓库副本**（E:\共享\创业\BluetoothDeviceConnector）
 - **在 Mac 上开工前**：`git pull --rebase origin main`（拿远端最新）
