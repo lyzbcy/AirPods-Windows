@@ -238,7 +238,8 @@
   .qr{flex:1;background:#FCFAF5;border:1px solid var(--line);border-radius:12px;padding:12px 8px;text-align:center;
     transition:background-color .2s var(--ease)}
   .qr:hover{background:#fff}
-  .qr img{width:100px;height:100px;border-radius:8px}
+  .qr{min-width:0}
+  .qr img{width:100%;max-width:100px;height:auto;aspect-ratio:1/1;border-radius:8px}
   .qr b{font-size:12px;display:block;margin-top:8px;font-weight:600}
   .qr span{font-size:10.5px;color:var(--sub)}
   .upd-meta{font-size:12px;color:var(--sub);margin:14px 0 2px;background:#FAF7F0;
@@ -259,6 +260,8 @@
   .btn.danger{color:#fff;background:#E25B48;box-shadow:none}
   .btn.danger:hover{background:#C94B39}
   .btn.busy{pointer-events:none;opacity:.85;min-width:64px}
+  #fbSend{background:linear-gradient(180deg,#FFD24A,#FFC53D);color:#3D2F00;padding:10px 24px;font-size:13px;border:none}
+  #fbSend:hover{background:linear-gradient(180deg,#FFD24A,#F0B429)}
 
   /* ===== 设置 ===== */
   .set-row{display:flex;align-items:center;gap:14px;margin-top:14px;background:#FAF7F0;
@@ -277,6 +280,46 @@
   .switch input:checked + .slider::after{transform:translateX(20px)}
   .switch input:disabled + .slider{opacity:.5;cursor:not-allowed}
   .auto-hint{font-size:11.5px;color:var(--danger);margin-top:8px}
+
+  /* ===== 关于弹窗：Star 卡（近黑+金星，"贵"）与意见反馈 ===== */
+  .star-card{display:flex;align-items:center;gap:12px;width:100%;margin-top:12px;
+    padding:13px 15px;border:none;border-radius:14px;cursor:pointer;text-align:left;
+    background:#262019;border:1px solid rgba(255,212,74,.28);color:#FFF9EF;
+    transition:transform .2s var(--ease),box-shadow .22s var(--ease),border-color .22s var(--ease)}
+  .star-card:hover{transform:translateY(-2px);border-color:rgba(255,212,74,.55);
+    box-shadow:0 10px 26px rgba(38,32,25,.35)}
+  .star-card:active{transform:scale(.98)}
+  .star-ico{width:38px;height:38px;border-radius:11px;flex:none;
+    display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(180deg,#FFD24A,#F0B429);color:#3D2F00;
+    font-size:19px;font-weight:800;box-shadow:0 2px 8px rgba(255,197,61,.35)}
+  .star-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .star-txt b{font-size:13.5px;font-weight:700}
+  .star-txt i{font-style:normal;font-size:11.5px;opacity:.62}
+  .star-go{flex:none;font-size:15px;opacity:.55;transition:transform .2s var(--ease)}
+  .star-card:hover .star-go{transform:translateX(3px);opacity:.9}
+  .fb-ico{background:var(--yellow-soft);color:var(--yellow-deep);box-shadow:none;border:1px solid rgba(255,181,0,.25)}
+  .fb-card{margin-top:12px;background:#fff;border:1px solid var(--line);border-radius:14px;
+    overflow:hidden;transition:border-color .22s var(--ease),box-shadow .22s var(--ease),background .22s var(--ease)}
+  .fb-card.open{border-color:rgba(255,181,0,.45);background:#FFFDF6;box-shadow:0 6px 18px rgba(224,168,0,.12)}
+  .fb-open{display:flex;align-items:center;gap:12px;width:100%;padding:12px 15px;
+    border:none;background:transparent;cursor:pointer;text-align:left;color:var(--ink)}
+  .fb-arrow{transition:transform .22s var(--ease)}
+  .fb-card.open .fb-arrow{transform:rotate(180deg)}
+  .fb-body{max-height:0;overflow:hidden;transition:max-height .28s var(--ease);
+    display:flex;flex-direction:column;gap:8px;padding:0 15px}
+  .fb-card.open .fb-body{max-height:300px;padding-bottom:13px}
+  .fb-body textarea{width:100%;resize:none;border:1px solid var(--line2);border-radius:10px;
+    padding:9px 11px;font-family:inherit;font-size:12.5px;color:var(--ink);background:#FCFAF4;
+    outline:none;transition:border-color .2s var(--ease)}
+  .fb-body textarea:focus{border-color:rgba(255,181,0,.55)}
+  .fb-foot{display:flex;align-items:center;justify-content:space-between}
+  .fb-count{font-size:10.5px;color:var(--sub)}
+  .fb-card .star-txt i{opacity:.75}
+  .fb-fine{font-size:10.5px;color:var(--faint)}
+  .fb-fine u{cursor:pointer;color:var(--honey-d)}
+  .fb-done{display:none;padding:16px 15px;text-align:center;font-size:13px;font-weight:600;
+    color:var(--sage-d);background:var(--sage-tint);border-radius:12px;margin:10px 15px 13px}
 </style>
 </head>
 <body>
@@ -363,13 +406,37 @@
   <div class="dlg">
     <h3><img src="assets/face_cheer.png">关于捞鱼 🐟</h3>
     <div class="desc">和星星布丁一起做的开源小工具 · 用爱发电</div>
+
+    <button class="star-card" onclick="rpc('openrepo')">
+      <span class="star-ico"><svg viewBox="0 0 24 24" width="20" height="20" fill="#3D2F00"><path d="M12 2.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5-5.8-3-5.8 3 1.1-6.5L2.6 9.3l6.5-.9z"/></svg></span>
+      <span class="star-txt"><b>给项目点个 Star</b><i>开源免费 · 你的 Star 就是最大的鼓励</i></span>
+      <span class="star-go"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>
+    </button>
+
+    <div class="fb-card">
+      <button class="fb-open" onclick="fbToggle()">
+        <span class="star-ico fb-ico"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.3c-1.5 0-2.9-.3-4.1-1L3 20l1.3-4.1A8.3 8.3 0 0 1 3.5 11.5 8.4 8.4 0 0 1 12 3.2a8.4 8.4 0 0 1 9 8.3z"/></svg></span>
+        <span class="star-txt"><b>提意见 / 反馈问题</b><i>一句话直达开发者，不用注册不用跳转</i></span>
+        <span class="star-go fb-arrow" id="fbArrow"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
+      </button>
+      <div class="fb-body" id="fbBody">
+        <textarea id="fbText" maxlength="1000" rows="3" placeholder="bug、建议、想说的都可以，一句话也行…"></textarea>
+        <div class="fb-foot">
+          <span class="fb-count" id="fbCount">0 / 1000</span>
+          <button class="btn primary" id="fbSend" onclick="fbSend()">发送</button>
+        </div>
+        <div class="fb-fine">直发开发者微信，仅用于产品改进 · 也可以 <u onclick="fbIssue()">去 GitHub 提 issue</u></div>
+      </div>
+      <div class="fb-done" id="fbDone">✓ 已送达，捞鱼收到了，谢谢你！💕</div>
+    </div>
+
     <div class="qrs">
       <div class="qr"><img src="assets/qq-group.jpg"><b>粉丝群</b><span>一起摸鱼聊技术</span></div>
       <div class="qr"><img src="assets/reward-qr.jpg"><b>赞赏码</b><span>请我喝杯奶茶</span></div>
       <div class="qr"><img src="assets/sticker-qr.png"><b>表情包</b><span>超可爱快收藏</span></div>
     </div>
     <div class="row">
-      <button class="btn primary" onclick="closeModal('mAbout')">知道啦</button>
+      <button class="btn ghost" onclick="closeModal('mAbout')">知道啦</button>
     </div>
   </div>
 </div>
@@ -597,7 +664,45 @@ function openModal(id){const m=document.getElementById(id);m.classList.add('open
 function closeModal(id){const m=document.getElementById(id);m.classList.remove('in');
   setTimeout(()=>m.classList.remove('open'),260)}
 document.querySelectorAll('.mask').forEach(m=>m.onclick=e=>{if(e.target===m)closeModal(m.id)});
-function openAbout(){openModal('mAbout')}
+function openAbout(){
+  openModal('mAbout');
+  const t=document.getElementById('fbText');
+  document.getElementById('fbCount').textContent=t.value.length+' / 1000';
+  // 每次打开重置反馈区
+  const card=document.querySelector('#mAbout .fb-card');
+  card.classList.remove('open');
+  document.getElementById('fbDone').style.display='none';
+  document.getElementById('fbBody').style.display='flex';
+}
+function fbToggle(){
+  const card=document.querySelector('#mAbout .fb-card');
+  card.classList.toggle('open');
+  if(card.classList.contains('open')) setTimeout(()=>document.getElementById('fbText').focus(),240);
+}
+document.getElementById('fbText').addEventListener('input',e=>{
+  document.getElementById('fbCount').textContent=e.target.value.length+' / 1000';
+});
+function fbSend(){
+  let t=document.getElementById('fbText').value.replace(//g,'').trim();
+  if(!t){toast('先写点什么吧～');return}
+  const btn=document.getElementById('fbSend');
+  btn.classList.add('busy');btn.innerHTML='<span class="spin"></span>';
+  rpc('sendfeedback',t).then(r=>{
+    btn.classList.remove('busy');btn.textContent='发送';
+    if(r==='ok'){
+      document.getElementById('fbBody').style.display='none';
+      document.getElementById('fbDone').style.display='block';
+    } else if(r==='nochan'){
+      toast('直达通道还没配置，已为你打开 GitHub 反馈页');
+      fbIssue();
+    } else toast('发送失败，请检查网络后重试');
+  });
+}
+function fbIssue(){
+  const t=document.getElementById('fbText').value.trim()||'(用户未填写)';
+  const u='https://github.com/lyzbcy/AirPods-Windows/issues/new?title='+encodeURIComponent('用户反馈')+'&body='+encodeURIComponent(t);
+  rpc('openurl',u);
+}
 
 /* ---------- update ---------- */
 let updUrl='';

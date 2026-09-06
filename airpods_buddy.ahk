@@ -10,7 +10,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\WebView2\WebView2.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.5"
+APP_VERSION   := "1.9.6"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -702,6 +702,45 @@ SetTimer(CheckUpdateReceipt, -3500)   ; v1.9.2：核对上次自动更新回执�
 
 ; v1.9.2：上次更新置换的回执（swapper 写入 update_result.txt）。
 ; ok → 确认 toast；fail → 多半被 360 等安全软件拦截，如实提醒用户。
+; ------------------------- 意见反馈（v1.9.6） -------------------------
+; 通道：企业微信群机器人 webhook（免注册免跳转，直发用户手里）。
+; webhook 存 app_settings.ini 的 feedback_webhook，可随时换 key 不用重编译。
+; 未配置 → 返回 "nochan"，前端降级为打开预填好的 GitHub issue。
+SendFeedback(text) {
+    s := Trim(text)
+    if (s = "")
+        return "empty"
+    if (StrLen(s) > 1000)
+        s := SubStr(s, 1, 1000)
+    webhook := SettingRead("feedback_webhook", "")
+    if (webhook = "")
+        return "nochan"
+    content := "📮 **AirPods 小助手 意见反馈**`n> " s "`n`n— v" APP_VERSION " · Windows"
+    payload := '{"msgtype":"markdown","markdown":{"content":' JsonStr(content) '}}'
+    try {
+        wh := ComObject("WinHttp.WinHttpRequest.5.1")
+        wh.Open("POST", webhook, false)
+        wh.SetRequestHeader("Content-Type", "application/json")
+        ; 以 UTF-8 字节发送（WinHttp 直接发 BSTR 会走系统码页，中文变乱码）
+        len := StrPut(payload, "UTF-8") - 1
+        buf := Buffer(len, 0)
+        StrPut(payload, buf, len + 1, "UTF-8")
+        arr := ComObjArray(0x11, len)   ; VT_UI1
+        Loop len
+            arr[A_Index - 1] := NumGet(buf, A_Index - 1, "uchar")
+        wh.Send(arr)
+        if (wh.Status = 200) {
+            LogMsg("feedback delivered (" StrLen(s) " chars)")
+            return "ok"
+        }
+        LogMsg("feedback http status " wh.Status, "WARN")
+        return "fail"
+    } catch as e {
+        LogMsg("feedback send failed: " e.Message, "WARN")
+        return "fail"
+    }
+}
+
 ; ------------------------- 开机自启动（v1.9.5 设置项） -------------------------
 ; 机制：HKCU Run 键（任务管理器→启动应用 可见可逆，免管理员）。
 ; 兼容旧版启动文件夹快捷方式（存在即视为已开启，切换时迁移到注册表）。
@@ -914,6 +953,8 @@ WebMessageHandler(core, args) {
         case "doupdate":          Reply(id, JsonStr(DoUpdate(arg1)))
         case "getautostart":      Reply(id, JsonStr(AutostartEnabled()))
         case "setautostart":      Reply(id, JsonStr(AutostartSet(arg1 = "1")))
+        case "sendfeedback":      Reply(id, JsonStr(SendFeedback(arg1)))
+        case "openurl":           Run(arg1), Reply(id, "true")
         default:                  Reply(id, "null")
     }
 }

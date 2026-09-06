@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.6] - 2026-09-06
+
+### Added
+- **关于捞鱼 v2：Star 卡 + 内联意见反馈**。Star 卡（近黑底金星）一键直达仓库；「提意见」展开内联输入框，一键直发开发者企业微信群机器人（webhook 存于 app_settings.ini 的 feedback_webhook，可随时换 key）——零注册零跳转。未配置 webhook 时自动降级为打开预填好的 GitHub issue。字数计数同步、发送 busy 防重、成功态整卡换肤。
+- **对抗评审三处修正落地**：二维码行溢出修复（对齐线归位）；发送键金色化（消双黑打架）；★💬→▾ 四处字符图标统一为 SVG 描边语言 + 计数器同步 + 展开态激活感 + 垂直节奏 12/16 网格。
+
 ## [1.9.5] - 2026-09-06
 
 ### Added
