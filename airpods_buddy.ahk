@@ -293,9 +293,9 @@ WatchFlap() {
         cnt := StrLen(fresh) ? StrSplit(fresh, "|").Length : 0
         if (cnt < 3)
             continue
-        last := flapAdvised.Has(key) ? flapAdvised[key] : 0
-        if DateDiff(A_Now, last, "Seconds") <= 300
-            continue
+        last := flapAdvised.Has(key) ? flapAdvised[key] : ""
+        if (last != "" && DateDiff(A_Now, last, "Seconds") <= 300)
+            continue   ; 5 分钟冷却（对审计 #1：DateDiff(…,0,…)=ValueError，哨兵必须为空串）
         flapAdvised[key] := A_Now
         flapLog[key] := ""
         LogMsg("flap detected: '" key "' x" cnt "/120s", "WARN")

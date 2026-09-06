@@ -513,7 +513,7 @@ function rpc(cmd,...args){const id=++seq;chrome.webview.postMessage(cmd+SEP+id+S
 window.__rpc=(id,data)=>{const f=pending[id];if(f){f(data);delete pending[id]}};
 window.__event=(name,data)=>{if(name==='update')showUpdate(data);if(name==='starask')showStarAsk();
   if(name==='toast')toast(data);if(name==='audioheld')onAudioHeld(data);
-  if(name==='linkok'){toast('已连接 💕');refreshList()}
+  if(name==='linkok'){toast('已连接 💕');flapSet.clear();refreshList()}
   if(name==='linkfail'){toast('没能连上：耳机可能不在附近、没电，或正被手机占用');refreshList()}
   if(name==='flapping')onFlapping(data)};
 /* forward JS errors to the AHK-side log */
@@ -564,7 +564,7 @@ const playSvg='<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColo
 const stopSvg='<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5"/></svg>';
 
 /* ---------- rendering ---------- */
-let devices=[];
+let devices=[];const flapSet=new Set();
 function orbTarget(){for(const d of devices)if(!d.connected)return d;return devices[0]||null}
 function parseList(r){
   try{return JSON.parse(r||'[]')}
@@ -605,7 +605,7 @@ function render(){
       <div class="info">
         <div class="name" title="${esc(d.name)}"><span class="txt">${esc(d.name)}</span>
           <span class="prio-mark">优先 ${i+1}</span></div>
-        <div class="st ${d.connected?'ok':''}" data-st="${esc(d.name)}"><span class="dot ${d.connected?'on':''}"></span>${d.connected?'已连接':'未连接'}</div>
+        <div class="st ${d.connected?'ok':''}" data-st="${esc(d.name)}"><span class="dot ${d.connected?'on':''}"></span>${d.connected?(flapSet.has(d.name)?'已连接 · ⚠ 来回跳（手机/电脑在抢）':'已连接'):(flapSet.has(d.name)?'⚠ 连接来回跳（手机/电脑在抢）':'未连接')}</div>
       </div>
       <div class="prio">
         <button class="pbtn" data-up="${i}" ${i===0?'disabled':''} title="提高优先级">▲</button>
@@ -668,8 +668,7 @@ function onAudioHeld(name){
 }
 function onFlapping(name){
   toast('⚠️ 检测到「'+name+'」连接来回跳：多半是手机在抢，暂停手机蓝牙后重连一次即可锁定');
-  const st=document.querySelector('[data-st="'+CSS.escape(name)+'"]');
-  if(st) st.innerHTML='<span class="dot on"></span>⚠ 连接不稳定（手机/电脑在抢）';
+  flapSet.add(name);render();
 }
 
 let delTarget='';
