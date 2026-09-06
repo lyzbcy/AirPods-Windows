@@ -712,6 +712,7 @@ SendFeedback(text) {
         return "empty"
     if (StrLen(s) > 1000)
         s := SubStr(s, 1, 1000)
+    s := RegExReplace(s, "[\xDC00-\xDFFF]$", "")   ; 截断可能切裂 emoji 代理对
     webhook := SettingRead("feedback_webhook", "")
     if (webhook = "")
         webhook := "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=93bbfb6e-6d93-437e-a8ab-605062cc5db5"
@@ -725,7 +726,14 @@ SendFeedback(text) {
     respFile := A_Temp "\AirPodsBuddy_fb_resp.txt"
     try FileDelete(jsonFile)
     try FileDelete(respFile)
-    FileAppend(payload, jsonFile, "UTF-8-RAW")
+    try {
+        f := FileOpen(jsonFile, "w", "UTF-8-RAW")   ; "w"=覆盖语义；UTF-8-RAW=无 BOM（带 BOM 企微 API 拒收但 HTTP=200）
+        f.Write(payload)
+        f.Close()
+    } catch {
+        LogMsg("feedback: payload write failed", "WARN")
+        return "net"
+    }
     ps := "$ErrorActionPreference='Stop'`n"
     ps .= "try {`n"
     ps .= "  $b=[IO.File]::ReadAllBytes($args[0])`n"
@@ -734,7 +742,13 @@ SendFeedback(text) {
     ps .= "  exit 0`n"
     ps .= "} catch { exit 1 }"
     enc := B64Utf16(ps)
-    ec := RunWait("powershell.exe", ' -NoProfile -ExecutionPolicy Bypass -EncodedCommand ' enc ' "' jsonFile '" "' webhook '" "' respFile '"',, "Hide")
+    ; RunWait 签名：Target[, WorkingDir, Options, &PID] —— 参数必须并进 Target 单串（P0 修复）
+    target := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand " enc " \"" jsonFile "\" \"" webhook "\" \"" respFile "\""
+    try ec := RunWait(target, , "Hide")
+    catch {
+        LogMsg("feedback: powershell launch failed", "WARN")
+        ec := -1
+    }
     r := ""
     try r := FileRead(respFile, "UTF-8")
     try FileDelete(respFile)
@@ -954,7 +968,7 @@ WebMessageHandler(core, args) {
         return
     }
     if (cmd != "statuspoll")
-        LogMsg("rpc: " msg)
+        LogMsg(cmd = "sendfeedback" ? "rpc: sendfeedback (" StrLen(arg1) " chars)" : "rpc: " msg)
 
     switch cmd {
         ; NOTE: Reply() injects its payload as a raw JS expression. Anything that

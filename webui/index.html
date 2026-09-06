@@ -696,14 +696,22 @@ function fbToggle(){
 document.getElementById('fbText').addEventListener('input',e=>{
   document.getElementById('fbCount').textContent=e.target.value.length+' / 1000';
 });
+let fbSending=false;
 function fbSend(){
-  let t=document.getElementById('fbText').value.replace(//g,'').trim();
+  if(fbSending) return;
+  let t=document.getElementById('fbText').value.replace(/[ --]/g,'').trim();
   if(!t){toast('先写点什么吧～');return}
   const btn=document.getElementById('fbSend');
+  fbSending=true;
   btn.classList.add('busy');btn.innerHTML='<span class="spin"></span>';
-  rpc('sendfeedback',t).then(r=>{
-    btn.classList.remove('busy');btn.textContent='发送';
+  Promise.race([
+    rpc('sendfeedback',t),
+    new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),25000))
+  ]).then(r=>{
+    btn.classList.remove('busy');btn.textContent='发送';fbSending=false;
     if(r==='ok'){
+      document.getElementById('fbText').value='';
+      document.getElementById('fbCount').textContent='0 / 1000';
       document.getElementById('fbBody').style.display='none';
       document.getElementById('fbFail').style.display='none';
       document.getElementById('fbDone').style.display='block';
@@ -720,6 +728,10 @@ function fbSend(){
       document.getElementById('fbFailWhy').textContent='发送失败：'+txt;
       document.getElementById('fbFail').style.display='block';
     }
+  }).catch(()=>{
+    btn.classList.remove('busy');btn.textContent='发送';fbSending=false;
+    document.getElementById('fbFailWhy').textContent='发送超时：网络不通，或被安全软件/防火墙拦截了联网';
+    document.getElementById('fbFail').style.display='block';
   });
 }
 function fbCopy(){
