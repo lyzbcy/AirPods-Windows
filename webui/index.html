@@ -212,14 +212,19 @@
   .mask{position:fixed;inset:0;background:rgba(52,48,41,.30);
     backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
     display:none;align-items:center;justify-content:center;z-index:40;opacity:0;
+    padding:18px;overflow-y:auto;scrollbar-width:none;
     transition:opacity .2s var(--ease)}
+  .mask::-webkit-scrollbar{display:none}
   .mask.open{display:flex}
   .mask.in{opacity:1}
-  .dlg{background:#fff;border-radius:20px;width:min(400px,88%);
+  /* 弹窗限高+内部滚动：提意见展开/失败面板出现时「知道啦」永远可达（用户 2026-09-06） */
+  .dlg{background:#fff;border-radius:20px;width:min(400px,88%);max-height:100%;
+    overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;
     border:1px solid rgba(0,0,0,.05);
     box-shadow:0 24px 60px rgba(56,52,45,.24),0 4px 14px rgba(56,52,45,.10);
     padding:24px 24px 20px;
     transform:scale(.96) translateY(8px);transition:transform .2s var(--ease)}
+  .dlg::-webkit-scrollbar{display:none}
   .mask.in .dlg{transform:none}
   .dlg h3{font-size:16px;font-weight:600;display:flex;align-items:center;gap:10px;color:var(--ink)}
   .dlg h3 img{width:38px;height:38px;border-radius:10px;border:1px solid rgba(0,0,0,.06);
@@ -509,7 +514,8 @@ window.__rpc=(id,data)=>{const f=pending[id];if(f){f(data);delete pending[id]}};
 window.__event=(name,data)=>{if(name==='update')showUpdate(data);if(name==='starask')showStarAsk();
   if(name==='toast')toast(data);if(name==='audioheld')onAudioHeld(data);
   if(name==='linkok'){toast('已连接 💕');refreshList()}
-  if(name==='linkfail'){toast('没能连上：耳机可能不在附近、没电，或正被手机占用');refreshList()}};
+  if(name==='linkfail'){toast('没能连上：耳机可能不在附近、没电，或正被手机占用');refreshList()}
+  if(name==='flapping')onFlapping(data)};
 /* forward JS errors to the AHK-side log */
 window.addEventListener('error',e=>{try{chrome.webview.postMessage('jserror'+SEP+'0'+SEP+((e.message||'unknown')+' @ '+(e.filename||'inline')+':'+(e.linno||e.lineno||0)))}catch(_){}});
 window.addEventListener('unhandledrejection',e=>{try{chrome.webview.postMessage('jserror'+SEP+'0'+SEP+('promise: '+((e.reason&&e.reason.message)||String(e.reason))))}catch(_){}});
@@ -659,6 +665,11 @@ function onAudioHeld(name){
   toast('⚠️ 已连上，但声音还被手机占着：暂停手机音乐后，再点一次连接即可抢过来');
   const st=document.querySelector('[data-st="'+CSS.escape(name)+'"]');
   if(st) st.innerHTML='<span class="dot on"></span>已连接 · 音频被手机占用';
+}
+function onFlapping(name){
+  toast('⚠️ 检测到「'+name+'」连接来回跳：多半是手机在抢，暂停手机蓝牙后重连一次即可锁定');
+  const st=document.querySelector('[data-st="'+CSS.escape(name)+'"]');
+  if(st) st.innerHTML='<span class="dot on"></span>⚠ 连接不稳定（手机/电脑在抢）';
 }
 
 let delTarget='';

@@ -10,7 +10,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\WebView2\WebView2.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.7"
+APP_VERSION   := "1.9.8"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -261,6 +261,47 @@ WatchTrayState() {
     FindAllAudioDevices()
     SortDevices()
     UpdateTrayIcon()
+    WatchFlap()
+}
+
+; 连接来回跳检测（v1.9.8，用户 2026-09-06）：手机/电脑抢耳机或链路不稳时
+; 连接状态反复翻转。120 秒窗口内翻转 ≥3 次 = 横跳，提示用户（5 分钟冷却）。
+; 只提示不自动动作：自动重连会跟手机抢得更凶，决策权交给用户（doc/04 待办调研）。
+flapLog := {}      ; name -> "|"-连接的时间戳串
+flapPrev := {}     ; name -> 上次连接状态(1/0)
+flapAdvised := {}  ; name -> 上次提示时刻
+
+WatchFlap() {
+    global devices, flapLog, flapPrev, flapAdvised
+    for dev in devices {
+        key := dev.name
+        now := dev.connected ? 1 : 0
+        if !flapPrev.Has(key) {
+            flapPrev[key] := now
+            continue
+        }
+        if (flapPrev[key] = now)
+            continue
+        flapPrev[key] := now
+        stamps := flapLog.Has(key) ? flapLog[key] : ""
+        stamps .= (stamps = "" ? "" : "|") A_Now
+        fresh := ""
+        for _, t in StrSplit(stamps, "|")
+            if DateDiff(A_Now, t, "Seconds") <= 120
+                fresh .= (fresh = "" ? "" : "|") t
+        flapLog[key] := fresh
+        cnt := StrLen(fresh) ? StrSplit(fresh, "|").Length : 0
+        if (cnt < 3)
+            continue
+        last := flapAdvised.Has(key) ? flapAdvised[key] : 0
+        if DateDiff(A_Now, last, "Seconds") <= 300
+            continue
+        flapAdvised[key] := A_Now
+        flapLog[key] := ""
+        LogMsg("flap detected: '" key "' x" cnt "/120s", "WARN")
+        TrayTip("AirPods 小助手", "检测到 «" key "» 连接来回跳（手机和电脑在抢耳机）`n建议：暂停手机蓝牙或退出手机上的音乐，再点一次连接锁定", 4)
+        PushEvent("flapping", JsonStr(key))
+    }
 }
 
 ; 降噪/通透模式：通过 Apple 私有 L2CAP 服务（74ec2172-...）发送 0x0D 指令。
