@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.5] - 2026-09-06
+
+### Added
+- **设置面板 + 开机自启动开关**（默认关闭）：页脚新增「⚙ 设置」，开关走 HKCU Run 键（任务管理器→启动应用 可见可逆，免管理员）。兼容迁移：旧版启动文件夹快捷方式存在即视为已开启，切换时统一迁移到注册表，避免双开。若被安全软件/任务管理器禁用（StartupApproved 禁用标志），开关置灰并如实提示去哪重新开启——不假装生效。
+
 ## [1.9.4] - 2026-09-05
 
 ### Added

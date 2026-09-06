@@ -10,7 +10,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\WebView2\WebView2.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.4"
+APP_VERSION   := "1.9.5"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -702,6 +702,53 @@ SetTimer(CheckUpdateReceipt, -3500)   ; v1.9.2：核对上次自动更新回执�
 
 ; v1.9.2：上次更新置换的回执（swapper 写入 update_result.txt）。
 ; ok → 确认 toast；fail → 多半被 360 等安全软件拦截，如实提醒用户。
+; ------------------------- 开机自启动（v1.9.5 设置项） -------------------------
+; 机制：HKCU Run 键（任务管理器→启动应用 可见可逆，免管理员）。
+; 兼容旧版启动文件夹快捷方式（存在即视为已开启，切换时迁移到注册表）。
+; 若被安全软件/任务管理器禁用（StartupApproved 首字节为奇数），返回
+; "disabled" 让前端如实提示，而不是假装开关没生效。
+RUN_KEY   := "Software\Microsoft\Windows\CurrentVersion\Run"
+RUN_NAME  := "AirPodsBuddy"
+
+AutostartEnabled() {
+    lnkOn := FileExist(A_Startup "\AirPods小助手.lnk") ? true : false
+    regOn := false
+    try {
+        v := RegRead("HKCU\" RUN_KEY, RUN_NAME)
+        regOn := (v != "")
+    } catch {
+        regOn := false
+    }
+    if (regOn) {
+        try {
+            bin := RegRead("HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run", RUN_NAME)
+            if (StrLen(bin) >= 1 && (NumGet(bin, 0, "uchar") & 1))
+                return "disabled"   ; Run 键还在但被禁用（安全软件/任务管理器所为）
+        } catch {
+        }
+        return "on"
+    }
+    return lnkOn ? "on" : "off"
+}
+
+AutostartSet(on) {
+    lnk := A_Startup "\AirPods小助手.lnk"
+    if (on) {
+        exe := '"' A_ScriptFullPath '"'
+        RegWrite(exe, "REG_SZ", "HKCU\" RUN_KEY, RUN_NAME)
+        ; 清掉可能的禁用标记
+        try RegDelete("HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run", RUN_NAME)
+        ; 迁移：启动文件夹快捷方式不再需要，避免双开
+        try FileDelete(lnk)
+        LogMsg("autostart ON: " exe)
+    } else {
+        try RegDelete("HKCU\" RUN_KEY, RUN_NAME)
+        try FileDelete(lnk)
+        LogMsg("autostart OFF")
+    }
+    return "ok"
+}
+
 CheckUpdateReceipt() {
     p := A_ScriptDir "\update_result.txt"   ; 与 DoUpdate 的 exeDir(A_ScriptDir) 一致
     if !FileExist(p)
@@ -865,6 +912,8 @@ WebMessageHandler(core, args) {
             LogMsg("priority updated: " arg1)
             Reply(id, "true")
         case "doupdate":          Reply(id, JsonStr(DoUpdate(arg1)))
+        case "getautostart":      Reply(id, JsonStr(AutostartEnabled()))
+        case "setautostart":      Reply(id, JsonStr(AutostartSet(arg1 = "1")))
         default:                  Reply(id, "null")
     }
 }

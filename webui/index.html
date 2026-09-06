@@ -259,6 +259,24 @@
   .btn.danger{color:#fff;background:#E25B48;box-shadow:none}
   .btn.danger:hover{background:#C94B39}
   .btn.busy{pointer-events:none;opacity:.85;min-width:64px}
+
+  /* ===== 设置 ===== */
+  .set-row{display:flex;align-items:center;gap:14px;margin-top:14px;background:#FAF7F0;
+    border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .set-row .set-info{flex:1;min-width:0}
+  .set-row b{font-size:13px}
+  .set-row p{font-size:11.5px;color:var(--sub);margin-top:2px}
+  .switch{position:relative;width:44px;height:24px;flex:none;cursor:pointer}
+  .switch input{opacity:0;width:0;height:0;position:absolute}
+  .switch .slider{position:absolute;inset:0;background:#D8D2C6;border-radius:999px;
+    transition:background-color .2s var(--ease)}
+  .switch .slider::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;
+    border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);
+    transition:transform .2s var(--pop)}
+  .switch input:checked + .slider{background:var(--sage-d)}
+  .switch input:checked + .slider::after{transform:translateX(20px)}
+  .switch input:disabled + .slider{opacity:.5;cursor:not-allowed}
+  .auto-hint{font-size:11.5px;color:var(--danger);margin-top:8px}
 </style>
 </head>
 <body>
@@ -305,6 +323,7 @@
   </div>
 
   <footer>
+    <span class="about-link" style="margin-left:0;margin-right:auto" onclick="openSettings()">&#9881;&#65038; 设置</span>
     <span class="about-link" onclick="openAbout()"><u>关于捞鱼</u> 🐟</span>
   </footer>
 </div>
@@ -351,6 +370,24 @@
     </div>
     <div class="row">
       <button class="btn primary" onclick="closeModal('mAbout')">知道啦</button>
+    </div>
+  </div>
+</div>
+
+<!-- settings -->
+<div class="mask" id="mSet">
+  <div class="dlg">
+    <h3><img src="assets/face_cheer.png">设置</h3>
+    <div class="set-row">
+      <div class="set-info">
+        <b>开机自启动</b>
+        <p>登录 Windows 后自动在后台运行（默认关闭）</p>
+      </div>
+      <label class="switch"><input type="checkbox" id="swAuto"><span class="slider"></span></label>
+    </div>
+    <div class="auto-hint" id="autoHint"></div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn ghost" onclick="closeModal('mSet')">完成</button>
     </div>
   </div>
 </div>
@@ -570,6 +607,20 @@ async function showUpdate(d){
   document.getElementById('updCur').textContent='v'+(await rpc('getversion'));
   openModal('mUpd');
 }
+/* ---------- 设置 ---------- */
+async function openSettings(){
+  openModal('mSet');
+  const st = await rpc('getautostart');
+  const sw = document.getElementById('swAuto');
+  sw.checked = (st==='on'); sw.disabled = (st==='disabled');
+  document.getElementById('autoHint').textContent =
+    st==='disabled' ? '开机自启动已被安全软件或任务管理器禁用：请在 任务管理器 → 启动应用 里重新开启' : '';
+}
+document.getElementById('swAuto').addEventListener('change', async e=>{
+  const r = await rpc('setautostart', e.target.checked?'1':'0');
+  toast(r==='ok' ? (e.target.checked?'已开启开机自启动 ✅':'已关闭开机自启动') : '设置失败，请重试');
+});
+
 async function doUpdate(){
   const st=document.getElementById('updState'),go=document.getElementById('updGo');
   go.classList.add('busy');go.innerHTML='<span class="spin"></span>更新中';
