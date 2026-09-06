@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.7] - 2026-09-06
+
+### Added
+- **关于捞鱼 v2**：近黑金星的「给项目点个 Star」一键直达卡；「提意见/反馈问题」内联输入框。
+- **意见反馈三层通道**：① WebView2 前端 `fetch` no-cors 直发（浏览器引擎不被安全软件拦截，主通道）② 失败自动降级 powershell 后台发送（修复：`-EncodedCommand` 不支持尾随参数导致兜底从未生效，改为值内嵌 + PsStr 转义）③ 双通道全挂时失败面板给具体原因（网络拦截/限流/通道失效/错误码）+ 三条出路（重试 / 复制文字 / 去 GitHub 预填 issue）。
+- **设置面板 + 开机自启动开关**（v1.9.5，本次随版发布）：默认关闭；注册表 Run 键实现，任务管理器可见可逆；被禁用时开关置灰并指路。
+
+### Fixed
+- 反馈 payload 带 UTF-8 BOM 被企微 API 拒收（HTTP 200 掩盖 errcode 40008）→ 改 UTF-8-RAW + 以响应体 `errcode:0` 判成功，不再被 200 假象欺骗。
+- 反馈全文写入本地日志的隐私问题 → 只记长度。
+- 发送防抖（飞行中忽略连点）、成功后清空草稿、25 秒前端超时兜底（任何后端异常不再永久转圈）。
+- 意见文本超长截断不再切裂 emoji；C0 控制字符全量剥除（富文本粘贴不再被企微拒收误报）。
+- 关于弹窗二维码行溢出、双黑按钮打架、字符图标与 SVG 混用等对抗评审修正。
+
 ## [1.9.6] - 2026-09-06
 
 ### Added
