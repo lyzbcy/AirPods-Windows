@@ -320,6 +320,11 @@
   .fb-fine u{cursor:pointer;color:var(--honey-d)}
   .fb-done{display:none;padding:16px 15px;text-align:center;font-size:13px;font-weight:600;
     color:var(--sage-d);background:var(--sage-tint);border-radius:12px;margin:10px 15px 13px}
+  .fb-fail{display:none;margin:10px 15px 13px;padding:11px 12px;background:#FDF0ED;
+    border:1px solid rgba(226,91,72,.32);border-radius:12px}
+  .fb-fail-why{font-size:12px;color:#B34435;margin-bottom:9px;line-height:1.5}
+  .fb-fail-ops{display:flex;gap:8px;flex-wrap:wrap}
+  .fb-fail-ops .btn{padding:7px 12px;font-size:11.5px}
 </style>
 </head>
 <body>
@@ -428,6 +433,14 @@
         <div class="fb-fine">直发开发者微信，仅用于产品改进 · 也可以 <u onclick="fbIssue()">去 GitHub 提 issue</u></div>
       </div>
       <div class="fb-done" id="fbDone">✓ 已送达，捞鱼收到了，谢谢你！💕</div>
+      <div class="fb-fail" id="fbFail">
+        <div class="fb-fail-why" id="fbFailWhy"></div>
+        <div class="fb-fail-ops">
+          <button class="btn ghost" onclick="fbSend()">↻ 重试</button>
+          <button class="btn ghost" onclick="fbCopy()">复制文字</button>
+          <button class="btn primary" onclick="fbIssue()">去 GitHub 反馈</button>
+        </div>
+      </div>
     </div>
 
     <div class="qrs">
@@ -672,6 +685,7 @@ function openAbout(){
   const card=document.querySelector('#mAbout .fb-card');
   card.classList.remove('open');
   document.getElementById('fbDone').style.display='none';
+  document.getElementById('fbFail').style.display='none';
   document.getElementById('fbBody').style.display='flex';
 }
 function fbToggle(){
@@ -691,12 +705,26 @@ function fbSend(){
     btn.classList.remove('busy');btn.textContent='发送';
     if(r==='ok'){
       document.getElementById('fbBody').style.display='none';
+      document.getElementById('fbFail').style.display='none';
       document.getElementById('fbDone').style.display='block';
-    } else if(r==='nochan'){
-      toast('直达通道还没配置，已为你打开 GitHub 反馈页');
-      fbIssue();
-    } else toast('发送失败，请检查网络后重试');
+    } else {
+      const why={
+        'net':'网络不通，或被安全软件/防火墙拦截了联网',
+        'api:45009':'发送太频繁啦，一分钟后再试',
+        'api:93000':'直达通道已失效（开发者换了机器人），请走备用通道',
+        'api:-1':'服务器繁忙，稍后再试'
+      };
+      let txt = why[r];
+      if(!txt && r && r.indexOf('api:')===0) txt='服务器拒绝（错误码 '+r.slice(4)+'）';
+      if(!txt) txt='未知错误';
+      document.getElementById('fbFailWhy').textContent='发送失败：'+txt;
+      document.getElementById('fbFail').style.display='block';
+    }
   });
+}
+function fbCopy(){
+  const t=document.getElementById('fbText');t.focus();t.select();
+  try{document.execCommand('copy');toast('已复制，去别处粘贴即可')}catch(e){toast('复制失败，请手动选择文字复制')}
 }
 function fbIssue(){
   const t=document.getElementById('fbText').value.trim()||'(用户未填写)';

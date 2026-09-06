@@ -10,7 +10,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\WebView2\WebView2.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.6"
+APP_VERSION   := "1.9.7"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -722,10 +722,10 @@ SendFeedback(text) {
     jsonFile := A_Temp "\AirPodsBuddy_fb.json"
     respFile := A_Temp "\AirPodsBuddy_fb_resp.txt"
     try FileDelete(jsonFile)
-    try FileDelete(outFile)
-    FileAppend(payload, jsonFile, "UTF-8")
+    try FileDelete(respFile)
+    FileAppend(payload, jsonFile, "UTF-8-RAW")   ; 无 BOM！带 BOM 会被企微 API 拒收(errcode 40008)而 HTTP 仍是 200
     ; 不经 cmd（% 展开会吃掉 curl 参数），直接 CreateProcess curl.exe
-    RunWait("curl.exe", ' -s --noproxy "*" --max-time 10 -X POST -H "Content-Type: application/json" --data @"' jsonFile '" -o "' respFile '" "' webhook '"',, "Hide")
+    ec := RunWait("curl.exe", ' -s --noproxy "*" --max-time 10 -X POST -H "Content-Type: application/json" --data @"' jsonFile '" -o "' respFile '" "' webhook '"',, "Hide")
     r := ""
     try r := FileRead(respFile, "UTF-8")
     try FileDelete(respFile)
@@ -734,8 +734,16 @@ SendFeedback(text) {
         LogMsg("feedback delivered (" StrLen(s) " chars)")
         return "ok"
     }
-    LogMsg("feedback send failed: " r, "WARN")
-    return "fail"
+    ; 失败归因（v1.9.6）：区分网络层 / 服务端，前端据此给出原因与备用方案
+    reason := "net"
+    pos := InStr(r, '"errcode":')
+    if (pos) {
+        codeTxt := SubStr(r, pos + 10)
+        if RegExMatch(codeTxt, "^-?\d+", &m)
+            reason := "api:" m[0]
+    }
+    LogMsg("feedback failed: curl=" ec " reason=" reason " resp=" r, "WARN")
+    return reason
 }
 
 ; ------------------------- 开机自启动（v1.9.5 设置项） -------------------------
