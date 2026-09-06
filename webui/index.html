@@ -330,6 +330,18 @@
   .fb-fail-why{font-size:12px;color:#B34435;margin-bottom:9px;line-height:1.5}
   .fb-fail-ops{display:flex;gap:8px;flex-wrap:wrap}
   .fb-fail-ops .btn{padding:7px 12px;font-size:11.5px}
+
+  /* ===== 二维码点击放大（灯箱） ===== */
+  .qrs .qr img{cursor:zoom-in}
+  #qrZoom{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
+    flex-direction:column;gap:14px;background:rgba(30,26,20,.82);backdrop-filter:blur(6px);
+    -webkit-backdrop-filter:blur(6px);cursor:zoom-out;user-select:none;-webkit-user-select:none}
+  #qrZoom.open{display:flex;animation:zfadeIn .18s var(--ease)}
+  @keyframes zfadeIn{from{opacity:0}to{opacity:1}}
+  #qrZoomImg{max-width:min(78vmin,560px);max-height:72vh;border-radius:16px;background:#fff;
+    padding:14px;box-shadow:0 24px 70px rgba(0,0,0,.5)}
+  #qrZoomCap{color:#FFF6E3;font-size:14px;font-weight:600;letter-spacing:.5px}
+  .qr-zoom-hint{color:rgba(255,246,227,.55);font-size:11px}
 </style>
 </head>
 <body>
@@ -382,6 +394,11 @@
 </div>
 
 <div id="toast"></div>
+<div id="qrZoom" title="点击任意处关闭">
+  <img id="qrZoomImg" alt="">
+  <div id="qrZoomCap"></div>
+  <div class="qr-zoom-hint">点击任意处关闭</div>
+</div>
 <div class="mask" id="mStar">
   <div class="dlg" style="width:min(360px,88%)">
     <h3><img src="assets/face_plead.png">求个小星星 🙏</h3>
@@ -524,7 +541,7 @@ window.addEventListener('unhandledrejection',e=>{try{chrome.webview.postMessage(
 function dragIfPlain(e){if(e.button===0&&!e.target.closest('button'))rpc('windrag')}
 document.getElementById('topbar').addEventListener('mousedown',dragIfPlain);
 document.querySelector('header').addEventListener('mousedown',dragIfPlain);
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){const m=document.querySelector('.mask.open');if(m)closeModal(m.id)}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){const z=document.getElementById('qrZoom');if(z.classList.contains('open')){z.classList.remove('open');return}const m=document.querySelector('.mask.open');if(m)closeModal(m.id)}});
 
 /* ---------- toast ---------- */
 let toastT;
@@ -679,6 +696,22 @@ async function confirmDel(){closeModal('mDel');
   toast(r==='ok'?'已删除 ✅':'删除失败');refreshList()}
 
 function doAdd(){rpc('add');openModal('mHelp')}
+/* 二维码点击放大（灯箱）：事件委托，覆盖动态渲染的图 */
+document.getElementById('devices').addEventListener('click',()=>{});
+(function(){
+  const zoom=document.getElementById('qrZoom');
+  zoom.addEventListener('click',()=>zoom.classList.remove('open'));
+  window.qrZoomOpen=function(src,cap){
+    document.getElementById('qrZoomImg').src=src;
+    document.getElementById('qrZoomCap').textContent=cap;
+    zoom.classList.add('open');
+  };
+  document.addEventListener('click',e=>{
+    const img=e.target.closest('.qr img');
+    if(img) qrZoomOpen(img.src, img.closest('.qr').querySelector('b').textContent);
+  });
+})();
+
 document.getElementById('refresh').onclick=e=>{
   const b=e.currentTarget;b.classList.add('spin');setTimeout(()=>b.classList.remove('spin'),520);
   refreshList()};

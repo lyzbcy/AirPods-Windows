@@ -267,9 +267,9 @@ WatchTrayState() {
 ; 连接来回跳检测（v1.9.8，用户 2026-09-06）：手机/电脑抢耳机或链路不稳时
 ; 连接状态反复翻转。120 秒窗口内翻转 ≥3 次 = 横跳，提示用户（5 分钟冷却）。
 ; 只提示不自动动作：自动重连会跟手机抢得更凶，决策权交给用户（doc/04 待办调研）。
-flapLog := {}      ; name -> "|"-连接的时间戳串
-flapPrev := {}     ; name -> 上次连接状态(1/0)
-flapAdvised := {}  ; name -> 上次提示时刻
+flapLog := Map()      ; name -> "|"-连接的时间戳串（必须 Map：Object 无 Has/__Item，见日志 8389 错误教训）
+flapPrev := Map()     ; name -> 上次连接状态(1/0)
+flapAdvised := Map()  ; name -> 上次提示时刻
 
 WatchFlap() {
     global devices, flapLog, flapPrev, flapAdvised
