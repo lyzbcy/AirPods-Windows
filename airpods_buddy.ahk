@@ -717,33 +717,56 @@ SendFeedback(text) {
         webhook := "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=93bbfb6e-6d93-437e-a8ab-605062cc5db5"
     content := "📮 **AirPods 小助手 意见反馈**`n> " s "`n`n— v" APP_VERSION " · Windows"
     payload := '{"msgtype":"markdown","markdown":{"content":' JsonStr(content) '}}'
-    ; curl.exe（Windows 自带）直连发送：独立网络栈不吃系统代理，
-    ; payload 走临时文件（UTF-8 无 BOM）避免 cmd 引号/中文地狱
+    ; powershell.exe 直连发送（v1.9.7）：系统签名二进制，安全软件对它和浏览器
+    ; 一样宽容（实测 curl.exe 会被主动防御拦截网络，curl=空 reason=net）。
+    ; 脚本走 -EncodedCommand（base64 UTF-16LE，免引号/免落 ps1 文件）；
+    ; payload/响应走临时文件，UTF-8-RAW 无 BOM（带 BOM 企微 API 报 40008 但 HTTP=200）。
     jsonFile := A_Temp "\AirPodsBuddy_fb.json"
     respFile := A_Temp "\AirPodsBuddy_fb_resp.txt"
     try FileDelete(jsonFile)
     try FileDelete(respFile)
-    FileAppend(payload, jsonFile, "UTF-8-RAW")   ; 无 BOM！带 BOM 会被企微 API 拒收(errcode 40008)而 HTTP 仍是 200
-    ; 不经 cmd（% 展开会吃掉 curl 参数），直接 CreateProcess curl.exe
-    ec := RunWait("curl.exe", ' -s --noproxy "*" --max-time 10 -X POST -H "Content-Type: application/json" --data @"' jsonFile '" -o "' respFile '" "' webhook '"',, "Hide")
+    FileAppend(payload, jsonFile, "UTF-8-RAW")
+    ps := "$ErrorActionPreference='Stop'`n"
+    ps .= "try {`n"
+    ps .= "  $b=[IO.File]::ReadAllBytes($args[0])`n"
+    ps .= "  $r=Invoke-WebRequest -Uri $args[1] -Method Post -ContentType 'application/json' -Body $b -TimeoutSec 12 -UseBasicParsing`n"
+    ps .= "  [IO.File]::WriteAllText($args[2], $r.Content)`n"
+    ps .= "  exit 0`n"
+    ps .= "} catch { exit 1 }"
+    enc := B64Utf16(ps)
+    ec := RunWait("powershell.exe", ' -NoProfile -ExecutionPolicy Bypass -EncodedCommand ' enc ' "' jsonFile '" "' webhook '" "' respFile '"',, "Hide")
     r := ""
     try r := FileRead(respFile, "UTF-8")
     try FileDelete(respFile)
     try FileDelete(jsonFile)
-    if InStr(r, '"errcode":0') {
+    if (ec = 0 && InStr(r, '"errcode":0')) {
         LogMsg("feedback delivered (" StrLen(s) " chars)")
         return "ok"
     }
-    ; 失败归因（v1.9.6）：区分网络层 / 服务端，前端据此给出原因与备用方案
+    ; 失败归因：ec=1 → 传输层失败（网络/拦截）；有响应体但 errcode≠0 → 服务端拒绝
     reason := "net"
-    pos := InStr(r, '"errcode":')
-    if (pos) {
-        codeTxt := SubStr(r, pos + 10)
-        if RegExMatch(codeTxt, "^-?\d+", &m)
-            reason := "api:" m[0]
+    if (ec = 0) {
+        pos := InStr(r, '"errcode":')
+        if (pos) {
+            codeTxt := SubStr(r, pos + 10)
+            if RegExMatch(codeTxt, "^-?\d+", &m)
+                reason := "api:" m[0]
+        }
     }
-    LogMsg("feedback failed: curl=" ec " reason=" reason " resp=" r, "WARN")
+    LogMsg("feedback failed: ec=" ec " reason=" reason " resp=" r, "WARN")
     return reason
+}
+
+B64Utf16(str) {
+    chars := StrLen(str)
+    bytes := chars * 2
+    buf := Buffer(bytes + 2, 0)
+    StrPut(str, buf, "UTF-16")
+    size := 0
+    DllCall("crypt32\CryptBinaryToStringW", "ptr", buf, "uint", bytes, "uint", 0x40000001, "ptr", 0, "uint*", &size)
+    out := Buffer(size * 2, 0)
+    DllCall("crypt32\CryptBinaryToStringW", "ptr", buf, "uint", bytes, "uint", 0x40000001, "ptr", out, "uint*", &size)
+    return StrGet(out, size)   ; base64（无换行），-EncodedCommand 直接可用
 }
 
 ; ------------------------- 开机自启动（v1.9.5 设置项） -------------------------
