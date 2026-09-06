@@ -714,31 +714,28 @@ SendFeedback(text) {
         s := SubStr(s, 1, 1000)
     webhook := SettingRead("feedback_webhook", "")
     if (webhook = "")
-        return "nochan"
+        webhook := "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=93bbfb6e-6d93-437e-a8ab-605062cc5db5"
     content := "📮 **AirPods 小助手 意见反馈**`n> " s "`n`n— v" APP_VERSION " · Windows"
     payload := '{"msgtype":"markdown","markdown":{"content":' JsonStr(content) '}}'
-    try {
-        wh := ComObject("WinHttp.WinHttpRequest.5.1")
-        wh.Open("POST", webhook, false)
-        wh.SetRequestHeader("Content-Type", "application/json")
-        ; 以 UTF-8 字节发送（WinHttp 直接发 BSTR 会走系统码页，中文变乱码）
-        len := StrPut(payload, "UTF-8") - 1
-        buf := Buffer(len, 0)
-        StrPut(payload, buf, len + 1, "UTF-8")
-        arr := ComObjArray(0x11, len)   ; VT_UI1
-        Loop len
-            arr[A_Index - 1] := NumGet(buf, A_Index - 1, "uchar")
-        wh.Send(arr)
-        if (wh.Status = 200) {
-            LogMsg("feedback delivered (" StrLen(s) " chars)")
-            return "ok"
-        }
-        LogMsg("feedback http status " wh.Status, "WARN")
-        return "fail"
-    } catch as e {
-        LogMsg("feedback send failed: " e.Message, "WARN")
-        return "fail"
+    ; curl.exe（Windows 自带）直连发送：独立网络栈不吃系统代理，
+    ; payload 走临时文件（UTF-8 无 BOM）避免 cmd 引号/中文地狱
+    jsonFile := A_Temp "\AirPodsBuddy_fb.json"
+    respFile := A_Temp "\AirPodsBuddy_fb_resp.txt"
+    try FileDelete(jsonFile)
+    try FileDelete(outFile)
+    FileAppend(payload, jsonFile, "UTF-8")
+    ; 不经 cmd（% 展开会吃掉 curl 参数），直接 CreateProcess curl.exe
+    RunWait("curl.exe", ' -s --noproxy "*" --max-time 10 -X POST -H "Content-Type: application/json" --data @"' jsonFile '" -o "' respFile '" "' webhook '"',, "Hide")
+    r := ""
+    try r := FileRead(respFile, "UTF-8")
+    try FileDelete(respFile)
+    try FileDelete(jsonFile)
+    if InStr(r, '"errcode":0') {
+        LogMsg("feedback delivered (" StrLen(s) " chars)")
+        return "ok"
     }
+    LogMsg("feedback send failed: " r, "WARN")
+    return "fail"
 }
 
 ; ------------------------- 开机自启动（v1.9.5 设置项） -------------------------
