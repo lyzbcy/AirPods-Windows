@@ -432,7 +432,9 @@
         </div>
         <div class="fb-fine">直发开发者微信，仅用于产品改进 · 也可以 <u onclick="fbIssue()">去 GitHub 提 issue</u></div>
       </div>
-      <div class="fb-done" id="fbDone">✓ 已送达，捞鱼收到了，谢谢你！💕</div>
+      <div class="fb-done" id="fbDone">✓ 已送达，捞鱼收到了，谢谢你！💕
+        <div class="fb-fine">no-cors 直发无法读取回执 · <u onclick="fbBackup()">若群内未收到请用下方备用通道</u></div>
+      </div>
       <div class="fb-fail" id="fbFail">
         <div class="fb-fail-why" id="fbFailWhy"></div>
         <div class="fb-fail-ops">
@@ -679,6 +681,7 @@ function closeModal(id){const m=document.getElementById(id);m.classList.remove('
 document.querySelectorAll('.mask').forEach(m=>m.onclick=e=>{if(e.target===m)closeModal(m.id)});
 function openAbout(){
   openModal('mAbout');
+  getFbHook();   // 预取并缓存 webhook（rpc getfbwebhook），用户写完字点发送时零等待
   const t=document.getElementById('fbText');
   document.getElementById('fbCount').textContent=t.value.length+' / 1000';
   // 每次打开重置反馈区
@@ -696,43 +699,77 @@ function fbToggle(){
 document.getElementById('fbText').addEventListener('input',e=>{
   document.getElementById('fbCount').textContent=e.target.value.length+' / 1000';
 });
+/* ---------- 反馈发送（双层通道） ----------
+ * 主通道：WebView2(Edge 引擎) 内 fetch 直发 webhook。实测 360 主动防御会掐断
+ * 本应用派生子进程（curl/powershell）的联网，但不拦浏览器引擎（Edge 无头
+ * fetch 实测送达）。no-cors 响应不可读(opaque)，resolve 即视为已送达；
+ * 正因读不到回执，成功面板保留了「未收到走备用通道」的小字。
+ * 兜底：rpc→AHK powershell（第二族传输，不同失败域）。
+ * 两层都失败→失败面板（重试/复制文字/去 GitHub）。 */
+let fbWebhook='',fbHookP=null;
+function getFbHook(){
+  if(fbHookP) return fbHookP;
+  fbHookP=Promise.race([
+    rpc('getfbwebhook').then(u=>{if(u)fbWebhook=u}),
+    new Promise(r=>setTimeout(r,3000))  // 取不到也不卡发送：空 URL 会让 fetch 拒绝→走兜底
+  ]).then(()=>{if(!fbWebhook)fbHookP=null;return fbWebhook});
+  return fbHookP;
+}
+function fbShowDone(){
+  document.getElementById('fbText').value='';
+  document.getElementById('fbCount').textContent='0 / 1000';
+  document.getElementById('fbBody').style.display='none';
+  document.getElementById('fbFail').style.display='none';
+  document.getElementById('fbDone').style.display='block';
+}
+function fbShowFail(txt){
+  document.getElementById('fbFailWhy').textContent=txt;
+  document.getElementById('fbFail').style.display='block';
+}
+function fbWhy(r){
+  const why={
+    'api:45009':'发送太频繁啦，一分钟后再试',
+    'api:93000':'直达通道已失效（开发者换了机器人），请走备用通道',
+    'api:-1':'服务器繁忙，稍后再试'
+  };
+  if(r&&r.indexOf('api:')===0) return why[r]||('服务器拒绝（错误码 '+r.slice(4)+'）');
+  return '两条通道均被拦截：请复制文字后加入开发者的粉丝群反馈';
+}
+function fbBackup(){  // 成功面板小字的出口：主通道显示送达但群里没有时，给出备用方案
+  document.getElementById('fbDone').style.display='none';
+  fbShowFail('若微信群没收到，请复制文字后加入开发者的粉丝群反馈，或去 GitHub 提 issue');
+}
 let fbSending=false;
 function fbSend(){
   if(fbSending) return;
-  let t=document.getElementById('fbText').value.replace(/[ --]/g,'').trim();
+  let t=document.getElementById('fbText').value.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g,'').trim();
   if(!t){toast('先写点什么吧～');return}
   const btn=document.getElementById('fbSend');
   fbSending=true;
   btn.classList.add('busy');btn.innerHTML='<span class="spin"></span>';
-  Promise.race([
-    rpc('sendfeedback',t),
-    new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),25000))
-  ]).then(r=>{
-    btn.classList.remove('busy');btn.textContent='发送';fbSending=false;
-    if(r==='ok'){
-      document.getElementById('fbText').value='';
-      document.getElementById('fbCount').textContent='0 / 1000';
-      document.getElementById('fbBody').style.display='none';
-      document.getElementById('fbFail').style.display='none';
-      document.getElementById('fbDone').style.display='block';
-    } else {
-      const why={
-        'net':'网络不通，或被安全软件/防火墙拦截了联网',
-        'api:45009':'发送太频繁啦，一分钟后再试',
-        'api:93000':'直达通道已失效（开发者换了机器人），请走备用通道',
-        'api:-1':'服务器繁忙，稍后再试'
-      };
-      let txt = why[r];
-      if(!txt && r && r.indexOf('api:')===0) txt='服务器拒绝（错误码 '+r.slice(4)+'）';
-      if(!txt) txt='未知错误';
-      document.getElementById('fbFailWhy').textContent='发送失败：'+txt;
-      document.getElementById('fbFail').style.display='block';
-    }
-  }).catch(()=>{
-    btn.classList.remove('busy');btn.textContent='发送';fbSending=false;
-    document.getElementById('fbFailWhy').textContent='发送超时：网络不通，或被安全软件/防火墙拦截了联网';
-    document.getElementById('fbFail').style.display='block';
-  });
+  const reset=()=>{btn.classList.remove('busy');btn.textContent='发送';fbSending=false};
+  const fbRpcBackup=()=>{   // 主通道失败 → AHK powershell 兜底（25s 超时）
+    Promise.race([
+      rpc('sendfeedback',t),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),25000))
+    ]).then(r=>{
+      reset();
+      if(r==='ok'){fbShowDone();return}
+      fbShowFail(fbWhy(r));
+    }).catch(()=>{
+      reset();
+      fbShowFail('发送超时：两条通道均未成功，请复制文字后加入开发者的粉丝群反馈');
+    });
+  };
+  getFbHook().then(u=>{
+    const payload=JSON.stringify({msgtype:'markdown',
+      markdown:{content:'📮 **AirPods 小助手 意见反馈**\n> '+t+'\n\n— v'+(window.APP_VER||'')+' · Windows'}});
+    return Promise.race([
+      fetch(u,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:payload}),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),20000))
+    ]);
+  }).then(()=>{reset();fbShowDone()})
+    .catch(fbRpcBackup);
 }
 function fbCopy(){
   const t=document.getElementById('fbText');t.focus();t.select();
@@ -784,6 +821,7 @@ function starLater(){rpc('stardone');closeModal('mStar')}
 (async()=>{
   try { rpc('bootok','vp='+innerWidth+'x'+innerHeight+' dpr='+devicePixelRatio); } catch(e) {}
   const v=await rpc('getversion');
+  window.APP_VER=v;   // 反馈 payload 的版本署名用
   document.getElementById('ver').textContent='v'+v;
   refreshList();
   setInterval(()=>rpc('statuspoll').then(r=>{const d=parseList(r);if(d===null)return;

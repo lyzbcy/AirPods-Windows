@@ -704,8 +704,17 @@ SetTimer(CheckUpdateReceipt, -3500)   ; v1.9.2：核对上次自动更新回执�
 ; ok → 确认 toast；fail → 多半被 360 等安全软件拦截，如实提醒用户。
 ; ------------------------- 意见反馈（v1.9.6） -------------------------
 ; 通道：企业微信群机器人 webhook（免注册免跳转，直发用户手里）。
+; 主通道：前端 WebView2(Edge 引擎) 内 fetch 直发（v1.9.8）——实测 360 主动防御
+; 会拦截应用派生子进程（curl/powershell）的联网，但不拦浏览器引擎。
+; 本函数仅作兜底通道（第二族传输，不同失败域）。
 ; webhook 存 app_settings.ini 的 feedback_webhook，可随时换 key 不用重编译。
-; 未配置 → 返回 "nochan"，前端降级为打开预填好的 GitHub issue。
+FbWebhook() {
+    webhook := SettingRead("feedback_webhook", "")
+    if (webhook = "")
+        webhook := "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=93bbfb6e-6d93-437e-a8ab-605062cc5db5"
+    return webhook
+}
+
 SendFeedback(text) {
     s := Trim(text)
     if (s = "")
@@ -713,15 +722,17 @@ SendFeedback(text) {
     if (StrLen(s) > 1000)
         s := SubStr(s, 1, 1000)
     s := RegExReplace(s, "[\xDC00-\xDFFF]$", "")   ; 截断可能切裂 emoji 代理对
-    webhook := SettingRead("feedback_webhook", "")
-    if (webhook = "")
-        webhook := "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=93bbfb6e-6d93-437e-a8ab-605062cc5db5"
+    webhook := FbWebhook()
     content := "📮 **AirPods 小助手 意见反馈**`n> " s "`n`n— v" APP_VERSION " · Windows"
     payload := '{"msgtype":"markdown","markdown":{"content":' JsonStr(content) '}}'
-    ; powershell.exe 直连发送（v1.9.7）：系统签名二进制，安全软件对它和浏览器
-    ; 一样宽容（实测 curl.exe 会被主动防御拦截网络，curl=空 reason=net）。
+    ; powershell.exe 兜底发送（v1.9.8）：仅在主通道（WebView2 fetch）失败后由前端
+    ; 调用。实测它同样会被 360 主动防御拦网络，但它是不同的失败域——主通道失败
+    ; 时它仍有机会成功（例如 WebView2 网络栈被单独干扰的场景）。
     ; 脚本走 -EncodedCommand（base64 UTF-16LE，免引号/免落 ps1 文件）；
     ; payload/响应走临时文件，UTF-8-RAW 无 BOM（带 BOM 企微 API 报 40008 但 HTTP=200）。
+    ; v1.9.8 修复：-EncodedCommand 后不能跟位置参数（powershell 会打印用法说明直接
+    ; 退出，脚本根本不运行——本地实测复现），jsonFile/webhook/respFile 三个值改为
+    ; 拼进脚本本体（PsStr 单引号 PS 字符串，'' 转义）。
     jsonFile := A_Temp "\AirPodsBuddy_fb.json"
     respFile := A_Temp "\AirPodsBuddy_fb_resp.txt"
     try FileDelete(jsonFile)
@@ -736,14 +747,14 @@ SendFeedback(text) {
     }
     ps := "$ErrorActionPreference='Stop'`n"
     ps .= "try {`n"
-    ps .= "  $b=[IO.File]::ReadAllBytes($args[0])`n"
-    ps .= "  $r=Invoke-WebRequest -Uri $args[1] -Method Post -ContentType 'application/json' -Body $b -TimeoutSec 12 -UseBasicParsing`n"
-    ps .= "  [IO.File]::WriteAllText($args[2], $r.Content)`n"
+    ps .= "  $b=[IO.File]::ReadAllBytes(" PsStr(jsonFile) ")`n"
+    ps .= "  $r=Invoke-WebRequest -Uri " PsStr(webhook) " -Method Post -ContentType 'application/json' -Body $b -TimeoutSec 12 -UseBasicParsing`n"
+    ps .= "  [IO.File]::WriteAllText(" PsStr(respFile) ", $r.Content)`n"
     ps .= "  exit 0`n"
-    ps .= "} catch { exit 1 }"
+    ; 失败不再是黑盒：把具体异常写进响应文件，随下面的日志落地，供诊断归因
+    ps .= "} catch { [IO.File]::WriteAllText(" PsStr(respFile) ", 'ERR: ' + $_.Exception.Message); exit 1 }"
     enc := B64Utf16(ps)
-    ; RunWait 签名：Target[, WorkingDir, Options, &PID] —— 参数必须并进 Target 单串（P0 修复）
-    target := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand " enc " \"" jsonFile "\" \"" webhook "\" \"" respFile "\""
+    target := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand " enc
     try ec := RunWait(target, , "Hide")
     catch {
         LogMsg("feedback: powershell launch failed", "WARN")
@@ -781,6 +792,10 @@ B64Utf16(str) {
     out := Buffer(size * 2, 0)
     DllCall("crypt32\CryptBinaryToStringW", "ptr", buf, "uint", bytes, "uint", 0x40000001, "ptr", out, "uint*", &size)
     return StrGet(out, size)   ; base64（无换行），-EncodedCommand 直接可用
+}
+
+PsStr(v) {
+    return "'" StrReplace(v, "'", "''") "'"   ; 拼进 PS 脚本本体的单引号字符串字面量
 }
 
 ; ------------------------- 开机自启动（v1.9.5 设置项） -------------------------
@@ -996,6 +1011,7 @@ WebMessageHandler(core, args) {
         case "getautostart":      Reply(id, JsonStr(AutostartEnabled()))
         case "setautostart":      Reply(id, JsonStr(AutostartSet(arg1 = "1")))
         case "sendfeedback":      Reply(id, JsonStr(SendFeedback(arg1)))
+        case "getfbwebhook":      Reply(id, JsonStr(FbWebhook()))   ; 前端 fetch 直发用（主通道），ini 优先否则内置默认
         case "openurl":           Run(arg1), Reply(id, "true")
         default:                  Reply(id, "null")
     }
