@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.8] - 2026-09-07
+
+### Added
+- **连接来回跳检测**：2 秒看门狗追踪各设备连接状态，120 秒窗口内翻转 ≥3 次 → 气泡+托盘提示「手机和电脑在抢耳机」+ 设备列表标注，5 分钟冷却；只提示不自动动作（自动重连会加剧抢占）。重连成功自动清除标注。
+- **关于弹窗二维码点击放大**：灯箱（白底大图 + 标题 + 点击任意处/Esc 关闭）。
+- **关于弹窗限高+内部滚动**：提意见展开/失败面板出现时弹窗不再超出屏幕，底部按钮永远可达。
+
+### Fixed
+- 横跳检测容器误用 Object（无 Has/__Item）导致后台每 2 秒刷错误（单日 5.9 万行日志）；冷却哨兵传 0 使 DateDiff 首触抛 ValueError —— 两处均改为 Map/空串哨兵（对抗审计发现）。
+
 ## [1.9.7] - 2026-09-06
 
 ### Added
