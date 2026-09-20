@@ -327,6 +327,21 @@
   .fb-card .star-txt i{opacity:.75}
   .fb-fine{font-size:10.5px;color:var(--faint)}
   .fb-fine u{cursor:pointer;color:var(--honey-d)}
+  /* ===== 问题反馈弹窗：类型 chips + 补充说明 + 完整日志文件 ===== */
+  .iss-sub{font-size:11.5px;color:var(--sub);margin:2px 0 4px;line-height:1.55}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 12px}
+  .chip{border:1px solid var(--line);background:#FCFAF5;border-radius:999px;
+    padding:7px 13px;font-size:12px;color:var(--ink);cursor:pointer;user-select:none;
+    font-family:inherit;transition:background-color .15s var(--ease),border-color .15s var(--ease)}
+  .chip:hover{background:#fff}
+  .chip.on{background:#FFF3D6;border-color:#F0B429;color:#3D2F00;font-weight:600}
+  #issText{width:100%;resize:none;border:1px solid var(--line2);border-radius:10px;
+    padding:9px 11px;font-family:inherit;font-size:12.5px;color:var(--ink);background:#FCFAF4;
+    outline:none;transition:border-color .2s var(--ease)}
+  #issText:focus{border-color:rgba(255,181,0,.55)}
+  .iss-file{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--sub);
+    margin:10px 0 2px;cursor:pointer;user-select:none}
+  .iss-file input{accent-color:#F0B429}
   .fb-done{display:none;padding:16px 15px;text-align:center;font-size:13px;font-weight:600;
     color:var(--sage-d);background:var(--sage-tint);border-radius:12px;margin:10px 15px 13px}
   .fb-fail{display:none;margin:10px 15px 13px;padding:11px 12px;background:#FDF0ED;
@@ -382,6 +397,7 @@
   <footer>
     <span class="about-link" style="margin-left:0;margin-right:auto" onclick="openSettings()">&#9881;&#65038; 设置</span>
     <span class="about-link" onclick="openAbout(true)">&#128172; 提意见</span>
+    <span class="about-link" onclick="openIssue()">&#128027; 问题反馈</span>
     <span class="about-link" onclick="openAbout()"><u>关于捞鱼</u> 🐟</span>
   </footer>
 </div>
@@ -471,6 +487,35 @@
     <b id="qrBigTitle"></b>
     <i id="qrBigSub"></i>
     <u>点击任意处关闭</u>
+  </div>
+</div>
+
+<!-- 问题反馈：常见类型 + 补充说明 + 完整日志文件 -->
+<div class="mask" id="mIssue">
+  <div class="dlg">
+    <h3><img src="assets/face_heart.png">问题反馈 🐞</h3>
+    <div class="iss-sub">遇到问题了？选一选类型（可多选/可不选），再说两句。日志会自动带上，捞鱼拿到就能定位。</div>
+    <div class="chips" id="issChips">
+      <button class="chip" data-t="手机来回抢耳机">📱 手机来回抢</button>
+      <button class="chip" data-t="已连接但电脑没声音">🔇 连上没声音</button>
+      <button class="chip" data-t="连接失败或很慢">❌ 连不上/很慢</button>
+      <button class="chip" data-t="断开失败">💤 断不开</button>
+      <button class="chip" data-t="界面或托盘显示异常">🖥 界面/托盘</button>
+    </div>
+    <textarea id="issText" maxlength="500" rows="3" placeholder="补充说明（可选）：比如什么时候开始的、做了什么操作之后出的问题…"></textarea>
+    <label class="iss-file"><input type="checkbox" id="issFile" checked> 附完整日志文件（今天+昨天），群里可直接下载</label>
+    <div class="row" id="issOps">
+      <button class="btn ghost" onclick="closeModal('mIssue')">取消</button>
+      <button class="btn primary" id="issSend" onclick="issueSend()">发送反馈</button>
+    </div>
+    <div class="fb-done" id="issDone" style="display:none"></div>
+    <div class="fb-fail" id="issFail" style="display:none">
+      <div class="fb-fail-why" id="issFailWhy"></div>
+      <div class="fb-fail-ops">
+        <button class="btn ghost" onclick="issueSend()">↻ 重试</button>
+        <button class="btn primary" onclick="fbIssue2()">去 GitHub 反馈</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -726,22 +771,25 @@ document.getElementById('fbText').addEventListener('input',e=>{
 let fbSending=false;
 const blen=s=>new Blob([s]).size;
 const rpcTimeout=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))]);
-/* 反馈正文 = 用户文本 + 最近运行日志（v1.9.10：此前"附日志"只在 commit 信息里存在过，
-   前端从未实现。日志放代码块、按 UTF-8 字节预算从头部丢整行，企微 markdown 上限 4096B） */
-function fbBuild(t,logs){
-  const c='📮 **AirPods 小助手 意见反馈**\n> '+t+'\n\n— '+document.getElementById('ver').textContent+' · Windows';
-  if(!logs) return {content:c,withLogs:false};
+/* 问题反馈正文 = 类型 + 补充说明 + 最近日志摘要（字节预算 ≤3900B，企微 markdown 上限 4096B） */
+function fbBuildIssue(types,note,logs){
+  let c='🐞 **AirPods 小助手 问题反馈**';
+  if(types.length)c+='\n**问题：**'+types.join('、');
+  if(note)c+='\n> '+note;
+  c+='\n\n— '+document.getElementById('ver').textContent+' · Windows';
+  if(!logs)return {content:c};
   const budget=3900-blen(c)-12;
-  if(budget<200) return {content:c,withLogs:false};
+  if(budget<200)return {content:c};
   let L=logs;
-  while(blen(L)>budget&&L.includes('\n')) L=L.slice(L.indexOf('\n')+1);
-  if(blen(L)>budget) L=L.slice(-budget);
-  return {content:c+'\n\n```\n'+L+'\n```',withLogs:true};
+  while(blen(L)>budget&&L.includes('\n'))L=L.slice(L.indexOf('\n')+1);
+  if(blen(L)>budget)L=L.slice(-budget);
+  return {content:c+'\n\n```\n'+L+'\n```'};
 }
 function fbShowFail(txt){
   document.getElementById('fbFailWhy').textContent='发送失败：'+txt;
   document.getElementById('fbFail').style.display='block';
 }
+/* 提意见：轻通道，纯文本直达（v1.9.10 起不带日志——日志归「问题反馈」管） */
 async function fbSend(){
   if(fbSending) return;
   let t=document.getElementById('fbText').value.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g,'').trim();
@@ -750,19 +798,18 @@ async function fbSend(){
   fbSending=true;
   btn.classList.add('busy');btn.innerHTML='<span class="spin"></span>';
   try{
-    let logs='';
-    try{logs=await rpcTimeout(rpc('getfblogs'),3000)||'';}catch(e){}
     let sent=false;
-    /* 主通道：WebView2(Edge 引擎) fetch no-cors 直发 —— 实测安全软件拦应用
-       派生子进程联网但不拦浏览器引擎。no-cors 响应 opaque：网络层未抛错即视为送达 */
+    /* 主通道：WebView2(Edge 引擎) fetch no-cors 直发 —— 安全软件拦应用派生
+       子进程联网但不拦浏览器引擎。no-cors 响应 opaque：网络层未抛错即视为送达 */
     try{
       const hook=await rpcTimeout(rpc('getfbwebhook'),3000);
       if(hook){
-        await fetch(hook,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify({msgtype:'markdown',markdown:{content:fbBuild(t,logs).content}})});
+        const content='📮 **AirPods 小助手 意见反馈**\n> '+t+'\n\n— '+document.getElementById('ver').textContent+' · Windows';
+        await fetch(hook,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify({msgtype:'markdown',markdown:{content}})});
         sent=true;
       }
     }catch(e){sent=false}
-    /* 兜底通道：后端 powershell（不同失败域；不带日志，纯文本） */
+    /* 兜底通道：后端 powershell（不同失败域） */
     if(!sent){
       const r=await Promise.race([
         rpc('sendfeedback',t),
@@ -786,12 +833,83 @@ async function fbSend(){
     document.getElementById('fbCount').textContent='0 / 1000';
     document.getElementById('fbBody').style.display='none';
     document.getElementById('fbFail').style.display='none';
-    document.getElementById('fbDone').textContent=sent&&logs?'✓ 已送达，捞鱼收到了，谢谢你！💕（已附最近运行日志，方便定位）':'✓ 已送达，捞鱼收到了，谢谢你！💕';
+    document.getElementById('fbDone').textContent='✓ 已送达，捞鱼收到了，谢谢你！💕';
     document.getElementById('fbDone').style.display='block';
   }catch(e){
     btn.classList.remove('busy');btn.textContent='发送';fbSending=false;
     fbShowFail(e&&e.message&&e.message!=='timeout'?e.message:'发送超时：网络不通，或被安全软件/防火墙拦截了联网');
   }
+}
+/* ---------- 问题反馈：类型 + 说明 + 完整日志文件 ---------- */
+document.querySelectorAll('#issChips .chip').forEach(c=>c.onclick=()=>c.classList.toggle('on'));
+function issueTypes(){return [...document.querySelectorAll('#issChips .chip.on')].map(c=>c.dataset.t)}
+function openIssue(){
+  openModal('mIssue');
+  document.querySelectorAll('#issChips .chip').forEach(c=>c.classList.remove('on'));
+  const t=document.getElementById('issText');t.value='';
+  document.getElementById('issFile').checked=true;
+  document.getElementById('issDone').style.display='none';
+  document.getElementById('issFail').style.display='none';
+  document.getElementById('issOps').style.display='flex';
+  setTimeout(()=>t.focus(),240);
+}
+let issSending=false;
+async function issueSend(){
+  if(issSending) return;
+  const types=issueTypes();
+  let note=document.getElementById('issText').value.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g,'').trim();
+  if(!types.length&&!note){toast('先选个类型，或写点说明哦～');return}
+  const wantFile=document.getElementById('issFile').checked;
+  const btn=document.getElementById('issSend');
+  issSending=true;
+  btn.classList.add('busy');btn.innerHTML='<span class="spin"></span>';
+  try{
+    /* ① 文本主通道：类型+说明+最近日志摘要，fetch no-cors 直发 */
+    let logs='';
+    try{logs=await rpcTimeout(rpc('getfblogs'),3000)||'';}catch(e){}
+    let fetchok=false;
+    try{
+      const hook=await rpcTimeout(rpc('getfbwebhook'),3000);
+      if(hook){
+        await fetch(hook,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify({msgtype:'markdown',markdown:{content:fbBuildIssue(types,note,logs).content}})});
+        fetchok=true;
+      }
+    }catch(e){fetchok=false}
+    /* ② 后端：fetch 失败时补发文本 + 上传完整日志文件（今天+昨天）到群 */
+    const flags=(fetchok?'1':'0')+(wantFile?'1':'0');
+    const r=await Promise.race([
+      rpc('sendissue',types.join('、'),note,flags),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),40000))
+    ]);
+    btn.classList.remove('busy');btn.textContent='发送反馈';issSending=false;
+    if(r==='ok'){
+      document.getElementById('issOps').style.display='none';
+      document.getElementById('issFail').style.display='none';
+      document.getElementById('issDone').textContent='✓ 反馈和日志都送达了，捞鱼马上看！💕';
+      document.getElementById('issDone').style.display='block';
+      setTimeout(()=>{closeModal('mIssue');document.getElementById('issDone').style.display='none';
+        document.getElementById('issOps').style.display='flex'},2600);
+    } else if(r==='nofile'){
+      document.getElementById('issOps').style.display='none';
+      document.getElementById('issFail').style.display='none';
+      document.getElementById('issDone').textContent='✓ 反馈已送达！💕（完整日志文件没发出去——多半被安全软件拦了；摘要日志已带上，不影响定位）';
+      document.getElementById('issDone').style.display='block';
+      setTimeout(()=>{closeModal('mIssue');document.getElementById('issDone').style.display='none';
+        document.getElementById('issOps').style.display='flex'},3400);
+    } else {
+      throw new Error('两条通道都没发出去（网络被拦）');
+    }
+  }catch(e){
+    btn.classList.remove('busy');btn.textContent='发送反馈';issSending=false;
+    document.getElementById('issFailWhy').textContent='发送失败：'+(e&&e.message&&e.message!=='timeout'?e.message:'超时：网络不通，或被安全软件/防火墙拦截了联网');
+    document.getElementById('issDone').style.display='none';
+    document.getElementById('issFail').style.display='block';
+  }
+}
+function fbIssue2(){
+  const t=document.getElementById('issText').value.trim()||'(用户未填写)';
+  const u='https://github.com/lyzbcy/AirPods-Windows/issues/new?title='+encodeURIComponent('问题反馈')+'&body='+encodeURIComponent(issueTypes().join('、')+'\n'+t);
+  rpc('openurl',u);
 }
 function fbCopy(){
   const t=document.getElementById('fbText');t.focus();t.select();

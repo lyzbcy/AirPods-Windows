@@ -864,6 +864,136 @@ PsStr(v) {
     return "'" StrReplace(v, "'", "''") "'"   ; 拼进 PS 脚本本体的单引号字符串字面量
 }
 
+; ------------------------- 问题反馈（v1.9.10：类型 + 说明 + 完整日志文件） -------------------------
+; 与「提意见」分工：意见 = 纯文本轻通道；问题反馈 = 类型化 + 完整日志（今天+昨天
+; 合并成文件）经企微 upload_media → file 消息发到群里。前端 fetch 文本失败时，
+; 文本兜底也在这里一并发。返回：ok / nofile（文本已达、文件没发出去）/ fail
+BuildIssueLogFile() {
+    dir := A_ScriptDir "\logs"
+    today := dir "\app-" FormatTime(A_Now, "yyyy-MM-dd") ".log"
+    yest := dir "\app-" FormatTime(DateAdd(A_Now, -1, "days"), "yyyy-MM-dd") ".log"
+    body := "AirPodsBuddy v" APP_VERSION " 完整日志 · " FormatTime(A_Now, "yyyy-MM-dd HH:mm:ss")
+    n := 0
+    for label, f in Map("今天", today, "昨天", yest) {
+        if FileExist(f) {
+            n++
+            try body .= "`r`n`r`n========== " label " " f " ==========`r`n`r`n" FileRead(f, "UTF-8")
+        }
+    }
+    if (n = 0)
+        return ""
+    p := A_Temp "\AirPodsBuddy_issue_log.txt"
+    try {
+        fw := FileOpen(p, "w", "UTF-8-RAW")   ; 无 BOM，群里下载后记事本直接读
+        fw.Write(body)
+        fw.Close()
+        return p
+    } catch as e {
+        LogMsg("issue log file write failed: " e.Message, "WARN")
+        return ""
+    }
+}
+
+; 按 UTF-8 字节数从头部丢整行（与前端 fbBuildIssue 的预算逻辑同族）
+TruncateUtf8(s, maxBytes) {
+    if (StrPut(s, "UTF-8") - 1 <= maxBytes)
+        return s
+    loop {
+        pos := InStr(s, "`n")
+        if !pos
+            break
+        s := SubStr(s, pos + 1)
+        if (StrPut(s, "UTF-8") - 1 <= maxBytes)
+            break
+    }
+    return s
+}
+
+SendIssue(types, note, flags) {
+    fetchok := (SubStr(flags, 1, 1) = "1")
+    wantfile := (SubStr(flags, 2, 1) = "1")
+    webhook := FbWebhook()
+    logPath := ""
+    if wantfile {
+        logPath := BuildIssueLogFile()
+        if (logPath = "") {
+            LogMsg("issue: no log file built (no logs today/yesterday?)", "WARN")
+            wantfile := false
+        }
+    }
+    respFile := A_Temp "\AirPodsBuddy_issue_resp.txt"
+    try FileDelete(respFile)
+    ; HttpClient（PS5.1 自带）。两个实测铁律：① multipart 必须手拼字节流且
+    ; boundary 参数不能带引号（.NET 自动加引号 → 企微 44001 empty media data）；
+    ; ② ByteArrayContent 构造的数组参数要用 , 包一层（否则数组被展开成 N 个参数）
+    ps := "$ErrorActionPreference='Stop'`n"
+    ps .= "Add-Type -AssemblyName System.Net.Http`n"
+    ps .= "$out=" PsStr(respFile) "`n"
+    ps .= "$c=New-Object System.Net.Http.HttpClient`n"
+    ps .= "$c.Timeout=[TimeSpan]::FromSeconds(15)`n"
+    ps .= "try{`n"
+    if !fetchok {
+        content := "🐞 **AirPods 小助手 问题反馈**"
+        if (types != "")
+            content .= "`n**问题：**" types
+        if (note != "")
+            content .= "`n> " note
+        content .= "`n`n" TruncateUtf8(GatherLogTail(), 3000)
+        payload := '{"msgtype":"markdown","markdown":{"content":' JsonStr(content) '}}'
+        ps .= "  $tc=New-Object System.Net.Http.StringContent(" PsStr(payload) ",[Text.Encoding]::UTF8,'application/json')`n"
+        ps .= "  $j=$c.PostAsync(" PsStr(webhook) ",$tc).Result.Content.ReadAsStringAsync().Result`n"
+        ps .= "  if($j -notmatch 'errcode\D+0\b'){[IO.File]::WriteAllText($out,'ERR text: '+$j);exit 2}`n"
+    }
+    if wantfile {
+        upUrl := StrReplace(webhook, "webhook/send?", "webhook/upload_media?") "&type=file"
+        logName := "AirPodsBuddy-log-" FormatTime(A_Now, "yyyyMMdd-HHmm") ".txt"
+        bnd := "----apb" FormatTime(A_Now, "HHmmss")
+        ps .= "  $bnd=" PsStr(bnd) "`n"
+        ps .= "  $fn=" PsStr(logName) "`n"
+        ps .= "  $ms=New-Object System.IO.MemoryStream`n"
+        ; multipart 手拼三铁律（实测）：① boundary 参数不能带引号（.NET 自动加
+        ; → 企微 44001）；② filename 的闭合引号不能丢（丢了同样是 44001）；
+        ; ③ ByteArrayContent 构造要 , 包数组。CRLF 用 [Environment]::NewLine
+        ; 运行时构造（避免字面控制符过编码层）。PS 双引号在 AHK 串里写 `` `"``,
+        ; PS 单引号原样——此编译器不认 `""`/`''` 转义
+        ps .= "  $pre=[Text.Encoding]::UTF8.GetBytes(`"--`"+$bnd+[Environment]::NewLine+'Content-Disposition: form-data; name=`"media`"; filename=`"'+$fn+'`"'+[Environment]::NewLine+'Content-Type: application/octet-stream'+[Environment]::NewLine+[Environment]::NewLine)`n"
+        ps .= "  $ms.Write($pre,0,$pre.Length)`n"
+        ps .= "  $fb=[IO.File]::ReadAllBytes(" PsStr(logPath) ")`n"
+        ps .= "  $ms.Write($fb,0,$fb.Length)`n"
+        ps .= "  $end=[Text.Encoding]::UTF8.GetBytes([Environment]::NewLine+'--'+$bnd+'--'+[Environment]::NewLine)`n"
+        ps .= "  $ms.Write($end,0,$end.Length)`n"
+        ps .= "  $bc=New-Object System.Net.Http.ByteArrayContent(,$ms.ToArray())`n"
+        ps .= "  $bc.Headers.ContentType=New-Object System.Net.Http.Headers.MediaTypeHeaderValue('multipart/form-data')`n"
+        ps .= "  $bc.Headers.ContentType.Parameters.Add((New-Object System.Net.Http.Headers.NameValueHeaderValue('boundary',$bnd)))`n"
+        ps .= "  $j2=$c.PostAsync(" PsStr(upUrl) ",$bc).Result.Content.ReadAsStringAsync().Result`n"
+        ps .= "  $m=[regex]::Match($j2,'media_id\D+([\w-]+)').Groups[1].Value`n"
+        ps .= "  if(-not $m){[IO.File]::WriteAllText($out,'ERR upload: '+$j2);exit 3}`n"
+        ps .= "  $pl='{`"msgtype`":`"file`",`"file`":{`"media_id`":`"'+$m+'`"}}'`n"
+        ps .= "  $fc=New-Object System.Net.Http.StringContent($pl,[Text.Encoding]::UTF8,'application/json')`n"
+        ps .= "  $r3=$c.PostAsync(" PsStr(webhook) ",$fc).Result.Content.ReadAsStringAsync().Result`n"
+        ps .= "  if($r3 -notmatch 'errcode\D+0\b'){[IO.File]::WriteAllText($out,'ERR file: '+$r3);exit 4}`n"
+    }
+    ps .= "  [IO.File]::WriteAllText($out,'ok');exit 0`n"
+    ps .= "}catch{[IO.File]::WriteAllText($out,'ERR: '+$_.Exception.Message);exit 1}`n"
+    enc := B64Utf16(ps)
+    target := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand " enc
+    ec := -1
+    try ec := RunWait(target, , "Hide")
+    catch {
+        LogMsg("issue: powershell launch failed", "WARN")
+        ec := -1
+    }
+    r := ""
+    try r := FileRead(respFile, "UTF-8")
+    try FileDelete(respFile)
+    try FileDelete(A_Temp "\AirPodsBuddy_issue_log.txt")
+    LogMsg("issue sent: types='" types "' note=" StrLen(note) " chars file=" (wantfile ? 1 : 0) " ec=" ec " resp=" r)
+    if (ec = 0)
+        return "ok"
+    ; 文本已由前端 fetch 送达 → 文件链路失败降级为 nofile（反馈本身算送达）
+    return fetchok ? "nofile" : "fail"
+}
+
 ; ------------------------- 开机自启动（v1.9.5 设置项） -------------------------
 ; 机制：HKCU Run 键（任务管理器→启动应用 可见可逆，免管理员）。
 ; 兼容旧版启动文件夹快捷方式（存在即视为已开启，切换时迁移到注册表）。
@@ -1043,6 +1173,8 @@ WebMessageHandler(core, args) {
     cmd := parts[1]
     id := parts[2]
     arg1 := parts.Length >= 3 ? parts[3] : ""
+    arg2 := parts.Length >= 4 ? parts[4] : ""
+    arg3 := parts.Length >= 5 ? parts[5] : ""
 
     ; frontend forwards window.onerror / unhandledrejection here
     if (cmd = "jserror") {
@@ -1078,6 +1210,7 @@ WebMessageHandler(core, args) {
         case "getautostart":      Reply(id, JsonStr(AutostartEnabled()))
         case "setautostart":      Reply(id, JsonStr(AutostartSet(arg1 = "1")))
         case "sendfeedback":      Reply(id, JsonStr(SendFeedback(arg1)))
+        case "sendissue":         Reply(id, JsonStr(SendIssue(arg1, arg2, arg3)))
         case "getfblogs":         Reply(id, JsonStr(GatherLogTail()))
         case "getfbwebhook":      Reply(id, JsonStr(FbWebhook()))   ; 前端 fetch 直发用（主通道），ini 优先否则内置默认
         case "openurl":           Run(arg1), Reply(id, "true")
