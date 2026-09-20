@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.9.10] - 2026-09-20
 
 ### Added
+- **二维码灯箱（真正落地；1.9.8 声称过但全 git 历史无 lightbox 代码，同 B8.7 空头支票）**：关于弹窗三个二维码（粉丝群/赞赏码/表情包）点击弹出白底大图子页（最大 300px/56vh，自适应竖版图），带标题+副标题，点击任意处或 Esc 关闭，扫码后回到关于页。图片 src 复用小图的 data URI，built 体积零增长。
+- **反馈直达入口**：页脚新增「💬 提意见」，点击直达关于弹窗并自动展开反馈输入框+聚焦（原入口在 关于捞鱼→弹窗第二张卡→再点一次展开，三层深，开发者本人都找不到）。
 - **反馈附运行日志（真正落地）**：发反馈自动拉取最近 50 行日志（今天优先、不足补昨天），按 UTF-8 字节预算从头部丢整行截进企微 markdown 代码块（总长 ≤3900B，上限 4096B，Node 单测最坏 3826B）；成功面板明示「已附最近运行日志」。v1.9.9 两条 commit 信息声称的 "feedback logs chunked via webview no-cors" 实为空头支票——前端对 `getfblogs`/`getfbwebhook` 的调用次数为 0，本次补齐。
 - **反馈 fetch 主通道（真正落地）**：前端 `fbSend` 先经 WebView2 引擎 `fetch` no-cors 直发企微 webhook（`text/plain` JSON，协议已联调验证 errcode:0；浏览器引擎联网不被安全软件拦），失败才降级 powershell 兜底（不带日志）。CHANGELOG 1.9.7 声称的三层通道此前同样只有第②③层，第①层从未在前端存在过（全 git 历史无 `no-cors`）。
 

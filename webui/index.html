@@ -235,13 +235,22 @@
   .dlg .row{display:flex;gap:10px;margin-top:18px}
   .dlg .row .btn{flex:1;padding:11px 0}
   .qrs{display:flex;gap:12px;margin-top:16px}
-  .qr{flex:1;background:#FCFAF5;border:1px solid var(--line);border-radius:12px;padding:12px 8px;text-align:center;
-    transition:background-color .2s var(--ease)}
+  .qr{flex:1;background:#FCFAF5;border:1px solid var(--line);border-radius:12px;padding:12px 8px;text-align:center;    transition:background-color .2s var(--ease)}
   .qr:hover{background:#fff}
   .qr{min-width:0}
   .qr img{width:100%;max-width:100px;height:auto;aspect-ratio:1/1;border-radius:8px}
   .qr b{font-size:12px;display:block;margin-top:8px;font-weight:600}
   .qr span{font-size:10.5px;color:var(--sub)}
+  /* 二维码灯箱：点击小图放大，方便扫码（复用 mask/modal 体系） */
+  .qr{cursor:pointer;user-select:none}
+  .qr:active{transform:scale(.97)}
+  .qr-box{background:#fff;border-radius:18px;padding:22px 22px 16px;max-width:82vw;
+    display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer;
+    box-shadow:0 18px 50px rgba(52,48,41,.28)}
+  .qr-box img{max-width:min(70vw,300px);max-height:min(56vh,340px);object-fit:contain;border-radius:10px}
+  .qr-box b{font-size:14px;color:var(--ink)}
+  .qr-box i{font-style:normal;font-size:11.5px;color:var(--sub)}
+  .qr-box u{font-size:10.5px;color:var(--sub);opacity:.7;margin-top:2px}
   .upd-meta{font-size:12px;color:var(--sub);margin:14px 0 2px;background:#FAF7F0;
     border:1px solid rgba(0,0,0,.045);border-radius:12px;padding:10px 14px;line-height:1.7}
   .upd-meta b{color:var(--ink);font-weight:600}
@@ -372,6 +381,7 @@
 
   <footer>
     <span class="about-link" style="margin-left:0;margin-right:auto" onclick="openSettings()">&#9881;&#65038; 设置</span>
+    <span class="about-link" onclick="openAbout(true)">&#128172; 提意见</span>
     <span class="about-link" onclick="openAbout()"><u>关于捞鱼</u> 🐟</span>
   </footer>
 </div>
@@ -444,13 +454,23 @@
     </div>
 
     <div class="qrs">
-      <div class="qr"><img src="assets/qq-group.jpg"><b>粉丝群</b><span>一起摸鱼聊技术</span></div>
-      <div class="qr"><img src="assets/reward-qr.jpg"><b>赞赏码</b><span>请我喝杯奶茶</span></div>
-      <div class="qr"><img src="assets/sticker-qr.png"><b>表情包</b><span>超可爱快收藏</span></div>
+      <div class="qr" onclick="qrZoom(this)" title="点击放大"><img src="assets/qq-group.jpg"><b>粉丝群</b><span>一起摸鱼聊技术</span></div>
+      <div class="qr" onclick="qrZoom(this)" title="点击放大"><img src="assets/reward-qr.jpg"><b>赞赏码</b><span>请我喝杯奶茶</span></div>
+      <div class="qr" onclick="qrZoom(this)" title="点击放大"><img src="assets/sticker-qr.png"><b>表情包</b><span>超可爱快收藏</span></div>
     </div>
     <div class="row">
       <button class="btn ghost" onclick="closeModal('mAbout')">知道啦</button>
     </div>
+  </div>
+</div>
+
+<!-- QR lightbox：白底大图 + 标题，点击任意处/Esc 关闭 -->
+<div class="mask" id="qrBox" onclick="closeModal('qrBox')">
+  <div class="qr-box">
+    <img id="qrBigImg" src="" alt="">
+    <b id="qrBigTitle"></b>
+    <i id="qrBigSub"></i>
+    <u>点击任意处关闭</u>
   </div>
 </div>
 
@@ -677,16 +697,23 @@ function openModal(id){const m=document.getElementById(id);m.classList.add('open
 function closeModal(id){const m=document.getElementById(id);m.classList.remove('in');
   setTimeout(()=>m.classList.remove('open'),260)}
 document.querySelectorAll('.mask').forEach(m=>m.onclick=e=>{if(e.target===m)closeModal(m.id)});
-function openAbout(){
+function qrZoom(card){
+  document.getElementById('qrBigImg').src=card.querySelector('img').src;
+  document.getElementById('qrBigTitle').textContent=card.querySelector('b').textContent;
+  document.getElementById('qrBigSub').textContent=card.querySelector('span').textContent;
+  openModal('qrBox');
+}
+function openAbout(autofb){
   openModal('mAbout');
   const t=document.getElementById('fbText');
   document.getElementById('fbCount').textContent=t.value.length+' / 1000';
-  // 每次打开重置反馈区
+  // 每次打开重置反馈面板状态（已送达/失败）；autofb=true 时直达展开输入框
   const card=document.querySelector('#mAbout .fb-card');
-  card.classList.remove('open');
   document.getElementById('fbDone').style.display='none';
   document.getElementById('fbFail').style.display='none';
   document.getElementById('fbBody').style.display='flex';
+  card.classList.toggle('open',!!autofb);
+  if(autofb) setTimeout(()=>t.focus(),240);
 }
 function fbToggle(){
   const card=document.querySelector('#mAbout .fb-card');
