@@ -21,6 +21,12 @@ Get-ChildItem $assets -File | ForEach-Object {
     $totalReplaced++
   }
 }
+# 版本号烙印：从 airpods_buddy.ahk 提取 APP_VERSION 写进静态占位（防占位撒谎）
+$ahk = Join-Path (Split-Path $PSScriptRoot -Parent) 'airpods_buddy.ahk'
+if (Test-Path $ahk) {
+  $ver = (Select-String -Path $ahk -Pattern 'APP_VERSION\s+:=\s+"([^"]+)"').Matches.Groups[1].Value
+  if ($ver) { $html = $html -replace '(<div class="ver" id="ver">)[^<]*(</div>)', ('$1v' + $ver + '$2') }
+}
 [IO.File]::WriteAllText($out, $html, (New-Object System.Text.UTF8Encoding $false))
 $size = (Get-Item $out).Length
 Write-Host "built: $out ($size bytes, $totalReplaced images inlined)"
