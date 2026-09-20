@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.9.10] - 2026-09-20
 
 ### Added
+- **AirPods 5（2026-09-09 发布，支持 LE 音频）兼容应对**：用户反馈"不支持 AirPods 5"。排查结论：本项目连接走经典蓝牙 A2DP/HFP 服务开关，AirPods 5 双模、枚举与名字识别无碍；风险在 LE 音频协商路径（微软 2026-06 更新 26200.8737+ 才改善），**无真机不做协议层改动**。落地三件事：① Apple 设备连接失败时追加问诊式提示（LE 音频开关自查 + 系统更新 + 引导反馈），不断言根因；② 问题反馈新增「🎧 找不到耳机」（吸收远端 0693e58 预设文案）与「🆕 新耳机连不上」类型，引导带日志反馈拿真机数据；③ README 新增常见问题段（LE 音频四步自查）。
+- **合并远端平行线**（origin/main v1.9.0~v1.9.9，27 commits）：代码取本地（远端尚带转义腐蚀伤：`64Utf16` 缺 B、SETTINGS_PATH/GatherLogTail 坏路径；其 0693e58 因 QY 44001 撤掉了文件上传，本地已修复 44001 真因）；吸收远端新贴纸托盘图标、宠物落地影、「找不到耳机」预设、AGENTS 单仓规约与完整版本史。上游 ChromuSx/BluetoothDeviceConnector 评估：fork 后主脚本仅加命令行参数（已有 UI 版），其余更新全在 Stream Deck 插件生态，与主程序无交集，不合并。
 - **「提意见」与「问题反馈」拆成两个独立功能**（用户需求：意见走轻通道，问题反馈带类型+日志）：
   - **提意见**（页脚「💬 提意见」直达，自动展开输入框）：纯文本轻通道，fetch no-cors 直发 → powershell 兜底，不带日志。
   - **问题反馈**（页脚「🐞 问题反馈」直达新弹窗）：① 常见问题类型多选 chips（手机来回抢/连上没声音/连不上/断不开/界面托盘）；② 补充说明（可选，可不选类型直接写）；③ 自动附日志——文本消息带最近 50 行摘要（字节预算 ≤3900B，Node 单测通过）+ **完整日志文件（今天+昨天合并）经企微 upload_media 上传、以 file 消息发到群里可直接下载**（复选框默认勾选，可关）。链路：fetch 主通道发文本 + powershell HttpClient 上传文件；文件被安全软件拦时如实提示「摘要日志已带上，不影响定位」。上传链路端到端实测通过（44001 两根因均已修复：.NET 默认给 boundary 参数加引号企微不认；filename 闭合引号丢失）。
@@ -15,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **反馈 fetch 主通道（真正落地）**：前端 `fbSend` 先经 WebView2 引擎 `fetch` no-cors 直发企微 webhook（`text/plain` JSON，协议已联调验证 errcode:0；浏览器引擎联网不被安全软件拦），失败才降级 powershell 兜底（不带日志）。CHANGELOG 1.9.7 声称的三层通道此前同样只有第②③层，第①层从未在前端存在过（全 git 历史无 `no-cors`）。
 
 ### Fixed
+- **/testpet 模式从未真正工作过**：`PetEnsure` 引用的 `wv2Fallback` 在 /testpet（auto-exec 前段执行）时尚未初始化 → UnsetError → 宠物 webview 创建失败、静默跳过全部演示（QA 路径长期失效无人察觉）。修复：`wv2Fallback := ""` 提前到 boot 日志后初始化。验证：`//testpet` 退出码 0、`pet bg readback=00000000`。附：命令行传 `/xxx` 参数会被 AHK 解释器吞掉，须写 `//xxx`。
 - **GatherLogTail 日志路径缺分隔符**：`dir "app-"` 拼出 `...\logsapp-*.log` 永远 miss（v1.9.9 清 BEL 时同族矫枉过正）→ `getfblogs` 恒返回空。补回 `\`。
 - **设置持久化从未生效**（用户实测发现）：`SettingWrite`/`SavePriority` 把 `FileDelete` 与 `FileAppend` 放在同一个 try 块——文件不存在时 `FileDelete` 抛 `TargetError` 整块跳过，**首次写入永远失败**。连带后果：connect_count 连接计数永远归零（求好评永远不触发）、自定义 feedback_webhook 存不下来、设备优先级排序首存即丢。改为先 `FileExist` 判断、两步各自 try，已用独立最小脚本双跑验证（修复前 readback=MISSING，修复后 readback=ok123）。
 - **SETTINGS_PATH 缺路径分隔符**：v1.9.9 清除 BEL 字符时把 `\a` 连字面反斜杠一起删了，拼出 `...BluetoothDeviceConnectorapp_settings.ini`（无 `\`），设置会写到目录名拼接出的畸形路径。补回 `\app_settings.ini`。

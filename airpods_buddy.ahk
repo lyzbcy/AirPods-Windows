@@ -167,6 +167,7 @@ if A_IsCompiled {
     FileInstall "assets\loading_5.ico", appRoot "\loading_5.ico", 1
 }
 LogMsg("boot v" APP_VERSION " compiled=" A_IsCompiled " scriptdir=" A_ScriptDir)
+wv2Fallback := ""   ; 提前初始化：/testpet 模式在 EnsureWebView2Runtime 之前就会进 PetEnsure
 
 ; /testpet：宠物弹窗演示模式（QA/截图验证用）
 if (A_Args.Length = 1 && A_Args[1] = "/testpet") {
@@ -1336,6 +1337,11 @@ LinkVerifyTick(name, left, gen) {
         LogMsg("link NOT up after ~9s: '" name "'", "WARN")
         PetUpdate("fail")
         TrayTip("AirPods 小助手", "没能连上 «" name "»`n耳机可能不在附近、没电，或正被手机使用", 4)
+        ; 新耳机问诊（2026-09-20 AirPods 5 反馈）：不断言根因，给可自查方向 + 引导带日志反馈
+        if (IsAppleDevice(name)) {
+            Sleep(300)
+            TrayTip("AirPods 小助手", "新耳机小贴士：设置→蓝牙→设备详情里若有「LE 音频」开关，关掉试试；`n系统更新到最新也可能有帮助。`n还不行请用「🐞 问题反馈」带上日志告诉我", 6)
+        }
         PushEvent("linkfail", JsonStr(name))
         return
     }
