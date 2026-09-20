@@ -447,7 +447,17 @@
         <span class="star-go fb-arrow" id="fbArrow"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
       </button>
       <div class="fb-body" id="fbBody">
-        <textarea id="fbText" maxlength="1000" rows="3" placeholder="bug、建议、想说的都可以，一句话也行…"></textarea>
+        <div class="fb-presets">
+          <span class="fb-plabel">常见问题（点选填充）：</span>
+          <div class="fb-chips">
+            <button class="chip2" onclick="fbPreset('蓝牙明明连上了，但是耳机没有声音')">🔇 连上了但没声音</button>
+            <button class="chip2" onclick="fbPreset('连接来回跳，一会儿连上一会儿断开')">🔁 连接来回跳</button>
+            <button class="chip2" onclick="fbPreset('搜索/列表里找不到我的耳机')">🎧 找不到耳机</button>
+            <button class="chip2" onclick="fbPreset('点击连接提示失败')">⚠️ 连接失败</button>
+          </div>
+        </div>
+        <textarea id="fbText" maxlength="1000" rows="3" placeholder="选上面的问题或手动输入，可以补充细节（什么时候发生、怎么操作的）…"></textarea>
+        <label class="fb-attach"><input type="checkbox" id="fbAttachLogs" checked> 附带最近 50 条日志（帮我快速定位问题）</label>
         <div class="fb-foot">
           <span class="fb-count" id="fbCount">0 / 1000</span>
           <button class="btn primary" id="fbSend" onclick="fbSend()">发送</button>
@@ -791,13 +801,44 @@ function fbSend(){
   fbSending=true;
   btn.classList.add('busy');btn.innerHTML='<span class="spin"></span>';
   const reset=()=>{btn.classList.remove('busy');btn.textContent='发送';fbSending=false};
+  const fbSendLogs=()=>Promise.race([
+    rpc('sendfblogs'),
+    new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),30000))
+  ]);
+  const fbAfterText=()=>{
+    if(!document.getElementById('fbAttachLogs').checked){fbShowDone();return}
+    const enc2=new TextEncoder();
+    rpc('getfblogs').then(logTxt=>{       // AHK 收集最近 50 行（最长 ~6KB）
+      const lines=(logTxt||'').split('
+');
+      const chunks=[];let cur='';
+      for(const ln of lines){
+        const cand=cur+(cur?'
+':'')+ln;
+        if(enc2.encode(cand).length>1800 && cur){chunks.push(cur);cur=ln}
+        else{cur=cand}
+      }
+      if(cur)chunks.push(cur);
+      return getFbHook().then(u=>{
+        let p=Promise.resolve();
+        chunks.forEach((c,i)=>{
+          p=p.then(()=>fetch(u,{method:'POST',mode:'no-cors',
+            headers:{'Content-Type':'text/plain'},
+            body:JSON.stringify({msgtype:'text',text:{content:'📎 反馈日志 '+(i+1)+'/'+chunks.length+'
+'+c}})}));
+        });
+        return p;
+      });
+    }).then(()=>{fbShowDone()})
+      .catch(()=>{fbShowFail('问题已送达 ✓，但日志发送失败（不影响你反馈的问题）')});
+  };
   const fbRpcBackup=()=>{   // 主通道失败 → AHK powershell 兜底（25s 超时）
     Promise.race([
       rpc('sendfeedback',t),
       new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),25000))
     ]).then(r=>{
       reset();
-      if(r==='ok'){fbShowDone();return}
+      if(r==='ok'){fbAfterText();return}
       fbShowFail(fbWhy(r));
     }).catch(()=>{
       reset();
@@ -811,7 +852,7 @@ function fbSend(){
       fetch(u,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:payload}),
       new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),20000))
     ]);
-  }).then(()=>{reset();fbShowDone()})
+  }).then(()=>{reset();fbAfterText()})
     .catch(fbRpcBackup);
 }
 function fbCopy(){

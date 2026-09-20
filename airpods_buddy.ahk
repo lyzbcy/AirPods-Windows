@@ -10,7 +10,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\WebView2\WebView2.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.8"
+APP_VERSION   := "1.9.9"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -823,7 +823,32 @@ SendFeedback(text) {
     return reason
 }
 
-B64Utf16(str) {
+; 最近 50 条日志：今天优先，不足补昨天（横跳/闪断可能跨零点）
+GatherLogTail() {
+    dir := A_ScriptDir "\logs"
+    today := dir "pp-" FormatTime(A_Now, "yyyy-MM-dd") ".log"
+    yest := dir "pp-" FormatTime(DateAdd(A_Now, -1, "days"), "yyyy-MM-dd") ".log"
+    lines := []
+    for _, f in [today, yest] {
+        if !FileExist(f)
+            continue
+        try {
+            for line in StrSplit(FileRead(f, "UTF-8"), "`n", "`r")
+                lines.Push(line)
+        } catch {
+            continue
+        }
+    }
+    start := Max(1, lines.Length - 49)
+    out := "=== AirPodsBuddy 日志（最近 " (lines.Length - start + 1) " 行 · " A_Now "） ===`r`n"
+    Loop lines.Length - start + 1
+        out .= lines[start + A_Index - 1] "`r`n"
+    return out
+}
+
+; 日志随反馈上传：企微机器人先 upload_media（multipart，HttpClient）拿 media_id，
+; 再发 file 消息。50 行日志对一个文件，开发者可直接下载 grep，比贴文本好定位。
+64Utf16(str) {
     chars := StrLen(str)
     bytes := chars * 2
     buf := Buffer(bytes + 2, 0)
@@ -1052,6 +1077,7 @@ WebMessageHandler(core, args) {
         case "getautostart":      Reply(id, JsonStr(AutostartEnabled()))
         case "setautostart":      Reply(id, JsonStr(AutostartSet(arg1 = "1")))
         case "sendfeedback":      Reply(id, JsonStr(SendFeedback(arg1)))
+        case "getfblogs":         Reply(id, JsonStr(GatherLogTail()))
         case "getfbwebhook":      Reply(id, JsonStr(FbWebhook()))   ; 前端 fetch 直发用（主通道），ini 优先否则内置默认
         case "openurl":           Run(arg1), Reply(id, "true")
         default:                  Reply(id, "null")
