@@ -65,7 +65,7 @@ LoadPriority()
 
 ; ------------------------- Device priority ---------------------------
 ; 用户自定义的"一键连接"优先顺序（每行一个设备名），Apple 设备默认排前。
-SETTINGS_PATH := A_ScriptDir "pp_settings.ini"
+SETTINGS_PATH := A_ScriptDir "app_settings.ini"
 PRIO_PATH := A_ScriptDir "\device_priority.txt"
 priorityList := []
 
@@ -826,8 +826,8 @@ SendFeedback(text) {
 ; 最近 50 条日志：今天优先，不足补昨天（横跳/闪断可能跨零点）
 GatherLogTail() {
     dir := A_ScriptDir "\logs"
-    today := dir "pp-" FormatTime(A_Now, "yyyy-MM-dd") ".log"
-    yest := dir "pp-" FormatTime(DateAdd(A_Now, -1, "days"), "yyyy-MM-dd") ".log"
+    today := dir "app-" FormatTime(A_Now, "yyyy-MM-dd") ".log"
+    yest := dir "app-" FormatTime(DateAdd(A_Now, -1, "days"), "yyyy-MM-dd") ".log"
     lines := []
     for _, f in [today, yest] {
         if !FileExist(f)
@@ -848,7 +848,7 @@ GatherLogTail() {
 
 ; 日志随反馈上传：企微机器人先 upload_media（multipart，HttpClient）拿 media_id，
 ; 再发 file 消息。50 行日志对一个文件，开发者可直接下载 grep，比贴文本好定位。
-64Utf16(str) {
+B64Utf16(str) {
     chars := StrLen(str)
     bytes := chars * 2
     buf := Buffer(bytes + 2, 0)
