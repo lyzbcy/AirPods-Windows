@@ -10,7 +10,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\WebView2\WebView2.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.8.4"
+APP_VERSION   := "1.9.9"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -65,6 +65,7 @@ LoadPriority()
 
 ; ------------------------- Device priority ---------------------------
 ; 用户自定义的"一键连接"优先顺序（每行一个设备名），Apple 设备默认排前。
+SETTINGS_PATH := A_ScriptDir "pp_settings.ini"
 PRIO_PATH := A_ScriptDir "\device_priority.txt"
 priorityList := []
 
@@ -260,6 +261,47 @@ WatchTrayState() {
     FindAllAudioDevices()
     SortDevices()
     UpdateTrayIcon()
+    WatchFlap()
+}
+
+; 连接来回跳检测（v1.9.8，用户 2026-09-06）：手机/电脑抢耳机或链路不稳时
+; 连接状态反复翻转。120 秒窗口内翻转 ≥3 次 = 横跳，提示用户（5 分钟冷却）。
+; 只提示不自动动作：自动重连会跟手机抢得更凶，决策权交给用户（doc/04 待办调研）。
+flapLog := Map()      ; name -> "|"-连接的时间戳串（必须 Map：Object 无 Has/__Item，见日志 8389 错误教训）
+flapPrev := Map()     ; name -> 上次连接状态(1/0)
+flapAdvised := Map()  ; name -> 上次提示时刻
+
+WatchFlap() {
+    global devices, flapLog, flapPrev, flapAdvised
+    for dev in devices {
+        key := dev.name
+        now := dev.connected ? 1 : 0
+        if !flapPrev.Has(key) {
+            flapPrev[key] := now
+            continue
+        }
+        if (flapPrev[key] = now)
+            continue
+        flapPrev[key] := now
+        stamps := flapLog.Has(key) ? flapLog[key] : ""
+        stamps .= (stamps = "" ? "" : "|") A_Now
+        fresh := ""
+        for _, t in StrSplit(stamps, "|")
+            if DateDiff(A_Now, t, "Seconds") <= 120
+                fresh .= (fresh = "" ? "" : "|") t
+        flapLog[key] := fresh
+        cnt := StrLen(fresh) ? StrSplit(fresh, "|").Length : 0
+        if (cnt < 3)
+            continue
+        last := flapAdvised.Has(key) ? flapAdvised[key] : ""
+        if (last != "" && DateDiff(A_Now, last, "Seconds") <= 300)
+            continue   ; 5 分钟冷却（对审计 #1：DateDiff(…,0,…)=ValueError，哨兵必须为空串）
+        flapAdvised[key] := A_Now
+        flapLog[key] := ""
+        LogMsg("flap detected: '" key "' x" cnt "/120s", "WARN")
+        TrayTip("AirPods 小助手", "检测到 «" key "» 连接来回跳（手机和电脑在抢耳机）`n建议：暂停手机蓝牙或退出手机上的音乐，再点一次连接锁定", 4)
+        PushEvent("flapping", JsonStr(key))
+    }
 }
 
 ; 降噪/通透模式：通过 Apple 私有 L2CAP 服务（74ec2172-...）发送 0x0D 指令。
@@ -665,11 +707,13 @@ TrayQuickAction(action) {
         SetTrayLoading(true)
         r := DoAction(target.name, "connect")
         SetTrayLoading(false)
-        PetFinish(r = "ok" ? "ok" : "fail")
-        if (r = "ok")
-            TrayTip("AirPods 小助手", "已连接 💕 «" target.name "»", 1)
-        else
+        if (r = "ok") {
+            ; 真实链路由 LinkVerifyTick 异步核实，完成后修正宠物与提示
+            TrayTip("AirPods 小助手", "正在连接 «" target.name "» …", 2)
+        } else {
+            PetFinish("fail")
             TrayTip("AirPods 小助手", "连接失败 «" target.name "»", 3)
+        }
     } else {
         any := false
         first := true
@@ -695,6 +739,299 @@ TrayQuickAction(action) {
 }
 
 SetTimer(CheckUpdate, -3000)
+SetTimer(CheckUpdateReceipt, -3500)   ; v1.9.2：核对上次自动更新回执，如实告知
+
+; v1.9.2：上次更新置换的回执（swapper 写入 update_result.txt）。
+; ok → 确认 toast；fail → 多半被 360 等安全软件拦截，如实提醒用户。
+; ------------------------- 意见反馈（v1.9.6） -------------------------
+; 通道：企业微信群机器人 webhook（免注册免跳转，直发用户手里）。
+; 主通道：前端 WebView2(Edge 引擎) 内 fetch 直发（v1.9.8）——实测 360 主动防御
+; 会拦截应用派生子进程（curl/powershell）的联网，但不拦浏览器引擎。
+; 本函数仅作兜底通道（第二族传输，不同失败域）。
+; webhook 存 app_settings.ini 的 feedback_webhook，可随时换 key 不用重编译。
+FbWebhook() {
+    webhook := SettingRead("feedback_webhook", "")
+    if (webhook = "")
+        webhook := "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=93bbfb6e-6d93-437e-a8ab-605062cc5db5"
+    return webhook
+}
+
+SendFeedback(text) {
+    s := Trim(text)
+    if (s = "")
+        return "empty"
+    if (StrLen(s) > 1000)
+        s := SubStr(s, 1, 1000)
+    s := RegExReplace(s, "[\xDC00-\xDFFF]$", "")   ; 截断可能切裂 emoji 代理对
+    webhook := FbWebhook()
+    content := "📮 **AirPods 小助手 意见反馈**`n> " s "`n`n— v" APP_VERSION " · Windows"
+    payload := '{"msgtype":"markdown","markdown":{"content":' JsonStr(content) '}}'
+    ; powershell.exe 兜底发送（v1.9.8）：仅在主通道（WebView2 fetch）失败后由前端
+    ; 调用。实测它同样会被 360 主动防御拦网络，但它是不同的失败域——主通道失败
+    ; 时它仍有机会成功（例如 WebView2 网络栈被单独干扰的场景）。
+    ; 脚本走 -EncodedCommand（base64 UTF-16LE，免引号/免落 ps1 文件）；
+    ; payload/响应走临时文件，UTF-8-RAW 无 BOM（带 BOM 企微 API 报 40008 但 HTTP=200）。
+    ; v1.9.8 修复：-EncodedCommand 后不能跟位置参数（powershell 会打印用法说明直接
+    ; 退出，脚本根本不运行——本地实测复现），jsonFile/webhook/respFile 三个值改为
+    ; 拼进脚本本体（PsStr 单引号 PS 字符串，'' 转义）。
+    jsonFile := A_Temp "\AirPodsBuddy_fb.json"
+    respFile := A_Temp "\AirPodsBuddy_fb_resp.txt"
+    try FileDelete(jsonFile)
+    try FileDelete(respFile)
+    try {
+        f := FileOpen(jsonFile, "w", "UTF-8-RAW")   ; "w"=覆盖语义；UTF-8-RAW=无 BOM（带 BOM 企微 API 拒收但 HTTP=200）
+        f.Write(payload)
+        f.Close()
+    } catch {
+        LogMsg("feedback: payload write failed", "WARN")
+        return "net"
+    }
+    ps := "$ErrorActionPreference='Stop'`n"
+    ps .= "try {`n"
+    ps .= "  $b=[IO.File]::ReadAllBytes(" PsStr(jsonFile) ")`n"
+    ps .= "  $r=Invoke-WebRequest -Uri " PsStr(webhook) " -Method Post -ContentType 'application/json' -Body $b -TimeoutSec 12 -UseBasicParsing`n"
+    ps .= "  [IO.File]::WriteAllText(" PsStr(respFile) ", $r.Content)`n"
+    ps .= "  exit 0`n"
+    ; 失败不再是黑盒：把具体异常写进响应文件，随下面的日志落地，供诊断归因
+    ps .= "} catch { [IO.File]::WriteAllText(" PsStr(respFile) ", 'ERR: ' + $_.Exception.Message); exit 1 }"
+    enc := B64Utf16(ps)
+    target := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand " enc
+    try ec := RunWait(target, , "Hide")
+    catch {
+        LogMsg("feedback: powershell launch failed", "WARN")
+        ec := -1
+    }
+    r := ""
+    try r := FileRead(respFile, "UTF-8")
+    try FileDelete(respFile)
+    try FileDelete(jsonFile)
+    if (ec = 0 && InStr(r, '"errcode":0')) {
+        LogMsg("feedback delivered (" StrLen(s) " chars)")
+        return "ok"
+    }
+    ; 失败归因：ec=1 → 传输层失败（网络/拦截）；有响应体但 errcode≠0 → 服务端拒绝
+    reason := "net"
+    if (ec = 0) {
+        pos := InStr(r, '"errcode":')
+        if (pos) {
+            codeTxt := SubStr(r, pos + 10)
+            if RegExMatch(codeTxt, "^-?\d+", &m)
+                reason := "api:" m[0]
+        }
+    }
+    LogMsg("feedback failed: ec=" ec " reason=" reason " resp=" r, "WARN")
+    return reason
+}
+
+; 最近 50 条日志：今天优先，不足补昨天（横跳/闪断可能跨零点）
+GatherLogTail() {
+    dir := A_ScriptDir "\logs"
+    today := dir "pp-" FormatTime(A_Now, "yyyy-MM-dd") ".log"
+    yest := dir "pp-" FormatTime(DateAdd(A_Now, -1, "days"), "yyyy-MM-dd") ".log"
+    lines := []
+    for _, f in [today, yest] {
+        if !FileExist(f)
+            continue
+        try {
+            for line in StrSplit(FileRead(f, "UTF-8"), "`n", "`r")
+                lines.Push(line)
+        } catch {
+            continue
+        }
+    }
+    start := Max(1, lines.Length - 49)
+    out := "=== AirPodsBuddy 日志（最近 " (lines.Length - start + 1) " 行 · " A_Now "） ===`r`n"
+    Loop lines.Length - start + 1
+        out .= lines[start + A_Index - 1] "`r`n"
+    return out
+}
+
+; 日志随反馈上传：企微机器人先 upload_media（multipart，HttpClient）拿 media_id，
+; 再发 file 消息。50 行日志对一个文件，开发者可直接下载 grep，比贴文本好定位。
+64Utf16(str) {
+    chars := StrLen(str)
+    bytes := chars * 2
+    buf := Buffer(bytes + 2, 0)
+    StrPut(str, buf, "UTF-16")
+    size := 0
+    DllCall("crypt32\CryptBinaryToStringW", "ptr", buf, "uint", bytes, "uint", 0x40000001, "ptr", 0, "uint*", &size)
+    out := Buffer(size * 2, 0)
+    DllCall("crypt32\CryptBinaryToStringW", "ptr", buf, "uint", bytes, "uint", 0x40000001, "ptr", out, "uint*", &size)
+    return StrGet(out, size)   ; base64（无换行），-EncodedCommand 直接可用
+}
+
+PsStr(v) {
+    return "'" StrReplace(v, "'", "''") "'"   ; 拼进 PS 脚本本体的单引号字符串字面量
+}
+
+; ------------------------- 开机自启动（v1.9.5 设置项） -------------------------
+; 机制：HKCU Run 键（任务管理器→启动应用 可见可逆，免管理员）。
+; 兼容旧版启动文件夹快捷方式（存在即视为已开启，切换时迁移到注册表）。
+; 若被安全软件/任务管理器禁用（StartupApproved 首字节为奇数），返回
+; "disabled" 让前端如实提示，而不是假装开关没生效。
+RUN_KEY   := "Software\Microsoft\Windows\CurrentVersion\Run"
+RUN_NAME  := "AirPodsBuddy"
+
+AutostartEnabled() {
+    lnkOn := FileExist(A_Startup "\AirPods小助手.lnk") ? true : false
+    regOn := false
+    try {
+        v := RegRead("HKCU\" RUN_KEY, RUN_NAME)
+        regOn := (v != "")
+    } catch {
+        regOn := false
+    }
+    if (regOn) {
+        try {
+            bin := RegRead("HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run", RUN_NAME)
+            if (StrLen(bin) >= 1 && (NumGet(bin, 0, "uchar") & 1))
+                return "disabled"   ; Run 键还在但被禁用（安全软件/任务管理器所为）
+        } catch {
+        }
+        return "on"
+    }
+    return lnkOn ? "on" : "off"
+}
+
+AutostartSet(on) {
+    lnk := A_Startup "\AirPods小助手.lnk"
+    if (on) {
+        exe := '"' A_ScriptFullPath '"'
+        RegWrite(exe, "REG_SZ", "HKCU\" RUN_KEY, RUN_NAME)
+        ; 清掉可能的禁用标记
+        try RegDelete("HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run", RUN_NAME)
+        ; 迁移：启动文件夹快捷方式不再需要，避免双开
+        try FileDelete(lnk)
+        LogMsg("autostart ON: " exe)
+    } else {
+        try RegDelete("HKCU\" RUN_KEY, RUN_NAME)
+        try FileDelete(lnk)
+        LogMsg("autostart OFF")
+    }
+    return "ok"
+}
+
+CheckUpdateReceipt() {
+    p := A_ScriptDir "\update_result.txt"   ; 与 DoUpdate 的 exeDir(A_ScriptDir) 一致
+    if !FileExist(p)
+        return
+    r := Trim(StrReplace(FileRead(p, "UTF-8"), Chr(0xFEFF), ""))   ; 去 BOM（PS5.1 UTF8 写入带 BOM）
+    try FileDelete(p)
+    if (r = "ok") {
+        LogMsg("update swap receipt: ok")
+        PushEvent("toast", JsonStr("已成功更新到 v" APP_VERSION " ✅"))
+    } else {
+        LogMsg("update swap receipt: " r, "WARN")
+        PushEvent("toast", JsonStr("上次自动更新没完成（多半被安全软件拦截），仍在旧版本。把软件目录加入安全软件信任区后再更新一次即可"))
+    }
+}
+
+
+; ============ 求好评组件（组件库规范：不打扰用户） ============
+SettingRead(key, default) {
+    global SETTINGS_PATH
+    try {
+        if FileExist(SETTINGS_PATH) {
+            loop read SETTINGS_PATH {
+                line := Trim(A_LoopReadLine)
+                p := InStr(line, "=")
+                if (p && SubStr(line, 1, p - 1) = key)
+                    return SubStr(line, p + 1)
+            }
+        }
+    }
+    return default
+}
+
+SettingWrite(key, value) {
+    global SETTINGS_PATH
+    lines := []
+    try {
+        if FileExist(SETTINGS_PATH) {
+            loop read SETTINGS_PATH {
+                line := Trim(A_LoopReadLine)
+                p := InStr(line, "=")
+                if (p && SubStr(line, 1, p - 1) = key)
+                    continue
+                if (line != "")
+                    lines.Push(line)
+            }
+        }
+    }
+    lines.Push(key "=" value)
+    try {
+        FileDelete(SETTINGS_PATH)
+        FileAppend(Join(lines, "`n") "`n", SETTINGS_PATH, "UTF-8")
+    }
+}
+
+connectCount := 0
+audioVerifyGen := 0   ; 音频抢占验证的代数号：新操作/断开时 +1，作废旧轮询
+
+; ------------------- 音频抢占验证（v1.9.1） --------------------------
+; 蓝牙层连接成功 ≠ 音频通道建立：手机正在放歌时 AirPods 不对电脑开放
+; A2DP（实测：占用时该设备的 AudioEndpoint 根本不出现，空闲时 4~8s 内
+; 到 OK）。连接成功后轮询端点，起来了才算真抢到，否则如实提醒用户。
+; Windows 无公开 API 参与音源仲裁（Mac 的"谁播放跟谁走"做不到），
+; 我们的上限 = 手机空闲时抢过来 + 抢不到时把情况说清楚。
+StartAudioVerify(name) {
+    global audioVerifyGen
+    AudioVerifyTick(name, 7, ++audioVerifyGen)
+}
+
+AudioVerifyTick(name, left, gen) {
+    global audioVerifyGen
+    if (gen != audioVerifyGen)
+        return   ; 已被断开/新连接取代，本轮作废
+    if (AudioEndpointAlive(name)) {
+        LogMsg("audio endpoint verified: '" name "'")
+        PushEvent("toast", JsonStr("🎧 音频已切到电脑"))
+        return
+    }
+    if (left <= 1) {
+        LogMsg("audio endpoint NOT up after ~9s (held by phone?): '" name "'", "WARN")
+        PetUpdate("fail")
+        TrayTip("AirPods 小助手", "已连上 «" name "»，但声音还被手机占着`n暂停手机音乐后，再点一次连接即可抢过来", 4)
+        PushEvent("audioheld", JsonStr(name))
+        return
+    }
+    fn := (*) => AudioVerifyTick(name, left - 1, gen)
+    SetTimer(fn, -1500)
+}
+
+AudioEndpointAlive(name) {
+    safe := StrReplace(name, "'", "''")
+    q := "SELECT ConfigManagerErrorCode FROM Win32_PnPEntity WHERE PnPClass='AudioEndpoint' AND Name LIKE '%" safe "%'"
+    try {
+        wmi := ComObject("WbemScripting.SWbemLocator").ConnectServer(".", "root\cimv2")
+        for dev in wmi.ExecQuery(q)
+            if (dev.ConfigManagerErrorCode = 0)
+                return true
+    } catch as e {
+        LogMsg("audio endpoint WMI query failed: " e.Message, "WARN")
+    }
+    return false
+}
+
+
+OnConnectSuccess() {
+    global connectCount, wv
+    connectCount := SettingRead("connect_count", "0") + 0
+    connectCount++
+    SettingWrite("connect_count", connectCount)
+    if (connectCount = 10 || Mod(connectCount, 50) = 0) {
+        last := SettingRead("star_ask_last", "0") + 0
+        days := (A_Now - last) / 86400
+        if (last = 0 || days > 15) {
+            LogMsg("star ask shown (connect #" connectCount ")")
+            try wv.ExecuteScriptAsync('window.__event("starask", "true")')
+        }
+    }
+}
+
+StarAskShown() {
+    SettingWrite("star_ask_last", A_Now)
+}
 
 ; ------------------------- JS bridge ---------------------------------
 ; protocol: "cmd<SEP>id<SEP>arg1<SEP>arg2..."
@@ -712,7 +1049,7 @@ WebMessageHandler(core, args) {
         return
     }
     if (cmd != "statuspoll")
-        LogMsg("rpc: " msg)
+        LogMsg(cmd = "sendfeedback" ? "rpc: sendfeedback (" StrLen(arg1) " chars)" : "rpc: " msg)
 
     switch cmd {
         ; NOTE: Reply() injects its payload as a raw JS expression. Anything that
@@ -727,6 +1064,9 @@ WebMessageHandler(core, args) {
         case "add":               Run("ms-settings:bluetooth"), Reply(id, "true")
         case "winmin":            myGui.Hide(), Reply(id, "true")   ; 最小化即缩托盘：不占任务栏（初心），随时托盘唤出
         case "winclose":          myGui.Hide(), Reply(id, "true")
+        case "openrelease":        Run(RELEASE_PAGE), Reply(id, "true")
+        case "openrepo":           Run("https://github.com/lyzbcy/AirPods-Windows"), Reply(id, "true")
+        case "stardone":           StarAskShown(), Reply(id, "true")
         case "windrag":           StartWindowDrag(), Reply(id, "true")
         case "setprio":
             priorityList := StrSplit(arg1, Chr(31))
@@ -734,6 +1074,12 @@ WebMessageHandler(core, args) {
             LogMsg("priority updated: " arg1)
             Reply(id, "true")
         case "doupdate":          Reply(id, JsonStr(DoUpdate(arg1)))
+        case "getautostart":      Reply(id, JsonStr(AutostartEnabled()))
+        case "setautostart":      Reply(id, JsonStr(AutostartSet(arg1 = "1")))
+        case "sendfeedback":      Reply(id, JsonStr(SendFeedback(arg1)))
+        case "getfblogs":         Reply(id, JsonStr(GatherLogTail()))
+        case "getfbwebhook":      Reply(id, JsonStr(FbWebhook()))   ; 前端 fetch 直发用（主通道），ini 优先否则内置默认
+        case "openurl":           Run(arg1), Reply(id, "true")
         default:                  Reply(id, "null")
     }
 }
@@ -800,7 +1146,7 @@ FindAllAudioDevices() {
 }
 
 DoAction(name, action) {
-    global busy, devices, audioProfile, maxRetries
+    global busy, devices, audioProfile, maxRetries, audioVerifyGen
     if busy
         return "busy"
     dev := FindDevByName(name)
@@ -809,10 +1155,15 @@ DoAction(name, action) {
     busy := true
     SetTrayLoading(true)
     if (action = "connect") {
+        ; 用户实测调优（2026-09-05）：先断后连——清掉半死链路，真实成功率显著提高
+        ToggleBluetoothService(dev.info, "{0000111e-0000-1000-8000-00805f9b34fb}", 0, 3)
+        ToggleBluetoothService(dev.info, "{0000110b-0000-1000-8000-00805f9b34fb}", 0, 3)
+        Sleep 400
         hfOn := (audioProfile = "a2dp-hfp") ? 1 : 0
         hf := ToggleBluetoothService(dev.info, "{0000111e-0000-1000-8000-00805f9b34fb}", hfOn, maxRetries)
         a2 := ToggleBluetoothService(dev.info, "{0000110b-0000-1000-8000-00805f9b34fb}", 1, maxRetries)
     } else {
+        audioVerifyGen++   ; 断开：作废进行中的音频验证
         hf := ToggleBluetoothService(dev.info, "{0000111e-0000-1000-8000-00805f9b34fb}", 0, maxRetries)
         a2 := ToggleBluetoothService(dev.info, "{0000110b-0000-1000-8000-00805f9b34fb}", 0, maxRetries)
     }
@@ -821,7 +1172,64 @@ DoAction(name, action) {
         LogMsg("DoAction " action " '" name "' failed: HFP=" hf " A2DP=" a2, "WARN")
     busy := false
     SetTrayLoading(false)
+    if (ok && action = "connect")
+        StartLinkVerify(name)   ; 服务开关 ok ≠ 真连上，异步核实真实链路
     return ok ? "ok" : "fail"
+}
+
+; v1.9.4：真实链路核实。BluetoothSetServiceState 返回 ok ≠ 真连上
+; （设备太远/没电时照样返回 ok，用户实测 Beats 放远处仍报成功）。
+; 用 fConnected（真实链路位，实测 32=连）判定，约 9 秒内没起来就如实报失败。
+StartLinkVerify(name) {
+    global audioVerifyGen
+    LinkVerifyTick(name, 8, ++audioVerifyGen)
+}
+
+LinkVerifyTick(name, left, gen) {
+    global audioVerifyGen
+    if (gen != audioVerifyGen)
+        return
+    if (IsLinkUp(name)) {
+        LogMsg("link verified: '" name "'")
+        OnConnectSuccess()
+        PetUpdate("ok")
+        TrayTip("AirPods 小助手", "已连接 «" name "» 💕", 1)
+        PushEvent("linkok", JsonStr(name))
+        AudioVerifyTick(name, 7, gen)   ; 链路真通了，继续核实音频通道
+        return
+    }
+    if (left <= 1) {
+        LogMsg("link NOT up after ~9s: '" name "'", "WARN")
+        PetUpdate("fail")
+        TrayTip("AirPods 小助手", "没能连上 «" name "»`n耳机可能不在附近、没电，或正被手机使用", 4)
+        PushEvent("linkfail", JsonStr(name))
+        return
+    }
+    fn := (*) => LinkVerifyTick(name, left - 1, gen)
+    SetTimer(fn, -1200)
+}
+
+IsLinkUp(name) {
+    searchParams := Buffer(40, 0)
+    NumPut("uint", 40, searchParams, 0)
+    NumPut("uint", 1, searchParams, 4)
+    deviceInfo := Buffer(560, 0)
+    NumPut("uint", 560, deviceInfo, 0)
+    handle := DllCall("Bthprops.cpl\BluetoothFindFirstDevice", "ptr", searchParams, "ptr", deviceInfo, "ptr")
+    if !handle
+        return false
+    up := false
+    loop {
+        if (StrGet(deviceInfo.Ptr + 64, "UTF-16") = name) {
+            DllCall("Bthprops.cpl\BluetoothGetDeviceInfo", "ptr", 0, "ptr", deviceInfo, "uint")
+            up := NumGet(deviceInfo, 20, "uint") != 0   ; 位标志，非零即已连接
+            break
+        }
+        if !DllCall("Bthprops.cpl\BluetoothFindNextDevice", "ptr", handle, "ptr", deviceInfo)
+            break
+    }
+    DllCall("Bthprops.cpl\BluetoothFindDeviceClose", "ptr", handle)
+    return up
 }
 
 FindDevByName(name) {
@@ -941,13 +1349,23 @@ DoUpdate(dlUrl) {
         return "无法写入程序目录（权限不足）"
 
     ps1 := A_Temp "\AirPodsBuddy_swapper.ps1"
+    ; v1.9.2：换文件可能被安全软件（360 等）静默拦截 → 一律 -ErrorAction Stop，
+    ; 成败写入 update_result.txt 回执，下次启动核对并如实告知（不再假报成功）。
     FileAppend(
         "param([int]`$OldPid, [string]`$Dir)`n" .
-        "Wait-Process -Id `$OldPid -ErrorAction SilentlyContinue`n" .
-        "Start-Sleep -Milliseconds 800`n" .
-        "Move-Item -LiteralPath (Join-Path `$Dir 'AirPodsBuddy_new.exe') -Destination (Join-Path `$Dir 'AirPodsBuddy.exe') -Force`n" .
-        "Start-Process -FilePath (Join-Path `$Dir 'AirPodsBuddy.exe')`n" .
-        "Remove-Item -LiteralPath `$MyInvocation.MyCommand.Path -Force`n",
+        "try {`n" .
+        "  Wait-Process -Id `$OldPid -ErrorAction SilentlyContinue`n" .
+        "  Start-Sleep -Milliseconds 800`n" .
+        "  Move-Item -LiteralPath (Join-Path `$Dir 'AirPodsBuddy_new.exe') -Destination (Join-Path `$Dir 'AirPodsBuddy.exe') -Force -ErrorAction Stop`n" .
+        "  Set-Content -LiteralPath (Join-Path `$Dir 'update_result.txt') -Value 'ok' -Encoding UTF8`n" .
+        "} catch {`n" .
+        "  Set-Content -LiteralPath (Join-Path `$Dir 'update_result.txt') -Value ('fail ' + `$_.Exception.Message) -Encoding UTF8`n" .
+        "} finally {`n" .
+        "  Start-Process -FilePath (Join-Path `$Dir 'AirPodsBuddy.exe')`n" .
+        "  Start-Sleep -Milliseconds 500`n" .
+        "  Remove-Item -LiteralPath (Join-Path `$Dir 'AirPodsBuddy_new.exe') -Force -ErrorAction SilentlyContinue`n" .
+        "  Remove-Item -LiteralPath `$MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue`n" .
+        "}",
         ps1, "UTF-8")
     Run('powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' ps1 '" -OldPid ' ProcessExist() ' -Dir "' exeDir '"',, "Hide")
     SetTimer((*) => ExitApp(), -1200)   ; give the page time to show the result

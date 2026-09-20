@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>星星布丁</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;user-select:none;-webkit-user-select:none}
+  /* 透明方案：webview DefaultBackgroundColor=透明 + AHK 侧 Gui 黑底颜色键挖穿。
+     body/stage 保持 transparent，只画精灵和气泡；动画不用 opacity（见下）。 */
+  html,body{width:100%;height:100%;background:transparent;overflow:hidden;
+    font-family:"Segoe UI Variable Text","Segoe UI","Microsoft YaHei UI",system-ui,sans-serif}
+  .stage{position:fixed;inset:0;background:transparent;display:flex;flex-direction:column;
+    align-items:center;justify-content:flex-end;padding-bottom:14px}
+  .card{position:relative;display:flex;flex-direction:column;align-items:center;
+    transform:translateY(46px) scale(.55);
+    transition:transform .45s cubic-bezier(.34,1.56,.64,1)}
+  .stage.in .card{transform:translateY(0) scale(1)}
+  /* 落地影：让角色站在那里，而不是飘着（评审 P6） */
+  .ground{position:absolute;bottom:2px;left:50%;transform:translateX(-50%);
+    width:130px;height:13px;border-radius:50%;pointer-events:none;
+    background:radial-gradient(closest-side,rgba(70,50,0,.16),transparent)}
+  .stage.out .card{transform:translateY(26px) scale(.78);transition:transform .3s ease-in}
+  /* 精灵图 1536x1248（8 列 x 6 行全宽），0.78 缩放：格 150x162，图 1200x975 */
+  .sprite{width:150px;height:162px;background-repeat:no-repeat;
+    background-size:1200px 975px;image-rendering:auto;
+    position:relative;z-index:1}
+  /* 气泡：角色头部右上，奶油底墨字（评审 P6：台词而非字幕） */
+  .bubble{position:absolute;top:-38px;left:50%;margin-left:-64px;z-index:2;
+    font-size:12.5px;font-weight:600;color:#2A241A;letter-spacing:.5px;
+    background:#FFF9EC;border:1px solid rgba(70,50,0,.14);border-radius:14px;
+    padding:7px 13px;white-space:nowrap;box-shadow:0 4px 12px rgba(70,50,0,.10)}
+  /* 气泡尾巴：右下角指向角色头部 */
+  .bubble::after{content:"";position:absolute;bottom:-5px;right:16px;
+    width:10px;height:10px;background:#FFF9EC;border-right:1px solid rgba(70,50,0,.14);
+    border-bottom:1px solid rgba(70,50,0,.14);transform:rotate(45deg);border-radius:2px}
+  .dots::after{content:"";animation:dots 1.2s steps(4,end) infinite}
+  @keyframes dots{0%{content:""}25%{content:"·"}50%{content:"· ·"}75%{content:"· · ·"}}
+  .heart{position:absolute;font-size:18px;animation:floatUp 1.4s ease-out forwards;
+    pointer-events:none}
+  @keyframes floatUp{from{transform:translateY(0) scale(.6)}
+    to{transform:translateY(-56px) scale(0)}}
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="card">
+    <div class="ground"></div>
+    <div class="sprite" id="sprite"></div>
+    <div class="bubble" id="bubble">…</div>
+  </div>
+</div>
+<script>
+/* 星星布丁宠物弹窗 —— 精灵图行序（裁剪后）:
+   0 idle | 1 waving | 2 jumping | 3 failed | 4 waiting | 5 review
+   显示尺寸格 120x130（源 192x208 的 0.625），帧时长遵循 hatch-pet 规范 */
+const ROWS = {
+  idle:        {row:0, frames:[280,110,110,140,140,320]},
+  waving:      {row:1, frames:[140,140,140,280]},
+  jumping:     {row:2, frames:[140,140,140,140,280]},
+  failed:      {row:3, frames:[140,140,140,140,140,140,140,240]},
+  waiting:     {row:4, frames:[150,150,150,150,150,260]},
+  review:      {row:5, frames:[150,150,150,150,150,280]},
+};
+const TEXT = {
+  connecting:    {anim:'waiting',  text:'连接中',    dots:true},
+  ok:            {anim:'jumping', text:'连上啦！💕'},
+  disconnecting: {anim:'review',   text:'断开中',    dots:true},
+  off:           {anim:'waving',   text:'已断开 💤 拜拜~'},
+  fail:          {anim:'failed',  text:'没连上 QAQ'},
+  idle:          {anim:'idle',     text:'我在呢'},
+};
+const FW = 150, FH = 162;
+let curRow = 0, timer = null, frame = 0;
+
+function playRow(name) {
+  const r = ROWS[name]; if (!r) return;
+  curRow = r.row; frame = 0;
+  clearTimeout(timer);
+  (function tick() {
+    const d = r.frames[frame];
+    document.getElementById('sprite').style.backgroundPosition =
+      `-${frame * FW}px -${curRow * FH}px`;
+    frame = (frame + 1) % r.frames.length;
+    timer = setTimeout(tick, d);
+  })();
+}
+function spawnHearts(n) {
+  const card = document.querySelector('.card');
+  for (let i = 0; i < n; i++) {
+    setTimeout(() => {
+      const h = document.createElement('span');
+      h.className = 'heart';
+      h.textContent = Math.random() < .5 ? '💕' : '✨';
+      h.style.left = (42 + Math.random() * 108) + 'px';
+      h.style.top = (95 + Math.random() * 30) + 'px';
+      card.appendChild(h);
+      setTimeout(() => h.remove(), 1500);
+    }, i * 160);
+  }
+}
+window.setState = function (state) {
+  const cfg = TEXT[state] || TEXT.idle;
+  playRow(cfg.anim);
+  const b = document.getElementById('bubble');
+  b.className = 'bubble' + (cfg.dots ? ' dots' : '');
+  b.textContent = cfg.text;
+  if (state === 'ok') spawnHearts(4);
+};
+window.showPopup = function () {
+  document.getElementById('stage').className = 'stage in';
+};
+window.hidePopup = function () {
+  document.getElementById('stage').className = 'stage out';
+};
+/* sprite sheet 由构建脚本内联为 data URI */
+document.getElementById('sprite').style.backgroundImage =
+  "url('assets/xingxing_pet.webp')";
+playRow('idle');
+try{chrome.webview.postMessage('petready')}catch(e){}
+</script>
+</body>
+</html>

@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>AirPods 小助手</title>
+<style>
+  /* ============ Apple 风格 · 奶油黄白主题 ============ */
+  :root{
+    --bg:#FFFCF0;
+    --card:#FFFFFF;
+    --ink:#2A241A;            /* 深暖主文字 */
+    --sub:#93876F;            /* 次级文字 */
+    --faint:#BCB19B;
+    --yellow:#FFC53D;         /* 主黄：明亮正向（v2 提黄去棕） */
+    --yellow-l:#FFD24A;
+    --yellow-d:#E0A800;
+    --yellow-deep:#B98A00;
+    --yellow-tint:#FFF3C4;
+    --yellow-soft:#FFFBEA;
+    --sage:#5F9E77;           /* 鼠尾草绿：已连接 */
+    --sage-d:#4E8A65;
+    --sage-tint:#EAF3ED;
+    --danger:#E25B48;
+    --line:rgba(70,50,0,.07);
+    --line2:rgba(70,50,0,.12);
+    --ease:cubic-bezier(0.25,0.1,0.25,1);
+    --pop:cubic-bezier(0.34,1.56,0.64,1);   /* 弹出感 */
+    /* 旧名映射（渐进迁移） */
+    --honey:#F0B429;
+    --honey-l:#FFC53D;
+    --honey-d:#B98A00;
+    --honey-tint:#FFF3C4;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-user-select:none;user-select:none}
+  html,body{height:100%}
+  body{
+    font-family:-apple-system,"SF Pro Display","Segoe UI Variable Display","Segoe UI","Microsoft YaHei UI",system-ui,sans-serif;
+    font-size:13px;color:var(--ink);overflow:hidden;border-radius:14px;
+    background:
+      radial-gradient(620px 300px at 50% -90px, rgba(255,197,61,.16), transparent 70%),
+      linear-gradient(180deg,#FFFDF4 0%,#FFFCF0 60%,#FFF7DC 100%);
+  }
+  button{font-family:inherit}
+  .app{height:100%;display:flex;flex-direction:column}
+
+  /* 顶栏（拖动区） */
+  .topbar{height:40px;flex:none;display:flex;align-items:center;justify-content:flex-end;padding:0 10px;gap:2px}
+  .wbtn{width:30px;height:30px;border:none;border-radius:50%;background:transparent;color:#A79E8F;
+    font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    transition:background-color .2s var(--ease),color .2s var(--ease),transform .2s var(--ease)}
+  .wbtn:hover{background:rgba(0,0,0,.05);color:var(--ink)}
+  .wbtn:active{transform:scale(.94)}
+  .wbtn.close:hover{background:#E2483D;color:#fff}
+
+  .content{flex:1;overflow-y:auto;padding:0 22px 6px;scrollbar-width:none}
+  .content::-webkit-scrollbar{display:none}
+
+  /* 头部 */
+  header{display:flex;align-items:center;gap:11px;padding:2px 2px 14px}
+  .appicon{width:36px;height:36px;border-radius:9px;object-fit:cover;flex:none;
+    border:1px solid var(--line);box-shadow:0 1px 3px rgba(0,0,0,.06)}
+  .title h1{font-size:17px;font-weight:600;letter-spacing:.2px;color:var(--ink)}
+  .title .ver{font-size:11px;color:var(--sub);margin-top:2px;font-weight:400}
+  .badge{margin-left:auto;font-size:11px;font-weight:500;color:var(--honey-d);
+    background:#fff;border:1px solid var(--line);border-radius:999px;padding:4px 12px;
+    box-shadow:0 1px 3px rgba(0,0,0,.04);display:flex;align-items:center;gap:5px;
+    transition:background-color .25s var(--ease),color .25s var(--ease),border-color .25s var(--ease)}
+  .badge.on{background:var(--sage-tint);color:#5F8A6E;border-color:rgba(127,168,140,.4)}
+
+  /* ===== 主按钮（v2.1：扁平明黄 + 深墨字，光晕走合成器） ===== */
+  .hero{display:flex;flex-direction:column;align-items:center;padding:6px 0 10px}
+  .orb{position:relative;width:118px;height:118px;border-radius:50%;border:none;cursor:pointer;color:#3D2F00;
+    background:linear-gradient(180deg,#FFD24A 0%,#FFC53D 100%);
+    box-shadow:0 8px 20px rgba(70,50,0,.14);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+    transition:transform .22s var(--ease),box-shadow .25s var(--ease),background .25s var(--ease)}
+  .orb::after{content:'';position:absolute;inset:-7px;border-radius:50%;
+    box-shadow:0 0 0 6px rgba(255,197,61,.28);opacity:.35;pointer-events:none;
+    animation:pulse 4.5s ease-in-out infinite}
+  @keyframes pulse{50%{opacity:.85;transform:scale(1.02)}}
+  .orb:hover{transform:translateY(-2px);box-shadow:0 12px 26px rgba(70,50,0,.18)}
+  .orb:hover::after{animation:none;opacity:0}
+  .orb:active{transform:scale(.96)}
+  .orb.on{color:#14351F;background:linear-gradient(180deg,#79B78E 0%,#5F9E77 100%);
+    box-shadow:0 8px 20px rgba(70,50,0,.12)}
+  .orb.on::after{animation:none;opacity:0}
+  .orb.busy{pointer-events:none;opacity:.85;animation:none}
+  .orb.busy::after{animation:none;opacity:0}
+  .orb svg{width:32px;height:32px}
+  .orb svg g{stroke:#3D2F00}
+  .orb.on svg g{stroke:#14351F}
+  .orb .oname{font-size:12.5px;font-weight:700;max-width:104px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .orb .ost{font-size:10.5px;opacity:.62}
+  .ohint{font-size:11px;color:var(--sub);margin-top:10px;letter-spacing:.2px}
+
+  /* 分区标题 */
+  .sec{display:flex;align-items:center;margin:8px 0 10px;gap:8px}
+  .sec h2{font-size:13px;font-weight:600;letter-spacing:.3px;color:var(--ink)}
+  .sec .cnt{font-size:11px;color:var(--sub)}
+  .refresh{margin-left:auto;width:28px;height:28px;border:none;border-radius:9px;background:#fff;
+    border:1px solid var(--line);color:var(--yellow-d);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:color .2s var(--ease),transform .2s var(--ease),border-color .2s var(--ease)}
+  .refresh:hover{color:var(--yellow-deep);border-color:rgba(255,181,0,.5)}
+  .refresh:active{transform:scale(.9)}
+  .refresh svg{transition:transform .5s var(--ease)}
+  .refresh.spin svg{transform:rotate(360deg)}
+
+  /* ===== 设备卡：v2 更利落的直率圆角 + 悬停弹出操作面板 ===== */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:11px 12px;display:flex;align-items:center;gap:11px;margin-bottom:9px;
+    box-shadow:0 1px 2px rgba(70,50,0,.04);
+    opacity:0;animation:rise .3s var(--ease) forwards;
+    transition:box-shadow .22s var(--ease),border-color .22s var(--ease),transform .22s var(--ease)}
+  .card:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(70,50,0,.09);
+    border-color:var(--line2)}
+  @keyframes rise{from{opacity:0;transform:translateY(9px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+  .chip{width:40px;height:40px;border-radius:12px;flex:none;background:#F7F4EC;
+    border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center}
+  .chip svg{width:26px;height:26px}
+  .chip svg g{stroke:#8A744F}
+
+  .info{flex:1 1 auto;min-width:0}
+  /* 名字+标签一行排布：名字可收缩截断，标签自然跟排不占死空间（评审 #5） */
+  .name{display:flex;align-items:center;gap:6px;min-width:0;max-width:100%;
+    font-size:13px;font-weight:600;color:var(--ink);line-height:19px}
+  .name .txt{flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .name .tag,.name .prio-mark{display:inline-flex;align-items:center;justify-content:center;
+    font-size:10px;font-weight:500;letter-spacing:.2px;line-height:1;
+    border-radius:999px;padding:3.5px 8px;flex:none;white-space:nowrap}
+  .tag.apple{background:var(--sage-tint);color:#5F8A6E;border:1px solid rgba(127,168,140,.35)}
+  .tag.other{background:#F6F1E7;color:#8A744F;border:1px solid rgba(200,155,90,.32)}
+  .prio-mark{background:#F7F4EC;color:#8A744F;border:1px solid var(--line2)}
+
+  .st{display:flex;align-items:center;gap:5px;margin-top:3px;font-size:11px;color:#6F6A5F}
+  .st.ok{color:var(--sage-d);font-weight:600}
+  .dot{width:7px;height:7px;border-radius:50%;background:#CFC8BB;flex:none}
+  .dot.on{background:var(--sage)}
+
+  /* 悬停弹出：▲▼ 优先级面板与删除静息若隐若现，移入卡片/键盘聚焦时弹出（评审 P3） */
+  .prio{display:flex;flex-direction:column;gap:6px;flex:none;
+    opacity:.3;transform:translateX(10px) scale(.9);pointer-events:none;
+    transition:opacity .18s var(--ease),transform .24s var(--pop)}
+  .card:hover .prio,.card:focus-within .prio{opacity:1;transform:translateX(0) scale(1);pointer-events:auto}
+  .pbtn{width:28px;height:28px;border:none;border-radius:9px;background:#fff;
+    border:1px solid var(--line2);color:#9A927F;font-size:10px;line-height:1;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:background-color .18s var(--ease),color .18s var(--ease),transform .18s var(--ease),border-color .18s var(--ease)}
+  .pbtn:hover{background:var(--yellow-tint);color:var(--yellow-deep);border-color:rgba(255,181,0,.45)}
+  .pbtn:active{transform:scale(.88)}
+  .pbtn[disabled]{opacity:.28;pointer-events:none}
+
+  .act{width:42px;height:42px;border-radius:50%;border:none;cursor:pointer;flex:none;color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(180deg,#FFD24A 0%,#FFC53D 100%);
+    box-shadow:0 2px 8px rgba(70,50,0,.10);
+    transition:transform .2s var(--ease),box-shadow .2s var(--ease),background .25s var(--ease)}
+  .act:hover{transform:scale(1.07);box-shadow:0 2px 8px rgba(70,50,0,.14)}
+  .act:active{transform:scale(.94)}
+  .act.on{background:linear-gradient(180deg,#79B78E 0%,#5F9E77 100%);
+    box-shadow:0 2px 8px rgba(70,50,0,.10)}
+  .act.busy{pointer-events:none;opacity:.85}
+  .spin{width:15px;height:15px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;
+    border-radius:50%;display:inline-block;animation:rot .7s linear infinite}
+  @keyframes rot{to{transform:rotate(360deg)}}
+
+  .del{width:28px;height:28px;border:none;border-radius:9px;background:transparent;color:#B3AC9E;
+    cursor:pointer;flex:none;display:flex;align-items:center;justify-content:center;
+    opacity:.3;transform:translateX(10px);pointer-events:none;
+    transition:opacity .18s var(--ease),transform .24s var(--pop),background-color .18s var(--ease),color .18s var(--ease)}
+  .card:hover .del,.card:focus-within .del{opacity:1;transform:translateX(0);pointer-events:auto}
+  .card:hover .del:active{transform:translateX(0) scale(.88)}
+  .del:hover{background:#FDECE9;color:var(--danger)}
+
+  button:focus-visible,.add:focus-visible{outline:2px solid var(--yellow-d);outline-offset:2px}
+
+  /* 添加卡 */
+  .add{border:1.5px dashed rgba(255,181,0,.5);border-radius:12px;background:rgba(255,251,234,.6);
+    padding:12px;display:flex;align-items:center;justify-content:center;gap:9px;margin:2px 0 12px;
+    cursor:pointer;
+    transition:background-color .2s var(--ease),border-color .2s var(--ease),transform .2s var(--ease)}
+  .add:hover{background:#fff;border-color:rgba(255,181,0,.85);transform:translateY(-1px)}
+  .add .plus{width:26px;height:26px;border-radius:50%;color:#fff;font-size:14px;font-weight:600;
+    display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(180deg,#FFD24A,#FFC53D);
+    box-shadow:0 2px 8px rgba(255,181,0,.35);
+    transition:transform .2s var(--pop)}
+  .add:hover .plus{transform:rotate(90deg)}
+  .add span{font-size:12px;color:var(--yellow-deep);font-weight:500;letter-spacing:.3px}
+
+  .empty{text-align:center;padding:20px 0 8px;animation:rise .24s var(--ease) both}
+  .empty img{width:80px;height:80px}
+  .empty p{color:var(--sub);font-size:12px;margin-top:10px;line-height:1.7}
+
+  footer{flex:none;display:flex;align-items:center;padding:9px 22px 12px;font-size:11px;color:var(--sub);
+    border-top:1px solid rgba(0,0,0,.045)}
+  .about-link{margin-left:auto;color:var(--honey);cursor:pointer;display:flex;align-items:center;gap:4px;
+    font-weight:500;transition:color .2s var(--ease)}
+  .about-link:hover{color:var(--honey-d)}
+  .about-link u{text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(200,155,90,.5)}
+
+  #toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(12px);
+    background:rgba(56,52,45,.93);color:#FFF9EF;font-size:12.5px;padding:10px 20px;border-radius:999px;
+    opacity:0;pointer-events:none;z-index:50;letter-spacing:.3px;
+    box-shadow:0 8px 24px rgba(56,52,45,.25);
+    transition:opacity .2s var(--ease),transform .2s var(--ease)}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* ===== 弹窗 ===== */
+  .mask{position:fixed;inset:0;background:rgba(52,48,41,.30);
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+    display:none;align-items:center;justify-content:center;z-index:40;opacity:0;
+    padding:18px;overflow-y:auto;scrollbar-width:none;
+    transition:opacity .2s var(--ease)}
+  .mask::-webkit-scrollbar{display:none}
+  .mask.open{display:flex}
+  .mask.in{opacity:1}
+  /* 弹窗限高+内部滚动：提意见展开/失败面板出现时「知道啦」永远可达（用户 2026-09-06） */
+  .dlg{background:#fff;border-radius:20px;width:min(400px,88%);max-height:100%;
+    overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;
+    border:1px solid rgba(0,0,0,.05);
+    box-shadow:0 24px 60px rgba(56,52,45,.24),0 4px 14px rgba(56,52,45,.10);
+    padding:24px 24px 20px;
+    transform:scale(.96) translateY(8px);transition:transform .2s var(--ease)}
+  .dlg::-webkit-scrollbar{display:none}
+  .mask.in .dlg{transform:none}
+  .dlg h3{font-size:16px;font-weight:600;display:flex;align-items:center;gap:10px;color:var(--ink)}
+  .dlg h3 img{width:38px;height:38px;border-radius:10px;border:1px solid rgba(0,0,0,.06);
+    box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .dlg .desc{font-size:12px;color:var(--sub);margin-top:5px;line-height:1.6}
+  .steps{margin:16px 0 2px}
+  .step{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid rgba(0,0,0,.05)}
+  .step:last-child{border-bottom:none}
+  .step .n{width:22px;height:22px;border-radius:50%;background:var(--honey-tint);color:var(--honey-d);
+    font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none;margin-top:1px}
+  .step div b{font-size:12.5px;display:block;font-weight:600;color:var(--ink)}
+  .step div span{font-size:11.5px;color:var(--sub);line-height:1.6;display:block;margin-top:2px}
+  .dlg .row{display:flex;gap:10px;margin-top:18px}
+  .dlg .row .btn{flex:1;padding:11px 0}
+  .qrs{display:flex;gap:12px;margin-top:16px}
+  .qr{flex:1;background:#FCFAF5;border:1px solid var(--line);border-radius:12px;padding:12px 8px;text-align:center;
+    transition:background-color .2s var(--ease)}
+  .qr:hover{background:#fff}
+  .qr{min-width:0}
+  .qr img{width:100%;max-width:100px;height:auto;aspect-ratio:1/1;border-radius:8px}
+  .qr b{font-size:12px;display:block;margin-top:8px;font-weight:600}
+  .qr span{font-size:10.5px;color:var(--sub)}
+  .upd-meta{font-size:12px;color:var(--sub);margin:14px 0 2px;background:#FAF7F0;
+    border:1px solid rgba(0,0,0,.045);border-radius:12px;padding:10px 14px;line-height:1.7}
+  .upd-meta b{color:var(--ink);font-weight:600}
+  #updState{font-size:12px;margin-top:10px;min-height:18px;color:var(--honey-d)}
+
+  .btn{border:none;border-radius:999px;padding:9px 18px;font-size:12.5px;font-weight:600;
+    cursor:pointer;letter-spacing:.3px;flex:none;
+    transition:transform .2s var(--ease),filter .2s var(--ease),box-shadow .2s var(--ease),
+      background-color .2s var(--ease),border-color .2s var(--ease),color .2s var(--ease)}
+  .btn:active{transform:scale(.97)}
+  .btn.primary{color:#FFF9EF;background:#2A241A;box-shadow:none}
+  .btn.primary:hover{background:#3A3123}
+  .btn.ghost{background:#fff;color:var(--ink);
+    border:1px solid rgba(0,0,0,.10);box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .btn.ghost:hover{border-color:rgba(0,0,0,.16);box-shadow:0 2px 6px rgba(0,0,0,.06)}
+  .btn.danger{color:#fff;background:#E25B48;box-shadow:none}
+  .btn.danger:hover{background:#C94B39}
+  .btn.busy{pointer-events:none;opacity:.85;min-width:64px}
+  #fbSend{background:linear-gradient(180deg,#FFD24A,#FFC53D);color:#3D2F00;padding:10px 24px;font-size:13px;border:none}
+  #fbSend:hover{background:linear-gradient(180deg,#FFD24A,#F0B429)}
+
+  /* ===== 设置 ===== */
+  .set-row{display:flex;align-items:center;gap:14px;margin-top:14px;background:#FAF7F0;
+    border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .set-row .set-info{flex:1;min-width:0}
+  .set-row b{font-size:13px}
+  .set-row p{font-size:11.5px;color:var(--sub);margin-top:2px}
+  .switch{position:relative;width:44px;height:24px;flex:none;cursor:pointer}
+  .switch input{opacity:0;width:0;height:0;position:absolute}
+  .switch .slider{position:absolute;inset:0;background:#D8D2C6;border-radius:999px;
+    transition:background-color .2s var(--ease)}
+  .switch .slider::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;
+    border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);
+    transition:transform .2s var(--pop)}
+  .switch input:checked + .slider{background:var(--sage-d)}
+  .switch input:checked + .slider::after{transform:translateX(20px)}
+  .switch input:disabled + .slider{opacity:.5;cursor:not-allowed}
+  .auto-hint{font-size:11.5px;color:var(--danger);margin-top:8px}
+
+  /* ===== 关于弹窗：Star 卡（近黑+金星，"贵"）与意见反馈 ===== */
+  .star-card{display:flex;align-items:center;gap:12px;width:100%;margin-top:12px;
+    padding:13px 15px;border:none;border-radius:14px;cursor:pointer;text-align:left;
+    background:#262019;border:1px solid rgba(255,212,74,.28);color:#FFF9EF;
+    transition:transform .2s var(--ease),box-shadow .22s var(--ease),border-color .22s var(--ease)}
+  .star-card:hover{transform:translateY(-2px);border-color:rgba(255,212,74,.55);
+    box-shadow:0 10px 26px rgba(38,32,25,.35)}
+  .star-card:active{transform:scale(.98)}
+  .star-ico{width:38px;height:38px;border-radius:11px;flex:none;
+    display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(180deg,#FFD24A,#F0B429);color:#3D2F00;
+    font-size:19px;font-weight:800;box-shadow:0 2px 8px rgba(255,197,61,.35)}
+  .star-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .star-txt b{font-size:13.5px;font-weight:700}
+  .star-txt i{font-style:normal;font-size:11.5px;opacity:.62}
+  .star-go{flex:none;font-size:15px;opacity:.55;transition:transform .2s var(--ease)}
+  .star-card:hover .star-go{transform:translateX(3px);opacity:.9}
+  .fb-ico{background:var(--yellow-soft);color:var(--yellow-deep);box-shadow:none;border:1px solid rgba(255,181,0,.25)}
+  .fb-card{margin-top:12px;background:#fff;border:1px solid var(--line);border-radius:14px;
+    overflow:hidden;transition:border-color .22s var(--ease),box-shadow .22s var(--ease),background .22s var(--ease)}
+  .fb-card.open{border-color:rgba(255,181,0,.45);background:#FFFDF6;box-shadow:0 6px 18px rgba(224,168,0,.12)}
+  .fb-open{display:flex;align-items:center;gap:12px;width:100%;padding:12px 15px;
+    border:none;background:transparent;cursor:pointer;text-align:left;color:var(--ink)}
+  .fb-arrow{transition:transform .22s var(--ease)}
+  .fb-card.open .fb-arrow{transform:rotate(180deg)}
+  .fb-body{max-height:0;overflow:hidden;transition:max-height .28s var(--ease);
+    display:flex;flex-direction:column;gap:8px;padding:0 15px}
+  .fb-card.open .fb-body{max-height:300px;padding-bottom:13px}
+  .fb-body textarea{width:100%;resize:none;border:1px solid var(--line2);border-radius:10px;
+    padding:9px 11px;font-family:inherit;font-size:12.5px;color:var(--ink);background:#FCFAF4;
+    outline:none;transition:border-color .2s var(--ease)}
+  .fb-body textarea:focus{border-color:rgba(255,181,0,.55)}
+  .fb-foot{display:flex;align-items:center;justify-content:space-between}
+  .fb-count{font-size:10.5px;color:var(--sub)}
+  .fb-card .star-txt i{opacity:.75}
+  .fb-fine{font-size:10.5px;color:var(--faint)}
+  .fb-fine u{cursor:pointer;color:var(--honey-d)}
+  .fb-done{display:none;padding:16px 15px;text-align:center;font-size:13px;font-weight:600;
+    color:var(--sage-d);background:var(--sage-tint);border-radius:12px;margin:10px 15px 13px}
+  .fb-fail{display:none;margin:10px 15px 13px;padding:11px 12px;background:#FDF0ED;
+    border:1px solid rgba(226,91,72,.32);border-radius:12px}
+  .fb-fail-why{font-size:12px;color:#B34435;margin-bottom:9px;line-height:1.5}
+  .fb-fail-ops{display:flex;gap:8px;flex-wrap:wrap}
+  .fb-fail-ops .btn{padding:7px 12px;font-size:11.5px}
+
+  /* ===== 二维码点击放大（灯箱） ===== */
+  .qrs .qr img{cursor:zoom-in}
+  #qrZoom{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
+    flex-direction:column;gap:14px;background:rgba(30,26,20,.82);backdrop-filter:blur(6px);
+    -webkit-backdrop-filter:blur(6px);cursor:zoom-out;user-select:none;-webkit-user-select:none}
+  #qrZoom.open{display:flex;animation:zfadeIn .18s var(--ease)}
+  @keyframes zfadeIn{from{opacity:0}to{opacity:1}}
+  #qrZoomImg{max-width:min(78vmin,560px);max-height:72vh;border-radius:16px;background:#fff;
+    padding:14px;box-shadow:0 24px 70px rgba(0,0,0,.5)}
+  #qrZoomCap{color:#FFF6E3;font-size:14px;font-weight:600;letter-spacing:.5px}
+  .qr-zoom-hint{color:rgba(255,246,227,.55);font-size:11px}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar" id="topbar">
+    <button class="wbtn" onclick="rpc('winmin')" title="最小化到托盘">&#x2212;</button>
+    <button class="wbtn close" onclick="rpc('winclose')" title="关闭（缩到托盘）">&#x2715;</button>
+  </div>
+
+  <div class="content">
+    <header>
+      <img class="appicon" src="assets/face_main.png" alt="">
+      <div class="title">
+        <h1>AirPods 小助手</h1>
+        <div class="ver" id="ver">v1.6.0</div>
+      </div>
+      <div class="badge" id="badge">未连接</div>
+    </header>
+
+    <div class="hero">
+      <button class="orb" id="orb" title="一键连接 / 断开">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>
+        <span class="oname">连接耳机</span>
+        <span class="ost">正在获取设备…</span>
+      </button>
+      <div class="ohint" id="ohint">点大按钮按优先级连接</div>
+    </div>
+
+    <div class="sec">
+      <h2>我的耳机</h2><span class="cnt" id="cnt"></span>
+      <button class="refresh" id="refresh" title="刷新">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+          <path d="M20 11a8 8 0 1 0-2.34 6.34"/><path d="M20 4v7h-7"/>
+        </svg>
+      </button>
+    </div>
+
+    <div id="devices"></div>
+
+    <div class="add" onclick="doAdd()">
+      <div class="plus">＋</div><span>添加新耳机</span>
+    </div>
+  </div>
+
+  <footer>
+    <span class="about-link" style="margin-left:0;margin-right:auto" onclick="openSettings()">&#9881;&#65038; 设置</span>
+    <span class="about-link" onclick="openAbout()"><u>关于捞鱼</u> 🐟</span>
+  </footer>
+</div>
+
+<div id="toast"></div>
+<div id="qrZoom" title="点击任意处关闭">
+  <img id="qrZoomImg" alt="">
+  <div id="qrZoomCap"></div>
+  <div class="qr-zoom-hint">点击任意处关闭</div>
+</div>
+<div class="mask" id="mStar">
+  <div class="dlg" style="width:min(360px,88%)">
+    <h3><img src="assets/face_plead.png">求个小星星 🙏</h3>
+    <div class="desc">你已经用小助手连了 10 次耳机啦～<br>如果她帮到你了，愿意去 GitHub 给我们点一个 star 吗？<br>这对我继续做下去真的很重要。</div>
+    <div class="row">
+      <button class="btn ghost" onclick="starLater()">以后再说</button>
+      <button class="btn primary" onclick="starGo()">⭐ 去点 star</button>
+    </div>
+  </div>
+</div>
+
+<!-- add help modal -->
+<div class="mask" id="mHelp">
+  <div class="dlg">
+    <h3><img src="assets/face_heart.png">添加指引</h3>
+    <div class="desc">已为你打开系统蓝牙设置，跟着做两分钟搞定</div>
+    <div class="steps">
+      <div class="step"><div class="n">1</div><div><b>断开旧连接</b><span>把之前连着这副耳机的设备（iPhone / iPad / Mac）蓝牙关掉</span></div></div>
+      <div class="step"><div class="n">2</div><div><b>进入待连接模式</b><span>AirPods 1/2/3 代、Pro：开盖长按盒背按钮至白灯闪烁<br>AirPods 4 代：开盖敲两下盒身<br>AirPods Max：按住降噪按钮至白灯闪</span></div></div>
+      <div class="step"><div class="n">3</div><div><b>在系统设置里配对</b><span>点「添加设备」→ 选择你的耳机</span></div></div>
+      <div class="step"><div class="n">4</div><div><b>回来刷新</b><span>配对完成后点下方按钮就能看到它啦</span></div></div>
+    </div>
+    <div class="row">
+      <button class="btn ghost" onclick="closeModal('mHelp')">下次再说</button>
+      <button class="btn primary" onclick="closeModal('mHelp');refreshList()">我配好了，刷新</button>
+    </div>
+  </div>
+</div>
+
+<!-- about modal -->
+<div class="mask" id="mAbout">
+  <div class="dlg">
+    <h3><img src="assets/face_cheer.png">关于捞鱼 🐟</h3>
+    <div class="desc">和星星布丁一起做的开源小工具 · 用爱发电</div>
+
+    <button class="star-card" onclick="rpc('openrepo')">
+      <span class="star-ico"><svg viewBox="0 0 24 24" width="20" height="20" fill="#3D2F00"><path d="M12 2.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5-5.8-3-5.8 3 1.1-6.5L2.6 9.3l6.5-.9z"/></svg></span>
+      <span class="star-txt"><b>给项目点个 Star</b><i>开源免费 · 你的 Star 就是最大的鼓励</i></span>
+      <span class="star-go"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>
+    </button>
+
+    <div class="fb-card">
+      <button class="fb-open" onclick="fbToggle()">
+        <span class="star-ico fb-ico"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.3c-1.5 0-2.9-.3-4.1-1L3 20l1.3-4.1A8.3 8.3 0 0 1 3.5 11.5 8.4 8.4 0 0 1 12 3.2a8.4 8.4 0 0 1 9 8.3z"/></svg></span>
+        <span class="star-txt"><b>提意见 / 反馈问题</b><i>一句话直达开发者，不用注册不用跳转</i></span>
+        <span class="star-go fb-arrow" id="fbArrow"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
+      </button>
+      <div class="fb-body" id="fbBody">
+        <div class="fb-presets">
+          <span class="fb-plabel">常见问题（点选填充）：</span>
+          <div class="fb-chips">
+            <button class="chip2" onclick="fbPreset('蓝牙明明连上了，但是耳机没有声音')">🔇 连上了但没声音</button>
+            <button class="chip2" onclick="fbPreset('连接来回跳，一会儿连上一会儿断开')">🔁 连接来回跳</button>
+            <button class="chip2" onclick="fbPreset('搜索/列表里找不到我的耳机')">🎧 找不到耳机</button>
+            <button class="chip2" onclick="fbPreset('点击连接提示失败')">⚠️ 连接失败</button>
+          </div>
+        </div>
+        <textarea id="fbText" maxlength="1000" rows="3" placeholder="选上面的问题或手动输入，可以补充细节（什么时候发生、怎么操作的）…"></textarea>
+        <label class="fb-attach"><input type="checkbox" id="fbAttachLogs" checked> 附带最近 50 条日志（帮我快速定位问题）</label>
+        <div class="fb-foot">
+          <span class="fb-count" id="fbCount">0 / 1000</span>
+          <button class="btn primary" id="fbSend" onclick="fbSend()">发送</button>
+        </div>
+        <div class="fb-fine">直发开发者微信，仅用于产品改进 · 也可以 <u onclick="fbIssue()">去 GitHub 提 issue</u></div>
+      </div>
+      <div class="fb-done" id="fbDone">✓ 已送达，捞鱼收到了，谢谢你！💕
+        <div class="fb-fine">no-cors 直发无法读取回执 · <u onclick="fbBackup()">若群内未收到请用下方备用通道</u></div>
+      </div>
+      <div class="fb-fail" id="fbFail">
+        <div class="fb-fail-why" id="fbFailWhy"></div>
+        <div class="fb-fail-ops">
+          <button class="btn ghost" onclick="fbSend()">↻ 重试</button>
+          <button class="btn ghost" onclick="fbCopy()">复制文字</button>
+          <button class="btn primary" onclick="fbIssue()">去 GitHub 反馈</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="qrs">
+      <div class="qr"><img src="assets/qq-group.jpg"><b>粉丝群</b><span>一起摸鱼聊技术</span></div>
+      <div class="qr"><img src="assets/reward-qr.jpg"><b>赞赏码</b><span>请我喝杯奶茶</span></div>
+      <div class="qr"><img src="assets/sticker-qr.png"><b>表情包</b><span>超可爱快收藏</span></div>
+    </div>
+    <div class="row">
+      <button class="btn ghost" onclick="closeModal('mAbout')">知道啦</button>
+    </div>
+  </div>
+</div>
+
+<!-- settings -->
+<div class="mask" id="mSet">
+  <div class="dlg">
+    <h3><img src="assets/face_cheer.png">设置</h3>
+    <div class="set-row">
+      <div class="set-info">
+        <b>开机自启动</b>
+        <p>登录 Windows 后自动在后台运行（默认关闭）</p>
+      </div>
+      <label class="switch"><input type="checkbox" id="swAuto"><span class="slider"></span></label>
+    </div>
+    <div class="auto-hint" id="autoHint"></div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn ghost" onclick="closeModal('mSet')">完成</button>
+    </div>
+  </div>
+</div>
+
+<!-- remove confirm -->
+<div class="mask" id="mDel">
+  <div class="dlg">
+    <h3><img src="assets/face_like.png">删除耳机？</h3>
+    <div class="desc" id="delName"></div>
+    <div class="desc" style="margin-top:8px">删除后需要重新配对才能再次连接</div>
+    <div class="row">
+      <button class="btn ghost" onclick="closeModal('mDel')">再想想</button>
+      <button class="btn danger" onclick="confirmDel()">删除</button>
+    </div>
+  </div>
+</div>
+
+<!-- update modal -->
+<div class="mask" id="mUpd">
+  <div class="dlg">
+    <h3><img src="assets/face_heart.png">发现新版本</h3>
+    <div class="upd-meta">最新版本 <b id="updVer">-</b>　当前版本 <b id="updCur">-</b><br>建议更新以获得最新功能与修复</div>
+    <div class="upd-meta" style="font-size:11.5px">💡 国内用户建议先开启代理再一键更新（下载源在 GitHub，直连可能很慢或失败）</div>
+    <div id="updState"></div>
+    <div class="row">
+      <button class="btn ghost" onclick="closeModal('mUpd')">下次再说</button>
+      <button class="btn ghost" onclick="rpc('openrelease')">打开发布页</button>
+      <button class="btn primary" id="updGo" onclick="doUpdate()">🚀 一键更新</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SEP='\x1F'; let seq=0; const pending={};
+function rpc(cmd,...args){const id=++seq;chrome.webview.postMessage(cmd+SEP+id+SEP+args.join(SEP));return new Promise(r=>pending[id]=r)}
+window.__rpc=(id,data)=>{const f=pending[id];if(f){f(data);delete pending[id]}};
+window.__event=(name,data)=>{if(name==='update')showUpdate(data);if(name==='starask')showStarAsk();
+  if(name==='toast')toast(data);if(name==='audioheld')onAudioHeld(data);
+  if(name==='linkok'){toast('已连接 💕');flapSet.clear();refreshList()}
+  if(name==='linkfail'){toast('没能连上：耳机可能不在附近、没电，或正被手机占用');refreshList()}
+  if(name==='flapping')onFlapping(data)};
+/* forward JS errors to the AHK-side log */
+window.addEventListener('error',e=>{try{chrome.webview.postMessage('jserror'+SEP+'0'+SEP+((e.message||'unknown')+' @ '+(e.filename||'inline')+':'+(e.linno||e.lineno||0)))}catch(_){}});
+window.addEventListener('unhandledrejection',e=>{try{chrome.webview.postMessage('jserror'+SEP+'0'+SEP+('promise: '+((e.reason&&e.reason.message)||String(e.reason))))}catch(_){}});
+
+/* ---------- window drag (topbar + header area) ---------- */
+function dragIfPlain(e){if(e.button===0&&!e.target.closest('button'))rpc('windrag')}
+document.getElementById('topbar').addEventListener('mousedown',dragIfPlain);
+document.querySelector('header').addEventListener('mousedown',dragIfPlain);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){const z=document.getElementById('qrZoom');if(z.classList.contains('open')){z.classList.remove('open');return}const m=document.querySelector('.mask.open');if(m)closeModal(m.id)}});
+
+/* ---------- toast ---------- */
+let toastT;
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),Math.min(2400+msg.length*90,8000))}
+
+/* ---------- device art（描边换成粉调） ---------- */
+function art(kind){
+  const s='<g fill="none" stroke="#EF7FA5" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round">';
+  if(kind==='pro') return `<svg viewBox="0 0 64 64">${s}
+    <path d="M17 30V17a7 7 0 0 1 14 0v13"/><path d="M20 30l1.5 17a2.5 2.5 0 0 0 5 0L28 30"/>
+    <path d="M37 30V17a7 7 0 0 1 14 0v13"/><path d="M40 30l1.5 17a2.5 2.5 0 0 0 5 0L48 30"/>
+    <path d="M21 12c-2-3 0-6 2-4" stroke-width="3.4"/><path d="M41 12c-2-3 0-6 2-4" stroke-width="3.4"/></svg>`;
+  if(kind==='max') return `<svg viewBox="0 0 64 64">${s}
+    <path d="M14 36a18 17 0 0 1 36 0"/>
+    <path d="M12 36v8a7 7 0 0 0 14 0v-6"/><path d="M38 38v6a7 7 0 0 0 14 0v-8"/>
+    <path d="M19 40v4M45 40v4" stroke-width="3.2"/></svg>`;
+  if(kind==='beats') return `<svg viewBox="0 0 64 64">${s}
+    <path d="M14 33a18 16 0 0 1 36 0"/>
+    <circle cx="19" cy="40" r="8"/><circle cx="45" cy="40" r="8"/></svg>`;
+  if(kind==='buds') return `<svg viewBox="0 0 64 64">${s}
+    <path d="M22 18c8 0 10 12 4 17l-2 14"/><path d="M42 18c-8 0-10 12-4 17l2 14"/>
+    <circle cx="24" cy="17" r="4.5" stroke-width="3.4"/><circle cx="40" cy="17" r="4.5" stroke-width="3.4"/></svg>`;
+  return `<svg viewBox="0 0 64 64">${s}
+    <path d="M18 30V18a7 7 0 0 1 13 0v12"/><path d="M21.5 30v18"/>
+    <path d="M38 30V18a7 7 0 0 1 13 0v12"/><path d="M41.5 30v18"/></svg>`;
+}
+function kindOf(n){
+  n=n.toLowerCase();
+  if(n.includes('max')) return 'max';
+  if(n.includes('pro')) return 'pro';
+  if(n.includes('airpods')) return 'std';
+  if(n.includes('beats')) return 'beats';
+  return 'buds';
+}
+const playSvg='<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>';
+const stopSvg='<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5"/></svg>';
+
+/* ---------- rendering ---------- */
+let devices=[];const flapSet=new Set();
+function orbTarget(){for(const d of devices)if(!d.connected)return d;return devices[0]||null}
+function parseList(r){
+  try{return JSON.parse(r||'[]')}
+  catch(e){
+    try{chrome.webview.postMessage('jserror'+SEP+'0'+SEP+'rawlist=['+String(r).slice(0,100)+']')}
+    catch(_){}
+    return null}
+}
+async function refreshList(){
+  const r=await rpc('list');
+  const d=parseList(r);
+  if(d===null){
+    // 获取失败不再哑剧：明确报错 + 一键重试（评审 #1）
+    document.getElementById('devices').innerHTML=
+      `<div class="empty"><p>获取设备失败</p><p style="margin-top:8px"><u style="cursor:pointer;color:var(--honey-d)" onclick="refreshList()">点我重试</u></p></div>`;
+    return;
+  }
+  devices=d;
+  render();
+}
+function render(){
+  renderOrb();
+  const box=document.getElementById('devices');
+  document.getElementById('cnt').textContent=devices.length?('· '+devices.length):'';
+  if(!devices.length){
+    box.innerHTML=`<div class="empty"><img src="assets/face_cheer.png">
+      <p>还没有配对过的耳机<br>点下方「添加新耳机」吧</p></div>`;
+    const b=document.getElementById('badge');b.textContent='未连接';b.classList.remove('on');
+    return;
+  }
+  const on=devices.filter(d=>d.connected).length;
+  const bd=document.getElementById('badge');
+  bd.textContent=on?('已连 '+on+' 台'):'未连接';
+  bd.classList.toggle('on',on>0);
+  box.innerHTML=devices.map((d,i)=>`
+    <div class="card" style="animation-delay:${i*60}ms">
+      <div class="chip">${art(kindOf(d.name))}</div>
+      <div class="info">
+        <div class="name" title="${esc(d.name)}"><span class="txt">${esc(d.name)}</span>
+          <span class="prio-mark">优先 ${i+1}</span></div>
+        <div class="st ${d.connected?'ok':''}" data-st="${esc(d.name)}"><span class="dot ${d.connected?'on':''}"></span>${d.connected?(flapSet.has(d.name)?'已连接 · ⚠ 来回跳（手机/电脑在抢）':'已连接'):(flapSet.has(d.name)?'⚠ 连接来回跳（手机/电脑在抢）':'未连接')}</div>
+      </div>
+      <div class="prio">
+        <button class="pbtn" data-up="${i}" ${i===0?'disabled':''} title="提高优先级">▲</button>
+        <button class="pbtn" data-down="${i}" ${i===devices.length-1?'disabled':''} title="降低优先级">▼</button>
+      </div>
+      <button class="act ${d.connected?'on':''}" data-act="${d.connected?'disconnect':'connect'}" data-name="${esc(d.name)}" title="${d.connected?'断开':'连接'}">
+        ${d.connected?stopSvg:playSvg}</button>
+      <button class="del" data-del="${esc(d.name)}" title="删除">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+          <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
+      </button>
+    </div>`).join('');
+  box.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>doAction(b));
+  box.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>askDel(b.dataset.del));
+  box.querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>movePrio(+b.dataset.up,-1));
+  box.querySelectorAll('[data-down]').forEach(b=>b.onclick=()=>movePrio(+b.dataset.down,1));
+}
+function renderOrb(){
+  const orb=document.getElementById('orb'),hint=document.getElementById('ohint');
+  if(!devices.length){
+    orb.innerHTML=playSvg+'<span class="oname">无设备</span><span class="ost">先添加耳机</span>';
+    orb.classList.add('busy');hint.textContent='点下方「添加新耳机」开始';
+    return;
+  }
+  orb.classList.remove('busy');
+  const t=orbTarget();
+  orb.className='orb'+(t.connected?' on':'');
+  orb.innerHTML=`${art(kindOf(t.name))}<span class="oname">${esc(t.name)}</span>
+    <span class="ost">${t.connected?'已连接 · 点按断开':'未连接 · 点按连接'}</span>`;
+  orb.onclick=()=>doAction(null,t.name,t.connected?'disconnect':'connect');
+  hint.textContent=t.connected?('「'+t.name+'」已连接 ♥'):('下一步将连接「'+t.name+'」');
+}
+async function movePrio(i,dir){
+  const j=i+dir;
+  if(j<0||j>=devices.length)return;
+  [devices[i],devices[j]]=[devices[j],devices[i]];
+  await rpc('setprio',devices.map(d=>d.name).join(SEP));
+  render();
+}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
+
+async function doAction(btn,name,act){
+  name=name??btn.dataset.name;act=act??btn.dataset.act;
+  const b=btn||document.getElementById('orb');
+  const restore=b.innerHTML,cls=b.className;
+  b.classList.add('busy');b.innerHTML='<span class="spin"></span>';
+  document.getElementById('badge').textContent=(act==='connect'?'连接中…':'断开中…');
+  const r=await rpc(act,name);
+  b.classList.remove('busy');b.className=cls;b.innerHTML=restore;
+  if(r==='ok') toast((act==='connect')?'正在连接，稍候确认…':'已断开 💤');
+  else toast('操作失败，请重试');
+  refreshList();
+}
+
+/* 蓝牙已连上、但音频被手机占用（AHK 侧 AudioEndpoint 验证 ~9s 未通过） */
+function onAudioHeld(name){
+  toast('⚠️ 已连上，但声音还被手机占着：暂停手机音乐后，再点一次连接即可抢过来');
+  const st=document.querySelector('[data-st="'+CSS.escape(name)+'"]');
+  if(st) st.innerHTML='<span class="dot on"></span>已连接 · 音频被手机占用';
+}
+function onFlapping(name){
+  toast('⚠️ 检测到「'+name+'」连接来回跳：多半是手机在抢，暂停手机蓝牙后重连一次即可锁定');
+  flapSet.add(name);render();
+}
+
+let delTarget='';
+function askDel(name){delTarget=name;document.getElementById('delName').textContent='「'+name+'」';
+  openModal('mDel')}
+async function confirmDel(){closeModal('mDel');
+  const r=await rpc('remove',delTarget);
+  toast(r==='ok'?'已删除 ✅':'删除失败');refreshList()}
+
+function doAdd(){rpc('add');openModal('mHelp')}
+/* 二维码点击放大（灯箱）：事件委托，覆盖动态渲染的图 */
+document.getElementById('devices').addEventListener('click',()=>{});
+(function(){
+  const zoom=document.getElementById('qrZoom');
+  zoom.addEventListener('click',()=>zoom.classList.remove('open'));
+  window.qrZoomOpen=function(src,cap){
+    document.getElementById('qrZoomImg').src=src;
+    document.getElementById('qrZoomCap').textContent=cap;
+    zoom.classList.add('open');
+  };
+  document.addEventListener('click',e=>{
+    const img=e.target.closest('.qr img');
+    if(img) qrZoomOpen(img.src, img.closest('.qr').querySelector('b').textContent);
+  });
+})();
+
+document.getElementById('refresh').onclick=e=>{
+  const b=e.currentTarget;b.classList.add('spin');setTimeout(()=>b.classList.remove('spin'),520);
+  refreshList()};
+
+/* ---------- modal helpers ---------- */
+function openModal(id){const m=document.getElementById(id);m.classList.add('open');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>m.classList.add('in')))}
+function closeModal(id){const m=document.getElementById(id);m.classList.remove('in');
+  setTimeout(()=>m.classList.remove('open'),260)}
+document.querySelectorAll('.mask').forEach(m=>m.onclick=e=>{if(e.target===m)closeModal(m.id)});
+function openAbout(){
+  openModal('mAbout');
+  getFbHook();   // 预取并缓存 webhook（rpc getfbwebhook），用户写完字点发送时零等待
+  const t=document.getElementById('fbText');
+  document.getElementById('fbCount').textContent=t.value.length+' / 1000';
+  // 每次打开重置反馈区
+  const card=document.querySelector('#mAbout .fb-card');
+  card.classList.remove('open');
+  document.getElementById('fbDone').style.display='none';
+  document.getElementById('fbFail').style.display='none';
+  document.getElementById('fbBody').style.display='flex';
+}
+function fbToggle(){
+  const card=document.querySelector('#mAbout .fb-card');
+  card.classList.toggle('open');
+  if(card.classList.contains('open')) setTimeout(()=>document.getElementById('fbText').focus(),240);
+}
+document.getElementById('fbText').addEventListener('input',e=>{
+  document.getElementById('fbCount').textContent=e.target.value.length+' / 1000';
+});
+/* ---------- 反馈发送（双层通道） ----------
+ * 主通道：WebView2(Edge 引擎) 内 fetch 直发 webhook。实测 360 主动防御会掐断
+ * 本应用派生子进程（curl/powershell）的联网，但不拦浏览器引擎（Edge 无头
+ * fetch 实测送达）。no-cors 响应不可读(opaque)，resolve 即视为已送达；
+ * 正因读不到回执，成功面板保留了「未收到走备用通道」的小字。
+ * 兜底：rpc→AHK powershell（第二族传输，不同失败域）。
+ * 两层都失败→失败面板（重试/复制文字/去 GitHub）。 */
+let fbWebhook='',fbHookP=null;
+function getFbHook(){
+  if(fbHookP) return fbHookP;
+  fbHookP=Promise.race([
+    rpc('getfbwebhook').then(u=>{if(u)fbWebhook=u}),
+    new Promise(r=>setTimeout(r,3000))  // 取不到也不卡发送：空 URL 会让 fetch 拒绝→走兜底
+  ]).then(()=>{if(!fbWebhook)fbHookP=null;return fbWebhook});
+  return fbHookP;
+}
+function fbShowDone(){
+  document.getElementById('fbText').value='';
+  document.getElementById('fbCount').textContent='0 / 1000';
+  document.getElementById('fbBody').style.display='none';
+  document.getElementById('fbFail').style.display='none';
+  document.getElementById('fbDone').style.display='block';
+}
+function fbShowFail(txt){
+  document.getElementById('fbFailWhy').textContent=txt;
+  document.getElementById('fbFail').style.display='block';
+}
+function fbWhy(r){
+  const why={
+    'api:45009':'发送太频繁啦，一分钟后再试',
+    'api:93000':'直达通道已失效（开发者换了机器人），请走备用通道',
+    'api:-1':'服务器繁忙，稍后再试'
+  };
+  if(r&&r.indexOf('api:')===0) return why[r]||('服务器拒绝（错误码 '+r.slice(4)+'）');
+  return '两条通道均被拦截：请复制文字后加入开发者的粉丝群反馈';
+}
+function fbBackup(){  // 成功面板小字的出口：主通道显示送达但群里没有时，给出备用方案
+  document.getElementById('fbDone').style.display='none';
+  fbShowFail('若微信群没收到，请复制文字后加入开发者的粉丝群反馈，或去 GitHub 提 issue');
+}
+let fbSending=false;
+function fbSend(){
+  if(fbSending) return;
+  let t=document.getElementById('fbText').value.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g,'').trim();
+  if(!t){toast('先写点什么吧～');return}
+  const btn=document.getElementById('fbSend');
+  fbSending=true;
+  btn.classList.add('busy');btn.innerHTML='<span class="spin"></span>';
+  const reset=()=>{btn.classList.remove('busy');btn.textContent='发送';fbSending=false};
+  const fbSendLogs=()=>Promise.race([
+    rpc('sendfblogs'),
+    new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),30000))
+  ]);
+  const fbAfterText=()=>{
+    if(!document.getElementById('fbAttachLogs').checked){fbShowDone();return}
+    const enc2=new TextEncoder();
+    rpc('getfblogs').then(logTxt=>{       // AHK 收集最近 50 行（最长 ~6KB）
+      const lines=(logTxt||'').split('
+');
+      const chunks=[];let cur='';
+      for(const ln of lines){
+        const cand=cur+(cur?'
+':'')+ln;
+        if(enc2.encode(cand).length>1800 && cur){chunks.push(cur);cur=ln}
+        else{cur=cand}
+      }
+      if(cur)chunks.push(cur);
+      return getFbHook().then(u=>{
+        let p=Promise.resolve();
+        chunks.forEach((c,i)=>{
+          p=p.then(()=>fetch(u,{method:'POST',mode:'no-cors',
+            headers:{'Content-Type':'text/plain'},
+            body:JSON.stringify({msgtype:'text',text:{content:'📎 反馈日志 '+(i+1)+'/'+chunks.length+'
+'+c}})}));
+        });
+        return p;
+      });
+    }).then(()=>{fbShowDone()})
+      .catch(()=>{fbShowFail('问题已送达 ✓，但日志发送失败（不影响你反馈的问题）')});
+  };
+  const fbRpcBackup=()=>{   // 主通道失败 → AHK powershell 兜底（25s 超时）
+    Promise.race([
+      rpc('sendfeedback',t),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),25000))
+    ]).then(r=>{
+      reset();
+      if(r==='ok'){fbAfterText();return}
+      fbShowFail(fbWhy(r));
+    }).catch(()=>{
+      reset();
+      fbShowFail('发送超时：两条通道均未成功，请复制文字后加入开发者的粉丝群反馈');
+    });
+  };
+  getFbHook().then(u=>{
+    const payload=JSON.stringify({msgtype:'markdown',
+      markdown:{content:'📮 **AirPods 小助手 意见反馈**\n> '+t+'\n\n— v'+(window.APP_VER||'')+' · Windows'}});
+    return Promise.race([
+      fetch(u,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:payload}),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),20000))
+    ]);
+  }).then(()=>{reset();fbAfterText()})
+    .catch(fbRpcBackup);
+}
+function fbCopy(){
+  const t=document.getElementById('fbText');t.focus();t.select();
+  try{document.execCommand('copy');toast('已复制，去别处粘贴即可')}catch(e){toast('复制失败，请手动选择文字复制')}
+}
+function fbIssue(){
+  const t=document.getElementById('fbText').value.trim()||'(用户未填写)';
+  const u='https://github.com/lyzbcy/AirPods-Windows/issues/new?title='+encodeURIComponent('用户反馈')+'&body='+encodeURIComponent(t);
+  rpc('openurl',u);
+}
+
+/* ---------- update ---------- */
+let updUrl='';
+async function showUpdate(d){
+  updUrl=d.url;
+  document.getElementById('updVer').textContent='v'+d.ver;
+  document.getElementById('updCur').textContent='v'+(await rpc('getversion'));
+  openModal('mUpd');
+}
+/* ---------- 设置 ---------- */
+async function openSettings(){
+  openModal('mSet');
+  const st = await rpc('getautostart');
+  const sw = document.getElementById('swAuto');
+  sw.checked = (st==='on'); sw.disabled = (st==='disabled');
+  document.getElementById('autoHint').textContent =
+    st==='disabled' ? '开机自启动已被安全软件或任务管理器禁用：请在 任务管理器 → 启动应用 里重新开启' : '';
+}
+document.getElementById('swAuto').addEventListener('change', async e=>{
+  const r = await rpc('setautostart', e.target.checked?'1':'0');
+  toast(r==='ok' ? (e.target.checked?'已开启开机自启动 ✅':'已关闭开机自启动') : '设置失败，请重试');
+});
+
+async function doUpdate(){
+  const st=document.getElementById('updState'),go=document.getElementById('updGo');
+  go.classList.add('busy');go.innerHTML='<span class="spin"></span>更新中';
+  const r=await rpc('doupdate',updUrl);
+  go.classList.remove('busy');go.innerHTML='🚀 一键更新';
+  st.textContent = (r==='ok')?'✅ 更新包已就绪，正在重启完成替换…（若被安全软件拦截，重启后会如实提醒）':'更新失败：'+r;
+  if(r!=='ok'){const g2=document.createElement('button');g2.className='btn ghost';g2.style.cssText='margin-top:8px;padding:7px 16px;font-size:12px';g2.textContent='→ 去发布页手动下载';g2.onclick=()=>rpc('openrelease');st.appendChild(g2)}
+}
+
+
+/* ---------- star ask（不打扰规范：15 天冷却在 AHK 侧记账） ---------- */
+function showStarAsk(){openModal('mStar')}
+function starGo(){rpc('openrepo');rpc('stardone');closeModal('mStar');toast('谢谢你！💕')}
+function starLater(){rpc('stardone');closeModal('mStar')}
+/* ---------- boot ---------- */
+(async()=>{
+  try { rpc('bootok','vp='+innerWidth+'x'+innerHeight+' dpr='+devicePixelRatio); } catch(e) {}
+  const v=await rpc('getversion');
+  window.APP_VER=v;   // 反馈 payload 的版本署名用
+  document.getElementById('ver').textContent='v'+v;
+  refreshList();
+  setInterval(()=>rpc('statuspoll').then(r=>{const d=parseList(r);if(d===null)return;
+    if(d.length===devices.length && d.every((x,i)=>x.connected===devices[i].connected)){
+      return}
+    // 用户正悬停/操作时推迟重建，避免按钮被连根拔掉（评审 #7 最小防护）
+    if(document.querySelector('.card:hover')||document.querySelector('.busy')){return}
+    devices=d;render()}),4000);
+})();
+</script>
+</body>
+</html>
