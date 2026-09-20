@@ -826,8 +826,8 @@ SendFeedback(text) {
 ; 最近 50 条日志：今天优先，不足补昨天（横跳/闪断可能跨零点）
 GatherLogTail() {
     dir := A_ScriptDir "\logs"
-    today := dir "app-" FormatTime(A_Now, "yyyy-MM-dd") ".log"
-    yest := dir "app-" FormatTime(DateAdd(A_Now, -1, "days"), "yyyy-MM-dd") ".log"
+    today := dir "\app-" FormatTime(A_Now, "yyyy-MM-dd") ".log"
+    yest := dir "\app-" FormatTime(DateAdd(A_Now, -1, "days"), "yyyy-MM-dd") ".log"
     lines := []
     for _, f in [today, yest] {
         if !FileExist(f)

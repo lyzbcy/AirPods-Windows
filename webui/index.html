@@ -697,42 +697,74 @@ document.getElementById('fbText').addEventListener('input',e=>{
   document.getElementById('fbCount').textContent=e.target.value.length+' / 1000';
 });
 let fbSending=false;
-function fbSend(){
+const blen=s=>new Blob([s]).size;
+const rpcTimeout=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))]);
+/* 反馈正文 = 用户文本 + 最近运行日志（v1.9.10：此前"附日志"只在 commit 信息里存在过，
+   前端从未实现。日志放代码块、按 UTF-8 字节预算从头部丢整行，企微 markdown 上限 4096B） */
+function fbBuild(t,logs){
+  const c='📮 **AirPods 小助手 意见反馈**\n> '+t+'\n\n— '+document.getElementById('ver').textContent+' · Windows';
+  if(!logs) return {content:c,withLogs:false};
+  const budget=3900-blen(c)-12;
+  if(budget<200) return {content:c,withLogs:false};
+  let L=logs;
+  while(blen(L)>budget&&L.includes('\n')) L=L.slice(L.indexOf('\n')+1);
+  if(blen(L)>budget) L=L.slice(-budget);
+  return {content:c+'\n\n```\n'+L+'\n```',withLogs:true};
+}
+function fbShowFail(txt){
+  document.getElementById('fbFailWhy').textContent='发送失败：'+txt;
+  document.getElementById('fbFail').style.display='block';
+}
+async function fbSend(){
   if(fbSending) return;
   let t=document.getElementById('fbText').value.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g,'').trim();
   if(!t){toast('先写点什么吧～');return}
   const btn=document.getElementById('fbSend');
   fbSending=true;
   btn.classList.add('busy');btn.innerHTML='<span class="spin"></span>';
-  Promise.race([
-    rpc('sendfeedback',t),
-    new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),25000))
-  ]).then(r=>{
-    btn.classList.remove('busy');btn.textContent='发送';fbSending=false;
-    if(r==='ok'){
-      document.getElementById('fbText').value='';
-      document.getElementById('fbCount').textContent='0 / 1000';
-      document.getElementById('fbBody').style.display='none';
-      document.getElementById('fbFail').style.display='none';
-      document.getElementById('fbDone').style.display='block';
-    } else {
-      const why={
-        'net':'网络不通，或被安全软件/防火墙拦截了联网',
-        'api:45009':'发送太频繁啦，一分钟后再试',
-        'api:93000':'直达通道已失效（开发者换了机器人），请走备用通道',
-        'api:-1':'服务器繁忙，稍后再试'
-      };
-      let txt = why[r];
-      if(!txt && r && r.indexOf('api:')===0) txt='服务器拒绝（错误码 '+r.slice(4)+'）';
-      if(!txt) txt='未知错误';
-      document.getElementById('fbFailWhy').textContent='发送失败：'+txt;
-      document.getElementById('fbFail').style.display='block';
+  try{
+    let logs='';
+    try{logs=await rpcTimeout(rpc('getfblogs'),3000)||'';}catch(e){}
+    let sent=false;
+    /* 主通道：WebView2(Edge 引擎) fetch no-cors 直发 —— 实测安全软件拦应用
+       派生子进程联网但不拦浏览器引擎。no-cors 响应 opaque：网络层未抛错即视为送达 */
+    try{
+      const hook=await rpcTimeout(rpc('getfbwebhook'),3000);
+      if(hook){
+        await fetch(hook,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify({msgtype:'markdown',markdown:{content:fbBuild(t,logs).content}})});
+        sent=true;
+      }
+    }catch(e){sent=false}
+    /* 兜底通道：后端 powershell（不同失败域；不带日志，纯文本） */
+    if(!sent){
+      const r=await Promise.race([
+        rpc('sendfeedback',t),
+        new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),25000))
+      ]);
+      if(r!=='ok'){
+        const why={
+          'net':'网络不通，或被安全软件/防火墙拦截了联网',
+          'api:45009':'发送太频繁啦，一分钟后再试',
+          'api:93000':'直达通道已失效（开发者换了机器人），请走备用通道',
+          'api:-1':'服务器繁忙，稍后再试'
+        };
+        let txt = why[r];
+        if(!txt && r && r.indexOf('api:')===0) txt='服务器拒绝（错误码 '+r.slice(4)+'）';
+        if(!txt) txt='未知错误';
+        throw new Error(txt);
+      }
     }
-  }).catch(()=>{
     btn.classList.remove('busy');btn.textContent='发送';fbSending=false;
-    document.getElementById('fbFailWhy').textContent='发送超时：网络不通，或被安全软件/防火墙拦截了联网';
-    document.getElementById('fbFail').style.display='block';
-  });
+    document.getElementById('fbText').value='';
+    document.getElementById('fbCount').textContent='0 / 1000';
+    document.getElementById('fbBody').style.display='none';
+    document.getElementById('fbFail').style.display='none';
+    document.getElementById('fbDone').textContent=sent&&logs?'✓ 已送达，捞鱼收到了，谢谢你！💕（已附最近运行日志，方便定位）':'✓ 已送达，捞鱼收到了，谢谢你！💕';
+    document.getElementById('fbDone').style.display='block';
+  }catch(e){
+    btn.classList.remove('busy');btn.textContent='发送';fbSending=false;
+    fbShowFail(e&&e.message&&e.message!=='timeout'?e.message:'发送超时：网络不通，或被安全软件/防火墙拦截了联网');
+  }
 }
 function fbCopy(){
   const t=document.getElementById('fbText');t.focus();t.select();
