@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.9.9] - 2026-09-20（补录，当时漏更 CHANGELOG；其"chunked 投递"声称与实现不符，见 1.9.10）
 
+> 注：远端 main 存在平行实现（0693e58：反馈预设点选填充 + 50 行日志 text 分块直发，遇企微 44001 后撤掉了文件上传）。2026-09-20 合并时以本地实现为准（类型多选+补充说明分离、摘要单条+完整日志文件上传、44001 真因修复），远端"找不到耳机"预设文案已吸收进问题反馈类型列表。
+
 ### Fixed
 - 构建时把真实 APP_VERSION 烙进静态 ver 元素（旧占位符一直谎报 v1.6.0）。
 - 转义污染清洗第一轮（B64Utf16 名称、settings/log 路径 BEL 字符、PS 路径 VT 字符）+ 反馈日志经 webview no-cors 分块投递。
