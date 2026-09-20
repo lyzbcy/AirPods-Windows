@@ -10,7 +10,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\WebView2\WebView2.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.9"
+APP_VERSION   := "1.9.10"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -65,7 +65,7 @@ LoadPriority()
 
 ; ------------------------- Device priority ---------------------------
 ; 用户自定义的"一键连接"优先顺序（每行一个设备名），Apple 设备默认排前。
-SETTINGS_PATH := A_ScriptDir "app_settings.ini"
+SETTINGS_PATH := A_ScriptDir "\app_settings.ini"
 PRIO_PATH := A_ScriptDir "\device_priority.txt"
 priorityList := []
 
@@ -85,10 +85,10 @@ LoadPriority() {
 
 SavePriority() {
     global PRIO_PATH, priorityList
-    try {
-        FileDelete(PRIO_PATH)
-        FileAppend(Join(priorityList, "`n") "`n", PRIO_PATH, "UTF-8")
-    }
+    ; 同 SettingWrite：FileDelete 必须与 FileAppend 分离，否则首存必被吞
+    if FileExist(PRIO_PATH)
+        try FileDelete(PRIO_PATH)
+    try FileAppend(Join(priorityList, "`n") "`n", PRIO_PATH, "UTF-8")
 }
 
 Join(arr, sep) {
@@ -959,10 +959,11 @@ SettingWrite(key, value) {
         }
     }
     lines.Push(key "=" value)
-    try {
-        FileDelete(SETTINGS_PATH)
-        FileAppend(Join(lines, "`n") "`n", SETTINGS_PATH, "UTF-8")
-    }
+    ; FileDelete 对不存在的文件抛 TargetError：若与 FileAppend 同一个 try 块，
+    ; 首次写入会被整块跳过（v1.9.9 及之前 settings 实际从未落盘的根因）
+    if FileExist(SETTINGS_PATH)
+        try FileDelete(SETTINGS_PATH)
+    try FileAppend(Join(lines, "`n") "`n", SETTINGS_PATH, "UTF-8")
 }
 
 connectCount := 0

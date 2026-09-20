@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.10] - 2026-09-20
+
+### Fixed
+- **设置持久化从未生效**（用户实测发现）：`SettingWrite`/`SavePriority` 把 `FileDelete` 与 `FileAppend` 放在同一个 try 块——文件不存在时 `FileDelete` 抛 `TargetError` 整块跳过，**首次写入永远失败**。连带后果：connect_count 连接计数永远归零（求好评永远不触发）、自定义 feedback_webhook 存不下来、设备优先级排序首存即丢。改为先 `FileExist` 判断、两步各自 try，已用独立最小脚本双跑验证（修复前 readback=MISSING，修复后 readback=ok123）。
+- **SETTINGS_PATH 缺路径分隔符**：v1.9.9 清除 BEL 字符时把 `\a` 连字面反斜杠一起删了，拼出 `...BluetoothDeviceConnectorapp_settings.ini`（无 `\`），设置会写到目录名拼接出的畸形路径。补回 `\app_settings.ini`。
+- **index.html 转义实体化污染**（BEL 事故同族）：前端正则 `/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g` 的转义序列被写成**真实控制字节**（NUL/VT/FF 等 7 个），浏览器语义碰巧等价所以功能正常，但源文件被 `file` 判为二进制——grep 静默失效、编辑器/AI 工具链全线翻车（本次实测就被它骗过一轮）。还原为纯 ASCII 转义文本并重建 index_built.html；doc/05 里的同类"实物展品"字节同步替换为 `<BEL>`/`<VT>` 可读标记，仓库源码文件恢复全文本。
+
+## [1.9.9] - 2026-09-20（补录，当时漏更 CHANGELOG）
+
+### Fixed
+- 构建时把真实 APP_VERSION 烙进静态 ver 元素（旧占位符一直谎报 v1.6.0）。
+- 转义污染清洗第一轮（B64Utf16 名称、settings/log 路径 BEL 字符、PS 路径 VT 字符）+ 反馈日志经 webview no-cors 分块投递。
+
 ## [1.9.8] - 2026-09-07
 
 ### Added

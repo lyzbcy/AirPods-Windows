@@ -699,7 +699,7 @@ document.getElementById('fbText').addEventListener('input',e=>{
 let fbSending=false;
 function fbSend(){
   if(fbSending) return;
-  let t=document.getElementById('fbText').value.replace(/[ --]/g,'').trim();
+  let t=document.getElementById('fbText').value.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g,'').trim();
   if(!t){toast('先写点什么吧～');return}
   const btn=document.getElementById('fbSend');
   fbSending=true;
