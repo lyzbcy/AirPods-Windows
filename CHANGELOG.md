@@ -2,8 +2,81 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.9.8] - 2026-09-07
+
+### Added
+- **连接来回跳检测**：2 秒看门狗追踪各设备连接状态，120 秒窗口内翻转 ≥3 次 → 气泡+托盘提示「手机和电脑在抢耳机」+ 设备列表标注，5 分钟冷却；只提示不自动动作（自动重连会加剧抢占）。重连成功自动清除标注。
+- **关于弹窗二维码点击放大**：灯箱（白底大图 + 标题 + 点击任意处/Esc 关闭）。
+- **关于弹窗限高+内部滚动**：提意见展开/失败面板出现时弹窗不再超出屏幕，底部按钮永远可达。
+
+### Fixed
+- 横跳检测容器误用 Object（无 Has/__Item）导致后台每 2 秒刷错误（单日 5.9 万行日志）；冷却哨兵传 0 使 DateDiff 首触抛 ValueError —— 两处均改为 Map/空串哨兵（对抗审计发现）。
+
+## [1.9.7] - 2026-09-06
+
+### Added
+- **关于捞鱼 v2**：近黑金星的「给项目点个 Star」一键直达卡；「提意见/反馈问题」内联输入框。
+- **意见反馈三层通道**：① WebView2 前端 `fetch` no-cors 直发（浏览器引擎不被安全软件拦截，主通道）② 失败自动降级 powershell 后台发送（修复：`-EncodedCommand` 不支持尾随参数导致兜底从未生效，改为值内嵌 + PsStr 转义）③ 双通道全挂时失败面板给具体原因（网络拦截/限流/通道失效/错误码）+ 三条出路（重试 / 复制文字 / 去 GitHub 预填 issue）。
+- **设置面板 + 开机自启动开关**（v1.9.5，本次随版发布）：默认关闭；注册表 Run 键实现，任务管理器可见可逆；被禁用时开关置灰并指路。
+
+### Fixed
+- 反馈 payload 带 UTF-8 BOM 被企微 API 拒收（HTTP 200 掩盖 errcode 40008）→ 改 UTF-8-RAW + 以响应体 `errcode:0` 判成功，不再被 200 假象欺骗。
+- 反馈全文写入本地日志的隐私问题 → 只记长度。
+- 发送防抖（飞行中忽略连点）、成功后清空草稿、25 秒前端超时兜底（任何后端异常不再永久转圈）。
+- 意见文本超长截断不再切裂 emoji；C0 控制字符全量剥除（富文本粘贴不再被企微拒收误报）。
+- 关于弹窗二维码行溢出、双黑按钮打架、字符图标与 SVG 混用等对抗评审修正。
+
+## [1.9.6] - 2026-09-06
+
+### Added
+- **关于捞鱼 v2：Star 卡 + 内联意见反馈**。Star 卡（近黑底金星）一键直达仓库；「提意见」展开内联输入框，一键直发开发者企业微信群机器人（webhook 存于 app_settings.ini 的 feedback_webhook，可随时换 key）——零注册零跳转。未配置 webhook 时自动降级为打开预填好的 GitHub issue。字数计数同步、发送 busy 防重、成功态整卡换肤。
+- **对抗评审三处修正落地**：二维码行溢出修复（对齐线归位）；发送键金色化（消双黑打架）；★💬→▾ 四处字符图标统一为 SVG 描边语言 + 计数器同步 + 展开态激活感 + 垂直节奏 12/16 网格。
+
+## [1.9.5] - 2026-09-06
+
+### Added
+- **设置面板 + 开机自启动开关**（默认关闭）：页脚新增「⚙ 设置」，开关走 HKCU Run 键（任务管理器→启动应用 可见可逆，免管理员）。兼容迁移：旧版启动文件夹快捷方式存在即视为已开启，切换时统一迁移到注册表，避免双开。若被安全软件/任务管理器禁用（StartupApproved 禁用标志），开关置灰并如实提示去哪重新开启——不假装生效。
+
+## [1.9.4] - 2026-09-05
+
+### Added
+- **Honest connect v2 (user-discovered tuning)**: connect now disconnects first, waits 400ms, then re-enables services — clearing half-dead links (user empirically confirmed this raises real success rate). After service toggles, the app polls the REAL link state (`fConnected` via fresh enumeration) for ~9s: only then does it report 已连接; timeout = honest 「没能连上」 with likely causes. Kills the "Beats 放得远远的也报成功" lie. New `linkok`/`linkfail` events; star-ask now counts verified connects only.
+
+### Changed
+- **UI v2.1 (two adversarial-review rounds, direction: 简约/更黄/典雅动画)**: flat bright-yellow orb (#FFC53D) with dark-ink text (WCAG ~9:1) replacing the pseudo-3D brown ball; halo pulse moved to a compositor-friendly ::after; device cards slimmer (12px radius, neutral chips/tags — yellow now appears ONLY on the orb); ▲▼/delete revealed on hover with spring easing (rest state 30% visible, :focus-within fallback, fixed dead :active rule); orb hint no longer repeats the orb text; duplicate apple/other tag removed; modal buttons flattened (primary = near-black, no more brown gradients/inset highlights); pet window recomposed (bigger character, ground shadow, cream speech bubble top-right with tail).
+
+## [1.9.3] - 2026-09-05
+
+### Changed
+- **Sticker refresh (curated from 100+ 弹 5-star rated stickers)**: tray icons now use a consistent girl character across states — 未连接=发呆, 已连接=抱爱心(green ring), 连接中=奋笔疾书+spinner; new modal faces: star-ask=委屈求助, delete=招手; new assets face_plead/face_happy/face_peek reserved for toasts.
+- **UI review quick wins** (adversarial review scored usability 6.5 / aesthetics 7): orb has static default content (no more dead empty ball while fetching); badge now states 未连接/已连 N 台 with sage-green active tint; list fetch failure renders an error + retry link; toast duration scales with text length (up to 8s); priority label shows on every row and the orb hint names the exact next device; device name+tags flow inline (no 108px reserved dead space); ▲▼ buttons enlarged to 28px; footer drops the duplicate version; min-button glyph and connected-state text color fixed for contrast; pet bubble gets a tail pointing at the character.
+
+## [1.9.2] - 2026-09-05
+
+### Fixed
+- **Updater honesty (360-class AV interception)**: the update swapper's file-replace can be silently blocked by security software (reproduced live: 360安全卫士 denies write/delete on the running exe even from a normal user token). The swapper now runs every step with `-ErrorAction Stop`, writes an `update_result.txt` receipt (ok/fail+reason), and the app verifies the receipt on next boot — success shows a confirmed toast, failure honestly says 「上次自动更新没完成（多半被安全软件拦截），仍在旧版本」 with the trust-folder fix. No more fake "更新成功" followed by a silent old-version restart. The in-app progress text also no longer claims completion before the swap is verified.
+
+## [1.9.1] - 2026-09-05
+
+### Added
+- **Audio-grab verification** (honest connect): after a successful Bluetooth connect, the app polls the device's audio endpoint (WMI `Win32_PnPEntity`, class `AudioEndpoint`) for ~9s. Endpoint up → toast 「🎧 音频已切到电脑」; never up → pet fail pose + device row shows 「已连接 · 音频被手机占用」 + tray tip with the fix (pause phone music, click connect again). Kills the "shows 已连接 but audio still on the phone" trap: Windows has no API to arbitrate AirPods' active audio source (Mac-style "follow whoever plays" is impossible), and when the phone holds the A2DP stream the endpoint never comes up on PC — now the app says so instead of pretending. Also observed: if the PC stays silent after grabbing, AirPods multipoint hops back to the phone on its own.
+
+### Fixed
+- Latent bug: AHK-side `toast` events (update-check results) were pushed but never handled by the front-end — `window.__event` now routes them.
+
+## [1.9.0] - 2026-08-27
+
+### Added (adopted from the personal component library: 共享/tools/软件开发)
+- **Update UX completion** (自适应更新检测 spec): proxy tip for CN users in the update dialog; failure path now shows a one-click "打开发布页" fallback button (new `openrelease` bridge).
+- **Star-ask component** (不打扰用户的求好评 spec): after the 10th successful connect (and every 50 after), a gentle card asks for a GitHub star; dismissed = 15-day cooldown, tracked in `app_settings.ini` (`stardone`/`openrepo` bridges).
+
+### Fixed
+- **Landing page restored (rollback)**: an accidental push from a diverged local copy had replaced the interactive landing page (v2.x: clickable app-window mock with connect states / priority sorting, pet sprite demo, tray cards) with a simplified static version (-602 lines). Rolled back to the v2.2.0 interactive page and bumped its `PAGE_VER` to 2.2.1 so cached visitors auto-refresh back. Root cause + prevention rules documented in doc/05 B7.
+- **v1.9.0 GitHub Release published** — the tag had been pushed without a release, so in-app update checks and the landing version chip still saw v1.8.4 as latest. Initial publish attached a bare `AirPodsBuddy.exe`, breaking the landing-page download link (404) since both it and the in-app updater expect the asset name `AirPodsBuddy-Windows.zip`; the correctly-structured zip (exe + 使用说明.txt, same layout as v1.8.4) was uploaded and verified.
+
 
 ## [1.8.4] - 2026-08-25
 

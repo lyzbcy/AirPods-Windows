@@ -45,6 +45,12 @@ swift build -c release        # 需要 macOS 13+ 和 Xcode CLT
 2. **改完必须更新** `doc/04-项目进度.md` 和 `CHANGELOG.md`
 3. **在用户桌面上跑测试脚本要极其克制**（历史事故：弹窗轰炸用户）
 4. 提交信息写清楚"为什么"；不确定的决策记到 doc/04 待办里问用户
+5. **发 GitHub Release 必须先征得用户明确同意**——软件有真实存量用户，
+   发版=推送给所有用户（2026-09-05 事故：Agent 未征得同意连发 v1.9.0/
+   v1.9.1 两版，被用户严厉指出）。tag/commit/push 随意，**Release 打住**。
+6. **AI 沙箱 shell 拉起的进程带受限令牌**（对既有 exe 只有 RX）——要启动
+   用户侧应用，用 `explorer.exe <path>` 中转或让用户自己启动；沙箱直接
+   Start-Process 的应用连自更新都会静默失败（swapper 继承受限令牌）。
 
 ## 快速事实
 
@@ -58,9 +64,18 @@ swift build -c release        # 需要 macOS 13+ 和 Xcode CLT
 - ⚠️ **不要直接运行共享文件夹里的 dist\AirPodsBuddy.exe**——dist 在
   gitignore 里，同步不保证最新（2026-08-19 事故：用户跑了共享目录里的
   v1.3.1 旧 exe，抱怨"图标不更新"，其实 v1.4.0 部署在 AppData 没被运行）。
-  Windows 上正确入口 = 桌面快捷方式（指向
-  `%LOCALAPPDATA%\BluetoothDeviceConnector\AirPodsBuddy.exe`）。
   判断跑的是哪个：看日志 boot 行的 scriptdir。
+- ⚠️ **（2026-09-20 起）唯一开发仓库 = 本文件夹**，Windows 与 Mac 都在这里改源码；
+    E:\github\BluetoothDeviceConnector 旧副本退役（历史保留）。
+    开发启动器 = 仓库根「AirPods小助手.bat」（脚本模式秒生效）；正式版用「编译并部署.bat」。
+- ⚠️ **（2026-09-05 起）用户机常驻目录 = `C:\Users\24676\Desktop\AirPodsBuddy\`**，
+  桌面/启动快捷方式都指向这里。旧 `%LOCALAPPDATA%\BluetoothDeviceConnector\`
+  里的 exe 被 360 内核驱动冻结（删/改全拒，ACL 全绿也拦——360AntiSteal/
+  360Box64/360FsFlt 在 360 界面退出后仍然驻留！），已成弃子，别再往那部署。
+  该目录可写 → 应用内自更新恢复正常。
+- ⚠️ **360 的驱动不随界面退出而卸载**，"退出 360"后写文件照样被拦。
+  要么 360 信任区加目录、要么彻底卸载/重启验证。bat 必须 CRLF+纯 ASCII
+  （LF-only 会被 cmd 解析成碎片命令报错）。
 
 - 本文件夹是**含 .git 的完整仓库副本**（E:\共享\创业\BluetoothDeviceConnector）
 - **在 Mac 上开工前**：`git pull --rebase origin main`（拿远端最新）
