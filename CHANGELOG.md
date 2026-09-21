@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.11] - 2026-09-21
+
+### Added
+- **蓝牙栈自救（用户实测病例驱动）**：2026-09-21 晚用户四连反馈+完整日志确诊——连续 7 次连接 `BluetoothSetServiceState` 全部返回成功但链路 9s 未建立，与手机蓝牙/耳机放回盒/重启 App 全部无关，重启电脑立即恢复（且是系统开机自动恢复的连接，App 未发起）＝Windows 蓝牙栈卡死（旁证：BTHUSB 事件 18 每次开机必现，适配器存不了链接密钥的廉价 dongle；事发前系统连续运行 22.5h）。非代码 bug，但"只能重启电脑"体验不可接受。落地：同一设备连续 2 次链路失败后，经 WinRT Radio API 自动开关一次蓝牙无线电（等效手动开关蓝牙，无需管理员）并自动重连一次；一轮故障只自救一次防重启循环，期间用户任何新动作作废自救（audioVerifyGen 代数号），被拒/超时/PS 异常全部如实降级为"开关蓝牙或重启电脑"指引并落日志。PS 段全 ASCII 走 -EncodedCommand（B6/B8.9 规矩）。
+- **连接后自动切到耳机麦克风（功能补齐）**：同日反馈"耳机连上了但默认麦克风还是电脑的"——排查确认 `OnConnectSuccess` 从未做过端点切换（Windows 新设备接入只自动切播放默认端，不切录音默认端）。落地：音频核实（AudioVerifyTick）通过后，WMI 按 PnP 实例名取该耳机录音端点 ID（`SWD\MMDEVAPI\{0.0.1.…}.{guid}`，0.0.1=录音端点，复用 AudioEndpointAlive 同款查询路数），经 `IPolicyConfig::SetDefaultDevice`（vtable 13，系统声音面板同款未公开接口）设为默认录音设备；a2dp-only 档位无录音端点则 INFO 跳过；失败只落 WARN 不弹窗。
+- **设置面板新增两行开关**：「连接后切到耳机麦克风」「连不上时蓝牙自救」（均默认开启，键 auto_mic_switch / bt_rescue），rpc 新增 get/setmicswitch、get/setrescue。
+- doc/05 新增 A5：蓝牙栈卡死病例全文（根因链 + 自救设计边界），防未来误诊成代码 bug。
+
+### Fixed
+- BtRadioRescue 的 PS 拼接首次编译踩 B8.8 坑①（`""` 转义编译器不认），换 `` `" `` 后 oracle=0。
+
 ## [1.9.10] - 2026-09-20
 
 ### Fixed

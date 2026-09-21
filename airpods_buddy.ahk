@@ -10,7 +10,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\WebView2\WebView2.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.10"
+APP_VERSION   := "1.9.11"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -19,6 +19,10 @@ WEBVIEW2_SETUP_URL := "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
 audioProfile := "a2dp-hfp"
 maxRetries := 10
 SEP := Chr(31)
+; 链路连续失败计数与蓝牙自救状态（v1.9.11）：栈卡死时 API 全 ok 但链路
+; 永远起不来，重启 App 无效、重启无线电/电脑才有效（2026-09-21 反馈实测）
+linkFailStreak := 0
+btRescueDone := false
 
 ; ------------------------- Logging system ----------------------------
 ; 日志统一写入 <脚本目录>\logs\app-YYYYMMDD.log，保留 7 天。
@@ -1117,6 +1121,7 @@ AudioVerifyTick(name, left, gen) {
         return   ; 已被断开/新连接取代，本轮作废
     if (AudioEndpointAlive(name)) {
         LogMsg("audio endpoint verified: '" name "'")
+        MicSwitchTo(name)   ; v1.9.11：Windows 只自动切播放端，录音端要自己动手
         PushEvent("toast", JsonStr("🎧 音频已切到电脑"))
         return
     }
@@ -1143,6 +1148,50 @@ AudioEndpointAlive(name) {
         LogMsg("audio endpoint WMI query failed: " e.Message, "WARN")
     }
     return false
+}
+
+; ------------------- 麦克风自动切换（v1.9.11）-------------------------
+; 2026-09-21 反馈：耳机连上出声正常，但默认麦克风仍是电脑内置——Windows
+; 新设备接入只自动切播放默认，不切录音默认。音频核实通过后，把耳机的
+; 录音端点设为默认录音设备。走 IPolicyConfig::SetDefaultDevice（未公开
+; 但 Vista→11 一直在，系统声音面板/AudioDeviceCmdlets 同款后门）；端点
+; ID 从 WMI 的 PnP 实例名取（SWD\MMDEVAPI\{0.0.1.…}.{guid}，0.0.1=录音
+; 端点），免整套 MMDevice COM 枚举。
+MicSwitchTo(name) {
+    if (SettingRead("auto_mic_switch", "1") != "1")
+        return
+    ep := FindCaptureEndpointId(name)
+    if (ep = "") {
+        LogMsg("mic switch: no active capture endpoint for '" name "', skip")
+        return
+    }
+    hr := 0
+    try {
+        pc := ComObject("{870af99c-171d-4f9e-af0d-e63df40c2bc9}", "{f8679f50-850a-41cf-9c72-430f290290c8}")
+        hr := ComCall(13, pc, "wstr", ep, "int")   ; vtable 13 = SetDefaultDevice
+    } catch as e {
+        LogMsg("mic switch: SetDefaultDevice threw: " e.Message, "WARN")
+        return
+    }
+    if (hr = 0) {
+        LogMsg("mic switch: default capture endpoint -> '" name "'")
+        PushEvent("toast", JsonStr("🎤 麦克风已切到耳机"))
+    } else
+        LogMsg("mic switch: SetDefaultDevice hr=0x" Format("{:08X}", hr & 0xFFFFFFFF), "WARN")
+}
+
+FindCaptureEndpointId(name) {
+    safe := StrReplace(name, "'", "''")
+    q := "SELECT PNPDeviceID FROM Win32_PnPEntity WHERE PnPClass='AudioEndpoint' AND Name LIKE '%" safe "%' AND PNPDeviceID LIKE '%{0.0.1.%'"
+    try {
+        wmi := ComObject("WbemScripting.SWbemLocator").ConnectServer(".", "root\cimv2")
+        for dev in wmi.ExecQuery(q)
+            if (dev.ConfigManagerErrorCode = 0)
+                return SubStr(dev.PNPDeviceID, InStr(dev.PNPDeviceID, "{"))
+    } catch as e {
+        LogMsg("mic switch: WMI query failed: " e.Message, "WARN")
+    }
+    return ""
 }
 
 
@@ -1210,6 +1259,10 @@ WebMessageHandler(core, args) {
         case "doupdate":          Reply(id, JsonStr(DoUpdate(arg1)))
         case "getautostart":      Reply(id, JsonStr(AutostartEnabled()))
         case "setautostart":      Reply(id, JsonStr(AutostartSet(arg1 = "1")))
+        case "getmicswitch":      Reply(id, JsonStr(SettingRead("auto_mic_switch", "1")))
+        case "setmicswitch":      SettingWrite("auto_mic_switch", arg1 = "1" ? "1" : "0"), Reply(id, "true")
+        case "getrescue":         Reply(id, JsonStr(SettingRead("bt_rescue", "1")))
+        case "setrescue":         SettingWrite("bt_rescue", arg1 = "1" ? "1" : "0"), Reply(id, "true")
         case "sendfeedback":      Reply(id, JsonStr(SendFeedback(arg1)))
         case "sendissue":         Reply(id, JsonStr(SendIssue(arg1, arg2, arg3)))
         case "getfblogs":         Reply(id, JsonStr(GatherLogTail()))
@@ -1281,13 +1334,14 @@ FindAllAudioDevices() {
 }
 
 DoAction(name, action) {
-    global busy, devices, audioProfile, maxRetries, audioVerifyGen
+    global busy, devices, audioProfile, maxRetries, audioVerifyGen, linkFailStreak, btRescueDone
     if busy
         return "busy"
     dev := FindDevByName(name)
     if !dev
         return "notfound"
     busy := true
+    audioVerifyGen++   ; 新动作：作废进行中的音频验证与蓝牙自救轮询
     SetTrayLoading(true)
     if (action = "connect") {
         ; 用户实测调优（2026-09-05）：先断后连——清掉半死链路，真实成功率显著提高
@@ -1298,7 +1352,8 @@ DoAction(name, action) {
         hf := ToggleBluetoothService(dev.info, "{0000111e-0000-1000-8000-00805f9b34fb}", hfOn, maxRetries)
         a2 := ToggleBluetoothService(dev.info, "{0000110b-0000-1000-8000-00805f9b34fb}", 1, maxRetries)
     } else {
-        audioVerifyGen++   ; 断开：作废进行中的音频验证
+        linkFailStreak := 0   ; 主动断开 = 结束本轮故障，重新武装蓝牙自救
+        btRescueDone := false
         hf := ToggleBluetoothService(dev.info, "{0000111e-0000-1000-8000-00805f9b34fb}", 0, maxRetries)
         a2 := ToggleBluetoothService(dev.info, "{0000110b-0000-1000-8000-00805f9b34fb}", 0, maxRetries)
     }
@@ -1321,10 +1376,12 @@ StartLinkVerify(name) {
 }
 
 LinkVerifyTick(name, left, gen) {
-    global audioVerifyGen
+    global audioVerifyGen, linkFailStreak, btRescueDone
     if (gen != audioVerifyGen)
         return
     if (IsLinkUp(name)) {
+        linkFailStreak := 0
+        btRescueDone := false
         LogMsg("link verified: '" name "'")
         OnConnectSuccess()
         PetUpdate("ok")
@@ -1334,19 +1391,115 @@ LinkVerifyTick(name, left, gen) {
         return
     }
     if (left <= 1) {
-        LogMsg("link NOT up after ~9s: '" name "'", "WARN")
+        linkFailStreak++
+        LogMsg("link NOT up after ~9s: '" name "' (streak " linkFailStreak ")", "WARN")
         PetUpdate("fail")
-        TrayTip("AirPods 小助手", "没能连上 «" name "»`n耳机可能不在附近、没电，或正被手机使用", 4)
-        ; 新耳机问诊（2026-09-20 AirPods 5 反馈）：不断言根因，给可自查方向 + 引导带日志反馈
-        if (IsAppleDevice(name)) {
-            Sleep(300)
-            TrayTip("AirPods 小助手", "新耳机小贴士：设置→蓝牙→设备详情里若有「LE 音频」开关，关掉试试；`n系统更新到最新也可能有帮助。`n还不行请用「🐞 问题反馈」带上日志告诉我", 6)
+        if (linkFailStreak = 1) {
+            TrayTip("AirPods 小助手", "没能连上 «" name "»`n耳机可能不在附近、没电，或正被手机使用", 4)
+            ; 新耳机问诊（2026-09-20 AirPods 5 反馈）：不断言根因，给可自查方向 + 引导带日志反馈
+            if (IsAppleDevice(name)) {
+                Sleep(300)
+                TrayTip("AirPods 小助手", "新耳机小贴士：设置→蓝牙→设备详情里若有「LE 音频」开关，关掉试试；`n系统更新到最新也可能有帮助。`n还不行请用「🐞 问题反馈」带上日志告诉我", 6)
+            }
+        } else {
+            ; 连败≥2：与耳机/App 无关，疑似蓝牙栈卡死（2026-09-21 实测病例）
+            if (linkFailStreak = 2 && !btRescueDone) {
+                if (!BtRadioRescue(name))
+                    BtRescueGiveUpTip(name)
+            } else
+                BtRescueGiveUpTip(name)
         }
         PushEvent("linkfail", JsonStr(name))
         return
     }
     fn := (*) => LinkVerifyTick(name, left - 1, gen)
     SetTimer(fn, -1200)
+}
+
+BtRescueGiveUpTip(name) {
+    TrayTip("AirPods 小助手", "还是连不上 «" name "»，电脑蓝牙可能卡死了`n试试手动开关一次蓝牙，或重启电脑（上次重启就好了）`n欢迎用「🐞 问题反馈」带上日志告诉我", 6)
+}
+
+; ------------------- 蓝牙栈自救（v1.9.11）-----------------------------
+; 2026-09-21 病例：连续多轮连接，BluetoothSetServiceState 全部返回成功但
+; 链路 9 秒内从未建立；与耳机状态/手机蓝牙/App 重启均无关，重启电脑立即
+; 恢复（且是系统自己恢复的连接）——即蓝牙栈卡死。自救 = 用 WinRT Radio
+; API 开关一次蓝牙无线电（等效手动开关蓝牙，无需管理员），然后自动重试
+; 一次连接。一轮故障只自救一次防重启循环；期间用户任何新动作都会作废自救。
+; PS 段全 ASCII（B6 坑：经管道/编码传递的 PS 不掺中文）。
+BtRadioRescue(name) {
+    global btRescueDone, audioVerifyGen
+    if (SettingRead("bt_rescue", "1") != "1")
+        return false
+    btRescueDone := true
+    gen := audioVerifyGen
+    LogMsg("bt rescue: link failed twice in a row, restarting bluetooth radio")
+    TrayTip("AirPods 小助手", "连续连不上 «" name "»，电脑蓝牙疑似卡死`n正在自动重启蓝牙无线电，请稍等…", 5)
+    outFile := A_Temp "\AirPodsBuddy_bt_rescue.txt"
+    try FileDelete(outFile)
+    ps := ""
+    ps .= "$out=" PsStr(outFile) "`n"
+    ps .= "try {`n"
+    ps .= "  [IO.File]::WriteAllText($out,'STARTED')`n"
+    ps .= "  Add-Type -AssemblyName System.Runtime.WindowsRuntime`n"
+    ps .= "  $null=[Windows.Devices.Radios.Radio,Windows.System.Devices,ContentType=WindowsRuntime]`n"
+    ps .= "  $radios=[Windows.Devices.Radios.Radio]::GetRadiosAsync().GetAwaiter().GetResult()`n"
+    ps .= "  $bt=$radios|Where-Object{$_.Kind -eq 'Bluetooth'}|Select-Object -First 1`n"
+    ps .= "  if(-not $bt){[IO.File]::WriteAllText($out,'NO_RADIO');exit 2}`n"
+    ps .= "  $r1=$bt.SetStateAsync([Windows.Devices.Radios.RadioState]::Off).GetAwaiter().GetResult()`n"
+    ps .= "  Start-Sleep -Milliseconds 1800`n"
+    ps .= "  $r2=$bt.SetStateAsync([Windows.Devices.Radios.RadioState]::On).GetAwaiter().GetResult()`n"
+    ps .= "  [IO.File]::WriteAllText($out,`"off=$r1 on=$r2`")`n"
+    ps .= "  if(`"$r1$r2`" -ne 'AllowedAllowed'){exit 3}`n"
+    ps .= "  exit 0`n"
+    ps .= "} catch {`n"
+    ps .= "  try{[IO.File]::WriteAllText($out,'ERR: '+$_.Exception.Message)}catch{}`n"
+    ps .= "  exit 1`n"
+    ps .= "}`n"
+    enc := B64Utf16(ps)
+    target := A_WinDir "\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand " enc
+    psPid := 0
+    try Run(target, , "Hide", &psPid)
+    catch {
+        LogMsg("bt rescue: powershell launch failed", "WARN")
+        return true
+    }
+    SetTimer(() => BtRescuePoll(name, outFile, psPid, gen, 25), -1000)
+    return true
+}
+
+; 轮询自救 PS 的结果文件：成功→自动重连；被拒/超时/被打断→如实降级为指引
+BtRescuePoll(name, outFile, psPid, gen, left) {
+    global audioVerifyGen
+    if (gen != audioVerifyGen) {
+        LogMsg("bt rescue: superseded by new user action, abort")
+        return
+    }
+    r := ""
+    try r := FileRead(outFile, "UTF-8")
+    if (SubStr(r, 1, 4) = "off=" || SubStr(r, 1, 9) = "NO_RADIO" || SubStr(r, 1, 4) = "ERR:") {
+        try FileDelete(outFile)
+        LogMsg("bt rescue: radio reset -> " r)
+        if (r = "off=Allowed on=Allowed") {
+            TrayTip("AirPods 小助手", "蓝牙无线电已重启，正在重连 «" name "» …", 3)
+            SetTimer(() => DoAction(name, "connect"), -2500)   ; 给栈 2.5s 恢复缓冲
+        } else {
+            LogMsg("bt rescue: radio reset refused or failed", "WARN")
+            BtRescueGiveUpTip(name)
+        }
+        return
+    }
+    if (!ProcessExist(psPid)) {
+        LogMsg("bt rescue: powershell exited without result", "WARN")
+        BtRescueGiveUpTip(name)
+        return
+    }
+    if (left <= 1) {
+        LogMsg("bt rescue: timeout waiting for radio reset", "WARN")
+        BtRescueGiveUpTip(name)
+        return
+    }
+    SetTimer(() => BtRescuePoll(name, outFile, psPid, gen, left - 1), -1000)
 }
 
 IsLinkUp(name) {

@@ -542,6 +542,20 @@
       </div>
       <label class="switch"><input type="checkbox" id="swAuto"><span class="slider"></span></label>
     </div>
+    <div class="set-row">
+      <div class="set-info">
+        <b>连接后切到耳机麦克风</b>
+        <p>连上耳机后，自动把默认麦克风切成耳机的麦克风（默认开启）</p>
+      </div>
+      <label class="switch"><input type="checkbox" id="swMic"><span class="slider"></span></label>
+    </div>
+    <div class="set-row">
+      <div class="set-info">
+        <b>连不上时蓝牙自救</b>
+        <p>连续两次连不上时，自动开关一次电脑蓝牙再重试（默认开启）</p>
+      </div>
+      <label class="switch"><input type="checkbox" id="swRescue"><span class="slider"></span></label>
+    </div>
     <div class="auto-hint" id="autoHint"></div>
     <div class="row" style="margin-top:14px">
       <button class="btn ghost" onclick="closeModal('mSet')">完成</button>
@@ -949,10 +963,20 @@ async function openSettings(){
   sw.checked = (st==='on'); sw.disabled = (st==='disabled');
   document.getElementById('autoHint').textContent =
     st==='disabled' ? '开机自启动已被安全软件或任务管理器禁用：请在 任务管理器 → 启动应用 里重新开启' : '';
+  document.getElementById('swMic').checked = (await rpc('getmicswitch'))==='1';
+  document.getElementById('swRescue').checked = (await rpc('getrescue'))==='1';
 }
 document.getElementById('swAuto').addEventListener('change', async e=>{
   const r = await rpc('setautostart', e.target.checked?'1':'0');
   toast(r==='ok' ? (e.target.checked?'已开启开机自启动 ✅':'已关闭开机自启动') : '设置失败，请重试');
+});
+document.getElementById('swMic').addEventListener('change', async e=>{
+  const r = await rpc('setmicswitch', e.target.checked?'1':'0');
+  toast(r===true ? (e.target.checked?'连接后自动切到耳机麦克风 ✅':'已关闭麦克风自动切换') : '设置失败，请重试');
+});
+document.getElementById('swRescue').addEventListener('change', async e=>{
+  const r = await rpc('setrescue', e.target.checked?'1':'0');
+  toast(r===true ? (e.target.checked?'已开启连不上时蓝牙自救 ✅':'已关闭蓝牙自救') : '设置失败，请重试');
 });
 
 async function doUpdate(){
