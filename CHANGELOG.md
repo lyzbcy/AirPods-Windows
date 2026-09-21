@@ -14,7 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - doc/05 新增 A5：蓝牙栈卡死病例全文（根因链 + 自救设计边界），防未来误诊成代码 bug。
 
 ### Fixed
-- BtRadioRescue 的 PS 拼接首次编译踩 B8.8 坑①（`""` 转义编译器不认），换 `` `" `` 后 oracle=0。
+- **两处"网上说行"陷阱被真机实测当场打回并修复**（老田式验收追问的功劳）：
+  ① 自救 PS 初版用 `.GetAwaiter().GetResult()` 等 WinRT 异步——本机 PS5.1 实测抛 `__ComObject 不包含 GetAwaiter`（实例语法调不到扩展方法），换成久经考验的 AsTask 泛型反射模式并**真机实测通过**（`radio=蓝牙 state=On setstate(same)=Allowed`，调用链全走通且未改变状态）；② `FindCaptureEndpointId` 初版 SELECT 只投影 PNPDeviceID 却又读 ConfigManagerErrorCode——WMI 投影查询不返回未选列（AHK 真机实测抛 no property，生产代码会永远静默走 WARN 分支），补投影后实测能从真实端点取出 `{0.0.1.00000000}.{GUID}` 格式 ID。
+- BtRadioRescue 的 PS 拼接首次编译另踩 B8.8 坑①（`""` 转义编译器不认），换 `` `" `` 后 oracle=0。
+
+### 验证边界（如实标注）
+- **已实测**：WinRT Radio API 调用链（枚举+同态设置，AsTask 模式）；音频端点 ID 格式假设（真机全量端点核对，0.0.1=录音/0.0.0=播放）；AHK 侧 IPolicyConfig COM 对象创建；WQL 端点查询（AHK 真机跑通）；设置弹窗三行开关无头截图+CSS 结构复查（复用生产类，dlg 限高内滚）；编译 oracle=0×2；桌面部署 boot v1.9.11×2。
+- **待真机**：蓝牙无线电真实开关+自动重连（需栈卡死场景自然触发，设计上失败降级为指引）；SetDefaultDevice 真实切换（耳机当前已断开，端点不在场；COM 创建已验证，调用留待下次连接）。
+- 本机环境备忘：录音端点里有 VoiceMeeter/变声虚拟设备全家桶，麦克风自动切换会把默认录音从虚拟设备切到耳机——这正是反馈用户的诉求，且设置里可关。
 
 ## [1.9.10] - 2026-09-20
 

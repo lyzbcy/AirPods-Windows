@@ -1182,7 +1182,9 @@ MicSwitchTo(name) {
 
 FindCaptureEndpointId(name) {
     safe := StrReplace(name, "'", "''")
-    q := "SELECT PNPDeviceID FROM Win32_PnPEntity WHERE PnPClass='AudioEndpoint' AND Name LIKE '%" safe "%' AND PNPDeviceID LIKE '%{0.0.1.%'"
+    ; SELECT 必须投影 ConfigManagerErrorCode：WMI 投影查询不返回未选中的列，
+    ; 只选 PNPDeviceID 再读错误码会抛"no property"（2026-09-21 真机实测踩中）
+    q := "SELECT PNPDeviceID, ConfigManagerErrorCode FROM Win32_PnPEntity WHERE PnPClass='AudioEndpoint' AND Name LIKE '%" safe "%' AND PNPDeviceID LIKE '%{0.0.1.%'"
     try {
         wmi := ComObject("WbemScripting.SWbemLocator").ConnectServer(".", "root\cimv2")
         for dev in wmi.ExecQuery(q)
@@ -1443,12 +1445,15 @@ BtRadioRescue(name) {
     ps .= "  [IO.File]::WriteAllText($out,'STARTED')`n"
     ps .= "  Add-Type -AssemblyName System.Runtime.WindowsRuntime`n"
     ps .= "  $null=[Windows.Devices.Radios.Radio,Windows.System.Devices,ContentType=WindowsRuntime]`n"
-    ps .= "  $radios=[Windows.Devices.Radios.Radio]::GetRadiosAsync().GetAwaiter().GetResult()`n"
-    ps .= "  $bt=$radios|Where-Object{$_.Kind -eq 'Bluetooth'}|Select-Object -First 1`n"
+    ps .= "  $g=([System.WindowsRuntimeSystemExtensions].GetMethods()|Where-Object{$_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation``1'})[0]`n"
+    ps .= "  if(-not $g){[IO.File]::WriteAllText($out,'NO_AWTASK');exit 4}`n"
+    ps .= "  function Await($t,$rt){$m=$g.MakeGenericMethod($rt);$n=$m.Invoke($null,@($t));$n.Wait(-1)|Out-Null;$n.Result}`n"
+    ps .= "  $radios=Await ([Windows.Devices.Radios.Radio]::GetRadiosAsync()) ([System.Collections.Generic.IReadOnlyList[Windows.Devices.Radios.Radio]])`n"
+    ps .= "  $bt=$radios|Where-Object{$_.Kind.ToString() -eq 'Bluetooth'}|Select-Object -First 1`n"
     ps .= "  if(-not $bt){[IO.File]::WriteAllText($out,'NO_RADIO');exit 2}`n"
-    ps .= "  $r1=$bt.SetStateAsync([Windows.Devices.Radios.RadioState]::Off).GetAwaiter().GetResult()`n"
+    ps .= "  $r1=Await ($bt.SetStateAsync([Windows.Devices.Radios.RadioState]::Off)) ([Windows.Devices.Radios.RadioAccessStatus])`n"
     ps .= "  Start-Sleep -Milliseconds 1800`n"
-    ps .= "  $r2=$bt.SetStateAsync([Windows.Devices.Radios.RadioState]::On).GetAwaiter().GetResult()`n"
+    ps .= "  $r2=Await ($bt.SetStateAsync([Windows.Devices.Radios.RadioState]::On)) ([Windows.Devices.Radios.RadioAccessStatus])`n"
     ps .= "  [IO.File]::WriteAllText($out,`"off=$r1 on=$r2`")`n"
     ps .= "  if(`"$r1$r2`" -ne 'AllowedAllowed'){exit 3}`n"
     ps .= "  exit 0`n"
@@ -1477,7 +1482,7 @@ BtRescuePoll(name, outFile, psPid, gen, left) {
     }
     r := ""
     try r := FileRead(outFile, "UTF-8")
-    if (SubStr(r, 1, 4) = "off=" || SubStr(r, 1, 9) = "NO_RADIO" || SubStr(r, 1, 4) = "ERR:") {
+    if (SubStr(r, 1, 4) = "off=" || SubStr(r, 1, 3) = "NO_" || SubStr(r, 1, 4) = "ERR:") {
         try FileDelete(outFile)
         LogMsg("bt rescue: radio reset -> " r)
         if (r = "off=Allowed on=Allowed") {
