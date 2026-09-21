@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.12] - 2026-09-21
+
+### Fixed（用户 v1.9.11 实测 20:34 反馈驱动，两条错误码都有日志实证）
+- **麦克风切换 E_INVALIDARG（0x80070057）**：链路/音频核实全过后 `SetDefaultDevice` 拒绝参数。地面真值排查：C#（MMDeviceEnumerator 真枚举 + IPolicyConfig 真调用）与本机 AHK `ComCall(13)` 用同一枚默认录音端点 ID 自设**均返回 S_OK**——API、vtable 索引、`{0.0.1.00000000}.{GUID}` 端点 ID 全部正确；结论=链路刚建立时 HFP 录音端点还在过渡态（引用社区已知行为：对未就绪端点 SetDefaultDevice 报 E_INVALIDARG）。修法：每轮重查端点 + 失败 2 秒重试共 4 次（端点晚几秒出现也兜住），最终失败把**端点 ID 落进日志**供下轮诊断。
+- **断开断不开 + 二次断开误报失败（A2DP fail:0x00000490）**：实测病例——第一次断开 HFP+A2DP 服务全关成功，但 fConnected 仍为 1（链路被没关的服务拽着，嫌疑最大 AVRCP：A2DP 连接时 Windows 自动启用）；第二次断开 A2DP 报 1168"找不到元素"（服务记录已删）还被当失败弹 toast。修法三件套：① 1168 在关服务时一律幂等视为 absent（原仅 HFP）；② 断开判成功改为"服务无报错即可"（全 absent=本来就关着）；③ 新增**断开核实链** StartDownVerify：轮询真实链路 ~10s，没断→补关 AVRCP {0000110e} 再等一轮→仍不断→WARN + 气泡如实告知（放盒/手机侧断开），绝不弹窗。
+
 ## [1.9.11] - 2026-09-21
 
 ### Added

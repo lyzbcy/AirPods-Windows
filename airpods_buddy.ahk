@@ -10,7 +10,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\WebView2\WebView2.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.11"
+APP_VERSION   := "1.9.12"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -23,6 +23,7 @@ SEP := Chr(31)
 ; 永远起不来，重启 App 无效、重启无线电/电脑才有效（2026-09-21 反馈实测）
 linkFailStreak := 0
 btRescueDone := false
+downEscalated := false   ; 断开核实已补关过 AVRCP（每轮断开重置）
 
 ; ------------------------- Logging system ----------------------------
 ; 日志统一写入 <脚本目录>\logs\app-YYYYMMDD.log，保留 7 天。
@@ -1160,8 +1161,22 @@ AudioEndpointAlive(name) {
 MicSwitchTo(name) {
     if (SettingRead("auto_mic_switch", "1") != "1")
         return
+    MicSwitchTick(name, 4)
+}
+
+; 带重试的切换（v1.9.12）：2026-09-21 实测链路刚建立时 HFP 录音端点可能
+; 还在过渡态，SetDefaultDevice 拒以 E_INVALIDARG——实测同机同 API 稍后
+; 或对已就绪端点均返回 S_OK。每轮重新查端点（端点可能晚几秒才出现），
+; 失败 2 秒后重试，共 4 次；最终失败把端点 ID 落进日志便于下轮诊断。
+MicSwitchTick(name, left) {
+    if !IsLinkUp(name)
+        return   ; 期间已断开，别再动系统默认设备
     ep := FindCaptureEndpointId(name)
     if (ep = "") {
+        if (left > 1) {
+            SetTimer(() => MicSwitchTick(name, left - 1), -2000)
+            return
+        }
         LogMsg("mic switch: no active capture endpoint for '" name "', skip")
         return
     }
@@ -1176,8 +1191,14 @@ MicSwitchTo(name) {
     if (hr = 0) {
         LogMsg("mic switch: default capture endpoint -> '" name "'")
         PushEvent("toast", JsonStr("🎤 麦克风已切到耳机"))
-    } else
-        LogMsg("mic switch: SetDefaultDevice hr=0x" Format("{:08X}", hr & 0xFFFFFFFF), "WARN")
+        return
+    }
+    if (left > 1) {
+        LogMsg("mic switch: hr=0x" Format("{:08X}", hr & 0xFFFFFFFF) " (endpoint settling?), retry in 2s", "WARN")
+        SetTimer(() => MicSwitchTick(name, left - 1), -2000)
+        return
+    }
+    LogMsg("mic switch: SetDefaultDevice hr=0x" Format("{:08X}", hr & 0xFFFFFFFF) " ep=" ep, "WARN")
 }
 
 FindCaptureEndpointId(name) {
@@ -1366,6 +1387,8 @@ DoAction(name, action) {
     SetTrayLoading(false)
     if (ok && action = "connect")
         StartLinkVerify(name)   ; 服务开关 ok ≠ 真连上，异步核实真实链路
+    if (ok && action = "disconnect")
+        StartDownVerify(name)   ; v1.9.12：服务关了 ≠ 真断开，异步核实链路真断
     return ok ? "ok" : "fail"
 }
 
@@ -1420,6 +1443,45 @@ LinkVerifyTick(name, left, gen) {
 
 BtRescueGiveUpTip(name) {
     TrayTip("AirPods 小助手", "还是连不上 «" name "»，电脑蓝牙可能卡死了`n试试手动开关一次蓝牙，或重启电脑（上次重启就好了）`n欢迎用「🐞 问题反馈」带上日志告诉我", 6)
+}
+
+; ------------------- 断开核实（v1.9.12）-------------------------------
+; 2026-09-21 实测病例：关完 HFP+A2DP 全部返回成功，但 fConnected 仍为 1；
+; 再点一次断开，A2DP 报 1168"找不到元素"（服务记录已删）——即服务开关
+; 成功 ≠ ACL 链路真断，链路被没关的服务拽着（嫌疑最大：AVRCP，A2DP 连
+; 接时 Windows 会自动启用）。断开后轮询真实链路：没断先补关 AVRCP 再等
+; 一轮，仍不断就如实气泡告知，不弹窗。
+StartDownVerify(name) {
+    global audioVerifyGen, downEscalated
+    downEscalated := false
+    DownVerifyTick(name, 8, ++audioVerifyGen)
+}
+
+DownVerifyTick(name, left, gen) {
+    global audioVerifyGen, downEscalated
+    if (gen != audioVerifyGen)
+        return
+    if (!IsLinkUp(name)) {
+        LogMsg("link down verified: '" name "'")
+        return
+    }
+    if (left <= 1) {
+        if (!downEscalated) {
+            downEscalated := true
+            LogMsg("link still up after HFP+A2DP off; disabling AVRCP too (suspected ACL holder)", "WARN")
+            dev := FindDevByName(name)
+            if dev
+                ToggleBluetoothService(dev.info, "{0000110e-0000-1000-8000-00805f9b34fb}", 0, 3)
+            fn := (*) => DownVerifyTick(name, 8, gen)
+            SetTimer(fn, -1500)
+            return
+        }
+        LogMsg("link still up after AVRCP escalation: '" name "'", "WARN")
+        TrayTip("AirPods 小助手", "«" name "» 的连接没被 Windows 真正断开`n试试把耳机放回盒，或在手机蓝牙里断开", 5)
+        return
+    }
+    fn := (*) => DownVerifyTick(name, left - 1, gen)
+    SetTimer(fn, -1200)
 }
 
 ; ------------------- 蓝牙栈自救（v1.9.11）-----------------------------
@@ -1676,6 +1738,8 @@ IsSuccessfulOperation(action, audioProfile, hfStatus, a2Status) {
         return (a2Status = "ok" && (hfStatus = "ok" || hfStatus = "absent"))
     allExposedSucceeded := (hfStatus = "ok" || hfStatus = "absent")
         && (a2Status = "ok" || a2Status = "absent")
+    if (action = "disconnect")
+        return allExposedSucceeded   ; 断开：服务全 absent=本来就关着，幂等成功；链路是否真断由 StartDownVerify 核实
     atLeastOneProfileExists := (hfStatus = "ok" || a2Status = "ok")
     return (allExposedSucceeded && atLeastOneProfileExists)
 }
@@ -1699,8 +1763,8 @@ ToggleBluetoothService(deviceInfo, serviceGuidStr, toggleOn, maxRetries) {
             toggle := !toggle
         } else if (hr = 1060)
             return "absent"
-        else if (hr = 1168 && toggleOn = 0 && StrLower(serviceGuidStr) = "{0000111e-0000-1000-8000-00805f9b34fb}")
-            return "absent"
+        else if (hr = 1168 && toggleOn = 0)
+            return "absent"   ; 1168=服务记录已不在：关已经关了的东西，幂等视为成功（v1.9.12：不再限 HFP）
         retryCount++
         if (retryCount >= maxRetries)
             return "fail:0x" . Format("{:08X}", lastHR)
