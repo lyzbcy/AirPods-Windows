@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.13] - 2026-09-22
+
+### Added
+- **问题反馈可选留联系方式**（2026-09-22 真实用户反馈引出：反馈是单向 webhook 进群，开发者回复用户看不到、也联系不上用户）：反馈弹窗新增「📞 联系方式（选填）」输入框（邮箱/QQ 等，60 字上限，C0 控制字符同规则清洗），内容随反馈消息以「📞 可回复：xxx」行发出；localStorage 记住（apb_iss_contact），下次打开自动回填；本地日志按隐私惯例只记长度不记内容。fetch 主通道与 AHK 兜底通道（含 sendissue 第 4 参数）双路同步支持。
+
+### Changed
+- **「使用耳机麦克风」开关升级为真正的稳定模式**（2026-09-22 真实用户病例驱动）：该用户在 v1.9.12 报告"切应用回来声音时有时无、重连恢复、重置耳机无效"——经典 A2DP/HFP 冲突（任何应用开"默认麦克风"→拉起 HFP→掐断 A2DP 放音），而 v1.9.11 起自动切默认麦克风到耳机（默认开）会让所有开默认麦的应用都碰到耳机 HFP，放大了此问题。现在关掉该开关时连接**完全不启用 HFP 服务**（原实现只跳过切默认设备这一步，HFP 服务照启），从源头消除冲突；开启时行为不变（HFP+自动切换）。原计划的独立"稳定模式"开关因此不再单设——两个开关干同一件事是坏设计，并入单开关文案。改动在下次连接生效（连接流程本就先断后连，天然生效点）。
+
 ## [1.9.12] - 2026-09-21
 
 ### Fixed（用户 v1.9.11 实测 20:34 反馈驱动，两条错误码都有日志实证）

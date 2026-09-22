@@ -10,7 +10,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\WebView2\WebView2.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.12"
+APP_VERSION   := "1.9.13"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -915,7 +915,7 @@ TruncateUtf8(s, maxBytes) {
     return s
 }
 
-SendIssue(types, note, flags) {
+SendIssue(types, note, flags, contact := "") {
     fetchok := (SubStr(flags, 1, 1) = "1")
     wantfile := (SubStr(flags, 2, 1) = "1")
     webhook := FbWebhook()
@@ -944,6 +944,8 @@ SendIssue(types, note, flags) {
             content .= "`n**问题：**" types
         if (note != "")
             content .= "`n> " note
+        if (contact != "")
+            content .= "`n📞 可回复：" contact
         content .= "`n`n" TruncateUtf8(GatherLogTail(), 3000)
         payload := '{"msgtype":"markdown","markdown":{"content":' JsonStr(content) '}}'
         ps .= "  $tc=New-Object System.Net.Http.StringContent(" PsStr(payload) ",[Text.Encoding]::UTF8,'application/json')`n"
@@ -993,7 +995,7 @@ SendIssue(types, note, flags) {
     try r := FileRead(respFile, "UTF-8")
     try FileDelete(respFile)
     try FileDelete(A_Temp "\AirPodsBuddy_issue_log.txt")
-    LogMsg("issue sent: types='" types "' note=" StrLen(note) " chars file=" (wantfile ? 1 : 0) " ec=" ec " resp=" r)
+    LogMsg("issue sent: types='" types "' note=" StrLen(note) " chars contact=" (contact = "" ? 0 : StrLen(contact)) " chars file=" (wantfile ? 1 : 0) " ec=" ec " resp=" r)
     if (ec = 0)
         return "ok"
     ; 文本已由前端 fetch 送达 → 文件链路失败降级为 nofile（反馈本身算送达）
@@ -1248,6 +1250,7 @@ WebMessageHandler(core, args) {
     arg1 := parts.Length >= 3 ? parts[3] : ""
     arg2 := parts.Length >= 4 ? parts[4] : ""
     arg3 := parts.Length >= 5 ? parts[5] : ""
+    arg4 := parts.Length >= 6 ? parts[6] : ""
 
     ; frontend forwards window.onerror / unhandledrejection here
     if (cmd = "jserror") {
@@ -1287,7 +1290,7 @@ WebMessageHandler(core, args) {
         case "getrescue":         Reply(id, JsonStr(SettingRead("bt_rescue", "1")))
         case "setrescue":         SettingWrite("bt_rescue", arg1 = "1" ? "1" : "0"), Reply(id, "true")
         case "sendfeedback":      Reply(id, JsonStr(SendFeedback(arg1)))
-        case "sendissue":         Reply(id, JsonStr(SendIssue(arg1, arg2, arg3)))
+        case "sendissue":         Reply(id, JsonStr(SendIssue(arg1, arg2, arg3, arg4)))
         case "getfblogs":         Reply(id, JsonStr(GatherLogTail()))
         case "getfbwebhook":      Reply(id, JsonStr(FbWebhook()))   ; 前端 fetch 直发用（主通道），ini 优先否则内置默认
         case "openurl":           Run(arg1), Reply(id, "true")
@@ -1371,7 +1374,12 @@ DoAction(name, action) {
         ToggleBluetoothService(dev.info, "{0000111e-0000-1000-8000-00805f9b34fb}", 0, 3)
         ToggleBluetoothService(dev.info, "{0000110b-0000-1000-8000-00805f9b34fb}", 0, 3)
         Sleep 400
-        hfOn := (audioProfile = "a2dp-hfp") ? 1 : 0
+        ; v1.9.13：麦克风开关现在决定 HFP 服务是否启用——关 = 完全不启用
+        ; 耳机麦克风（稳定模式）。2026-09-22 真实用户病例：任何应用开"默认
+        ; 麦克风"都会拉起 HFP 掐断 A2DP 放音（切应用回来就没声），病根在
+        ; HFP 被启用+默认录音指向耳机；从源头不启用 HFP，冲突物理上不可能
+        micWanted := (SettingRead("auto_mic_switch", "1") = "1")
+        hfOn := micWanted ? 1 : 0
         hf := ToggleBluetoothService(dev.info, "{0000111e-0000-1000-8000-00805f9b34fb}", hfOn, maxRetries)
         a2 := ToggleBluetoothService(dev.info, "{0000110b-0000-1000-8000-00805f9b34fb}", 1, maxRetries)
     } else {
@@ -1380,7 +1388,8 @@ DoAction(name, action) {
         hf := ToggleBluetoothService(dev.info, "{0000111e-0000-1000-8000-00805f9b34fb}", 0, maxRetries)
         a2 := ToggleBluetoothService(dev.info, "{0000110b-0000-1000-8000-00805f9b34fb}", 0, maxRetries)
     }
-    ok := IsSuccessfulOperation(action, audioProfile, hf, a2)
+    ; hfOn=0 时按 a2dp-only 口径判定成功（hf 预期 absent/ok）
+    ok := IsSuccessfulOperation(action, micWanted ? "a2dp-hfp" : "a2dp", hf, a2)
     if !ok
         LogMsg("DoAction " action " '" name "' failed: HFP=" hf " A2DP=" a2, "WARN")
     busy := false

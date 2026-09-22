@@ -344,6 +344,11 @@
     padding:9px 11px;font-family:inherit;font-size:12.5px;color:var(--ink);background:#FCFAF4;
     outline:none;transition:border-color .2s var(--ease)}
   #issText:focus{border-color:rgba(255,181,0,.55)}
+  #issContact{width:100%;resize:none;border:1px solid var(--line2);border-radius:10px;
+    padding:8px 11px;font-family:inherit;font-size:12px;color:var(--ink);background:#FCFAF4;
+    outline:none;transition:border-color .2s var(--ease);margin-top:8px}
+  #issContact:focus{border-color:rgba(255,181,0,.55)}
+  #issContact::placeholder{color:var(--sub)}
   .iss-file{display:flex;align-items:flex-start;gap:8px;border:1px solid var(--line);
     background:#FCFAF5;border-radius:10px;padding:9px 11px;margin:12px 0 2px;cursor:pointer;user-select:none}
   .iss-file:hover{background:#fff}
@@ -515,6 +520,7 @@
     </div>
     <div class="iss-sec">② 补充说明（可选）：什么时候开始、做了什么操作</div>
     <textarea id="issText" maxlength="500" rows="3" placeholder="不选类型、直接写也行，比如：升级系统后突然连不上了…"></textarea>
+    <input id="issContact" maxlength="60" placeholder="📞 联系方式（选填）：留个邮箱/QQ，排查好了回你">
     <label class="iss-file"><input type="checkbox" id="issFile" checked><span><b>📎 自动附上完整日志（推荐）</b><i>今天+昨天的运行日志打包发到群里，仅用于定位这个问题</i></span></label>
     <div class="row" id="issOps">
       <button class="btn ghost" onclick="closeModal('mIssue')">取消</button>
@@ -544,8 +550,8 @@
     </div>
     <div class="set-row">
       <div class="set-info">
-        <b>连接后切到耳机麦克风</b>
-        <p>连上耳机后，自动把默认麦克风切成耳机的麦克风（默认开启）</p>
+        <b>使用耳机麦克风</b>
+        <p>开：连上后自动把默认麦克风切到耳机；关：完全不启用耳机麦克风（稳定模式，可避免部分电脑上声音时有时无）。改动在下次连接生效</p>
       </div>
       <label class="switch"><input type="checkbox" id="swMic"><span class="slider"></span></label>
     </div>
@@ -798,10 +804,11 @@ let fbSending=false;
 const blen=s=>new Blob([s]).size;
 const rpcTimeout=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))]);
 /* 问题反馈正文 = 类型 + 补充说明 + 最近日志摘要（字节预算 ≤3900B，企微 markdown 上限 4096B） */
-function fbBuildIssue(types,note,logs){
+function fbBuildIssue(types,note,logs,contact){
   let c='🐞 **AirPods 小助手 问题反馈**';
   if(types.length)c+='\n**问题：**'+types.join('、');
   if(note)c+='\n> '+note;
+  if(contact)c+='\n📞 可回复：'+contact;
   c+='\n\n— '+document.getElementById('ver').textContent+' · Windows';
   if(!logs)return {content:c};
   const budget=3900-blen(c)-12;
@@ -873,6 +880,7 @@ function openIssue(){
   openModal('mIssue');
   document.querySelectorAll('#issChips .tchip').forEach(c=>c.classList.remove('on'));
   const t=document.getElementById('issText');t.value='';
+  try{document.getElementById('issContact').value=localStorage.getItem('apb_iss_contact')||''}catch(e){}
   document.getElementById('issFile').checked=true;
   document.getElementById('issDone').style.display='none';
   document.getElementById('issFail').style.display='none';
@@ -885,6 +893,8 @@ async function issueSend(){
   const types=issueTypes();
   let note=document.getElementById('issText').value.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g,'').trim();
   if(!types.length&&!note){toast('先选个类型，或写点说明哦～');return}
+  let contact=document.getElementById('issContact').value.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g,'').trim();
+  if(contact){try{localStorage.setItem('apb_iss_contact',contact)}catch(e){}}
   const wantFile=document.getElementById('issFile').checked;
   const btn=document.getElementById('issSend');
   issSending=true;
@@ -897,14 +907,14 @@ async function issueSend(){
     try{
       const hook=await rpcTimeout(rpc('getfbwebhook'),3000);
       if(hook){
-        await fetch(hook,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify({msgtype:'markdown',markdown:{content:fbBuildIssue(types,note,logs).content}})});
+        await fetch(hook,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify({msgtype:'markdown',markdown:{content:fbBuildIssue(types,note,logs,contact).content}})});
         fetchok=true;
       }
     }catch(e){fetchok=false}
     /* ② 后端：fetch 失败时补发文本 + 上传完整日志文件（今天+昨天）到群 */
     const flags=(fetchok?'1':'0')+(wantFile?'1':'0');
     const r=await Promise.race([
-      rpc('sendissue',types.join('、'),note,flags),
+      rpc('sendissue',types.join('、'),note,flags,contact),
       new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),40000))
     ]);
     btn.classList.remove('busy');btn.textContent='发送反馈';issSending=false;
@@ -972,7 +982,7 @@ document.getElementById('swAuto').addEventListener('change', async e=>{
 });
 document.getElementById('swMic').addEventListener('change', async e=>{
   const r = await rpc('setmicswitch', e.target.checked?'1':'0');
-  toast(r===true ? (e.target.checked?'连接后自动切到耳机麦克风 ✅':'已关闭麦克风自动切换') : '设置失败，请重试');
+  toast(r===true ? (e.target.checked?'已开启：连上后自动用耳机麦克风 ✅':'已开启稳定模式：不再启用耳机麦克风，下次连接生效 ✅') : '设置失败，请重试');
 });
 document.getElementById('swRescue').addEventListener('change', async e=>{
   const r = await rpc('setrescue', e.target.checked?'1':'0');
