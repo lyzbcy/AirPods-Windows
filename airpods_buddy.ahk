@@ -10,7 +10,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\WebView2\WebView2.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.15"
+APP_VERSION   := "1.9.16"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -1170,7 +1170,7 @@ audioVerifyGen := 0   ; 音频抢占验证的代数号：新操作/断开时 +1�
 ; 我们的上限 = 手机空闲时抢过来 + 抢不到时把情况说清楚。
 StartAudioVerify(name) {
     global audioVerifyGen
-    AudioVerifyTick(name, 7, ++audioVerifyGen)
+    AudioVerifyTick(name, 8, ++audioVerifyGen)
 }
 
 AudioVerifyTick(name, left, gen) {
@@ -1225,30 +1225,51 @@ RenderSwitchTo(name) {
         LogMsg("render switch: no active render endpoint for '" name "', skip", "WARN")
         return
     }
-    hr := 0
+    ; 双保险（上游 ChromuSx + SoundSwitch 同款结论，2026-09-26 调研）：
+    ; vtable[14]=SetDefaultDevice(PCWSTR) 一步设全部角色
+    ; vtable[13]=SetDefaultEndpoint(PCWSTR, eRole) 逐角色设（含 eCommunications，
+    ; 缺它微信/游戏语音仍走旧设备）。任一成功即算切上。
+    hrAny := ""
+    ok := false
     try {
         pc := ComObject("{870af99c-171d-4f9e-af0d-e63df40c2bc9}", "{f8679f50-850a-41cf-9c72-430f290290c8}")
-        hr := ComCall(14, pc, "wstr", ep)
+        hr1 := ComCall(14, pc, "wstr", ep)
+        hrAny := "vt14=0x" Format("{:08X}", hr1 & 0xFFFFFFFF)
+        if (hr1 = 0)
+            ok := true
+        hrTxt := ""
+        loop 3 {
+            hr2 := ComCall(13, pc, "wstr", ep, "int", A_Index - 1)
+            hrTxt .= (A_Index > 1 ? " " : "") "0x" Format("{:08X}", hr2 & 0xFFFFFFFF)
+            if (hr2 = 0)
+                ok := true
+        }
+        hrAny .= " vt13[role 0/1/2]=" hrTxt
     } catch as e {
         LogMsg("render switch: threw " e.Message, "WARN")
         return
     }
-    if (hr = 0) {
-        LogMsg("render switch: default render endpoint -> '" name "'")
+    if (ok) {
+        LogMsg("render switch: default render endpoint -> '" name "' (" hrAny ")")
         PushEvent("toast", JsonStr("🔊 声音输出已切到耳机"))
     } else
-        LogMsg("render switch: hr=0x" Format("{:08X}", hr & 0xFFFFFFFF), "WARN")
+        LogMsg("render switch: all calls failed (" hrAny ")", "WARN")
 }
 
-; 通用端点查找：prefix "0.0.0"=播放 / "0.0.1"=录音
+; 通用端点查找：prefix "0.0.0"=播放 / "0.0.1"=录音。
+; 播放方向优先排除 Hands-Free（AirPods 同时暴露 Stereo 与 HFP 两个 render
+; 端点，模糊匹配会选错——上游打分法 -50 hands-free，此处直接两段查询）。
 FindAudioEndpointId(name, prefix) {
     safe := StrReplace(name, "'", "''")
-    q := "SELECT PNPDeviceID, ConfigManagerErrorCode FROM Win32_PnPEntity WHERE PnPClass='AudioEndpoint' AND Name LIKE '%" safe "%' AND PNPDeviceID LIKE '%{" prefix ".%'"
+    base := "SELECT PNPDeviceID, ConfigManagerErrorCode FROM Win32_PnPEntity WHERE PnPClass='AudioEndpoint' AND Name LIKE '%" safe "%' AND PNPDeviceID LIKE '%{" prefix ".%'"
+    queries := [base " AND Name NOT LIKE '%Hands-Free%'", base]
     try {
         wmi := ComObject("WbemScripting.SWbemLocator").ConnectServer(".", "root\cimv2")
-        for dev in wmi.ExecQuery(q)
-            if (dev.ConfigManagerErrorCode = 0)
-                return dev.PNPDeviceID
+        for _, q in queries {
+            for dev in wmi.ExecQuery(q)
+                if (dev.ConfigManagerErrorCode = 0)
+                    return dev.PNPDeviceID
+        }
     } catch as e {
         LogMsg("endpoint find failed: " e.Message, "WARN")
     }
@@ -1516,7 +1537,7 @@ LinkVerifyTick(name, left, gen) {
         PetUpdate("ok")
         TrayTip("AirPods 小助手", "已连接 «" name "» 💕", 1)
         PushEvent("linkok", JsonStr(name))
-        AudioVerifyTick(name, 7, gen)   ; 链路真通了，继续核实音频通道
+        AudioVerifyTick(name, 8, gen)   ; 链路真通了，继续核实音频通道（12s，对齐上游）
         return
     }
     if (left <= 1) {

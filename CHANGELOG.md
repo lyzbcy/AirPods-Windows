@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.16] - 2026-09-26
+
+### Changed
+- **切换默认播放升级为双保险**（上游 ChromuSx + SoundSwitch 调研定稿）：SetDefaultDevice(vtable 14) 为主 + SetDefaultEndpoint(vtable 13) 对 eConsole/eMultimedia/**eCommunications** 三角色全设为辅（缺通信角色时微信/游戏语音仍走旧设备）；任一成功即 toast 确认，全部失败记 WARN。vtable 布局经本机 ctypes 实测与 SoundSwitch/AudioSwitcher 源码交叉验证。
+- **端点匹配避开 Hands-Free**：AirPods 同设备暴露 Stereo 与 HFP 两个播放端点，模糊匹配会选错——render 查询先 NOT LIKE 'Hands-Free' 再兜底（上游打分法 -50 同理）。
+- **音频端点等待 10.5s → 12s**：对齐上游 AudioEndpointRouter 的播放端点轮询时长。
+
 ## [1.9.15] - 2026-09-26
 
 ### Fixed
