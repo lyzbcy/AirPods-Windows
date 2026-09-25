@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.14] - 2026-09-25
+
+### Fixed
+- 断开分支在判定服务结果前也初始化 `micWanted`，避免 `UnsetError`。
+- 宠物资源被清理后，按需从编译包重新释放 `pet_built.html`。
+- 用户显式开启自启动后持久记录选择并复读确认；旧安装在 Run 项仍有效时迁移该选择；下次启动发现 Run 项被删除或仍指向旧路径时重建。修复在启动期间同步执行，不被后续联网更新检查阻塞；toast 延后到页面就绪后派发。`StartupApproved` 的 REG_BINARY 按十六进制文本判读，若系统仍禁用则明确提示而不假报成功。没有启用证据时不自行开启。
+
+### Verification
+- 无窗口编译通过；独立编译的无窗口回归程序在本机完成耳机连接→断开（链路核实为 down）、清 Temp 后宠物资源恢复、隔离 Run 键删除/旧路径/StartupApproved 禁用状态回归。候选 exe 已部署用户常驻目录；同一用户上下文删除真实 Run 项后重启，日志确认 `Run entry restored`，进程与 Run 值复读均通过。未发布 Release。
+- **未通过音频主链**：用户 22:44 再试，`link verified` 后 22:45 `audio endpoint NOT up`；企微缓存 10:43/11:15/21:34 反馈均指向“蓝牙已连但播放输出缺失/反复失败”。v1.9.14 不应被当成“连接出声”修复版，详见 doc/05 A7。
+
 ## [1.9.13] - 2026-09-22
 
 ### Added

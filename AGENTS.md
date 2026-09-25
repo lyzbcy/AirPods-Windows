@@ -13,7 +13,7 @@
   - `mac/AirPodsBuddyMac/` — Mac 版（Swift 菜单栏应用，**待首次编译**）
   - `doc/` — 知识库（**必读**，见下）
   - `tools/` — 构建工具（gitignore，下载方式见 doc/02 §7）
-- **当前版本**：Windows v1.9.13（已部署可用）；Mac v0.1 脚手架（未编译）
+- **当前版本**：Windows v1.9.14（已部署用户机，未发 Release）；Mac v0.1 脚手架（未编译）
 
 ## 必读文档（按角色）
 

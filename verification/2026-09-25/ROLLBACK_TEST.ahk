@@ -10,7 +10,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\WebView2\WebView2.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.14"
+APP_VERSION   := "1.9.13"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -409,15 +409,6 @@ PetEnsure() {
     if (IsSet(petGui) && petGui != 0)
         return true
     p := A_IsCompiled ? (appRoot "\pet_built.html") : (A_ScriptDir "\webui\pet_built.html")
-    if (A_IsCompiled && !FileExist(p)) {
-        try {
-            DirCreate(appRoot)
-            FileInstall "webui\pet_built.html", p, 1
-            LogMsg("pet html restored: " p)
-        } catch as e {
-            LogMsg("pet html restore failed: " e.Message, "WARN")
-        }
-    }
     if !FileExist(p) {
         LogMsg("pet html missing: " p, "WARN")
         return false
@@ -1020,7 +1011,6 @@ RUN_KEY   := "Software\Microsoft\Windows\CurrentVersion\Run"
 RUN_NAME  := "AirPodsBuddy"
 
 AutostartEnabled() {
-    global RUN_KEY, RUN_NAME
     lnkOn := FileExist(A_Startup "\AirPods小助手.lnk") ? true : false
     regOn := false
     try {
@@ -1032,8 +1022,7 @@ AutostartEnabled() {
     if (regOn) {
         try {
             bin := RegRead("HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run", RUN_NAME)
-            ; RegRead(REG_BINARY) returns hexadecimal text, not a Buffer.
-            if (StrLen(bin) >= 2 && InStr("13579BDF", StrUpper(SubStr(bin, 2, 1))))
+            if (StrLen(bin) >= 1 && (NumGet(bin, 0, "uchar") & 1))
                 return "disabled"   ; Run 键还在但被禁用（安全软件/任务管理器所为）
         } catch {
         }
@@ -1043,7 +1032,6 @@ AutostartEnabled() {
 }
 
 AutostartSet(on) {
-    global RUN_KEY, RUN_NAME
     lnk := A_Startup "\AirPods小助手.lnk"
     if (on) {
         exe := '"' A_ScriptFullPath '"'
@@ -1058,51 +1046,8 @@ AutostartSet(on) {
         try FileDelete(lnk)
         LogMsg("autostart OFF")
     }
-    SettingWrite("autostart", on ? "1" : "0")
-    if (SettingRead("autostart", "") != (on ? "1" : "0")) {
-        LogMsg("autostart preference persist failed", "WARN")
-        return "fail"
-    }
     return "ok"
 }
-
-AutostartRepair() {
-    global RUN_KEY, RUN_NAME
-    ; Only restore an explicit user choice; do not silently enable startup for old installs.
-    preference := SettingRead("autostart", "")
-    LogMsg("autostart repair check: preference=" (preference = "" ? "unset" : preference))
-    if (preference = "") {
-        ; Migrate an existing active entry while it still exists, never infer from a missing entry.
-        if (AutostartEnabled() = "on")
-            SettingWrite("autostart", "1")
-        return
-    }
-    if (preference != "1")
-        return
-    exe := '"' A_ScriptFullPath '"'
-    try {
-        observed := RegRead("HKCU\" RUN_KEY, RUN_NAME)
-        LogMsg("autostart Run observed: " observed)
-        if (observed = exe)
-            return
-    } catch as e {
-        LogMsg("autostart Run absent/read failed: " e.Message)
-    }
-    try {
-        RegWrite(exe, "REG_SZ", "HKCU\" RUN_KEY, RUN_NAME)
-        state := AutostartEnabled()
-        if (state = "on") {
-            LogMsg("autostart Run entry restored: " exe)
-            SetTimer((*) => PushEvent("toast", JsonStr("开机自启动项已恢复")), -1500)
-        } else {
-            LogMsg("autostart Run entry rewritten but state=" state, "WARN")
-            SetTimer((*) => PushEvent("toast", JsonStr("开机自启动项已重建，但仍被系统禁用；请在启动应用中启用")), -1500)
-        }
-    } catch as e {
-        LogMsg("autostart repair failed: " e.Message, "WARN")
-    }
-}
-AutostartRepair()   ; startup must check before a network-bound update timer can block
 
 CheckUpdateReceipt() {
     p := A_ScriptDir "\update_result.txt"   ; 与 DoUpdate 的 exeDir(A_ScriptDir) 一致
@@ -1424,7 +1369,6 @@ DoAction(name, action) {
     busy := true
     audioVerifyGen++   ; 新动作：作废进行中的音频验证与蓝牙自救轮询
     SetTrayLoading(true)
-    micWanted := (SettingRead("auto_mic_switch", "1") = "1")
     if (action = "connect") {
         ; 用户实测调优（2026-09-05）：先断后连——清掉半死链路，真实成功率显著提高
         ToggleBluetoothService(dev.info, "{0000111e-0000-1000-8000-00805f9b34fb}", 0, 3)
@@ -1434,6 +1378,7 @@ DoAction(name, action) {
         ; 耳机麦克风（稳定模式）。2026-09-22 真实用户病例：任何应用开"默认
         ; 麦克风"都会拉起 HFP 掐断 A2DP 放音（切应用回来就没声），病根在
         ; HFP 被启用+默认录音指向耳机；从源头不启用 HFP，冲突物理上不可能
+        micWanted := (SettingRead("auto_mic_switch", "1") = "1")
         hfOn := micWanted ? 1 : 0
         hf := ToggleBluetoothService(dev.info, "{0000111e-0000-1000-8000-00805f9b34fb}", hfOn, maxRetries)
         a2 := ToggleBluetoothService(dev.info, "{0000110b-0000-1000-8000-00805f9b34fb}", 1, maxRetries)

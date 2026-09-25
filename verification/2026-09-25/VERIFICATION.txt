@@ -1,0 +1,82 @@
+AirPodsBuddy v1.9.14 candidate — 2026-09-25
+
+Changed branch/field: DoAction disconnect branch initializes micWanted before common IsSuccessfulOperation; PetEnsure restores pet_built.html if Temp copy is missing; AutostartRepair runs synchronously before network update, restores missing/stale HKCU Run only after explicit/migrated autostart=1, and reports StartupApproved disabled honestly. AutostartEnabled reads REG_BINARY as hex text. User-facing installed exe is now v1.9.14.
+
+Four artifacts:
+MODIFIED_FILE = E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-25\MODIFIED_FILE.ahk
+DIFF_FILE = E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-25\DIFF_FILE.patch
+VERIFICATION.txt = E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-25\VERIFICATION.txt
+ROLLBACK.sh = E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-25\ROLLBACK.sh
+
+Original source SHA256: 75241FD36E0A49CCE75A98E085A3FD737C413FF8160AAA07F4C160159D058ED9
+Modified source SHA256: E77F227799176FE99E831E624B4166A1D33429DBE6F9E5E8A1A06FA1419EA4EE
+
+BASELINE command (PowerShell in repo root): python verification\2026-09-25\CHECK.py verification\2026-09-25\ORIGINAL_FILE.ahk
+BASELINE input: original v1.9.13 source, SHA256 75241FD36E0A49CCE75A98E085A3FD737C413FF8160AAA07F4C160159D058ED9
+BASELINE literal output:
+FAIL disconnect micWanted initialized
+FAIL pet resource restored on demand
+FAIL deleted Run entry repaired after explicit opt-in
+FAIL stale Run path and disabled state checked
+FAIL startup repair precedes network update
+BASELINE exit status: 1
+BASELINE compile command: Ahk2Exe.exe /silent /compress 0 /in BASELINE_20260925.ahk /out verification\2026-09-25\AirPodsBuddy_baseline.exe /base tools\ahk2exe_stable\AutoHotkey64.exe /icon assets\star_pudding.ico (invoked via Start-Process -WindowStyle Hidden -Wait)
+BASELINE compile literal result: COMPILE_EXIT=0 EXISTS=True; exit status 0; output file 3767808 bytes.
+
+MODIFIED command (PowerShell in repo root): python verification\2026-09-25\CHECK.py verification\2026-09-25\MODIFIED_FILE.ahk
+MODIFIED input: v1.9.14 deployed source, SHA256 E77F227799176FE99E831E624B4166A1D33429DBE6F9E5E8A1A06FA1419EA4EE
+MODIFIED literal output:
+PASS disconnect micWanted initialized
+PASS pet resource restored on demand
+PASS deleted Run entry repaired after explicit opt-in
+PASS stale Run path and disabled state checked
+PASS startup repair precedes network update
+MODIFIED exit status: 0
+MODIFIED compile command: Ahk2Exe.exe /silent /compress 0 /in airpods_buddy.ahk /out verification\2026-09-25\AirPodsBuddy_candidate.exe /base tools\ahk2exe_stable\AutoHotkey64.exe /icon assets\star_pudding.ico (invoked via Start-Process -WindowStyle Hidden -Wait)
+MODIFIED compile literal result: COMPILE_EXIT=0 EXISTS=True; exit status 0.
+
+ROLLBACK command (PowerShell in repo root): & 'D:\Program Files\Git\bin\bash.exe' verification\2026-09-25\ROLLBACK.sh verification\2026-09-25\ROLLBACK_TEST.ahk
+ROLLBACK input: separate copy of MODIFIED_FILE.ahk, SHA256 E77F227799176FE99E831E624B4166A1D33429DBE6F9E5E8A1A06FA1419EA4EE
+ROLLBACK literal output: restored original bytes
+ROLLBACK exit status: 0
+ROLLBACK restored SHA256: 75241FD36E0A49CCE75A98E085A3FD737C413FF8160AAA07F4C160159D058ED9
+ROLLBACK behavior check command: python verification\2026-09-25\CHECK.py verification\2026-09-25\ROLLBACK_TEST.ahk
+ROLLBACK behavior check literal output:
+FAIL disconnect micWanted initialized
+FAIL pet resource restored on demand
+FAIL deleted Run entry repaired after explicit opt-in
+FAIL stale Run path and disabled state checked
+FAIL startup repair precedes network update
+ROLLBACK behavior check exit status: 1 (expected original behavior).
+
+LIVE REGRESSION (independent compiled harness from candidate source, with only an early test hook; user-installed exe/process left intact):
+- Command: Start-Process verification\2026-09-25\REGRESSION_20260925.exe -ArgumentList /regressionprobe -WindowStyle Hidden -Wait -PassThru. Input: delete Temp pet_built.html, use isolated HKCU Software\APBRegression_20260925 Run value and temporary settings autostart=1. Literal log: REGRESSION petrestore ok=1 exists=1; REGRESSION autostart restored=1; REGRESSION autostart stale_path_fixed=1 state=on. Exit status: 0.
+- Command: Start-Process verification\2026-09-25\REGRESSION_20260925.exe -ArgumentList /regressiondisconnect -WindowStyle Hidden -Wait -PassThru. Input: real paired AirPods, initially connected=0. Literal log: REGRESSION connect target=余恩泽的AirPods Pro - Find My result=ok; link verified; link down verified; REGRESSION disconnect target=余恩泽的AirPods Pro - Find My result=ok. Exit status: 0. No new ERROR in that run.
+- Command: New-ItemProperty HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run -Name AirPodsBuddyProbe -PropertyType Binary -Value ([byte[]](3,0,0,0,0,0,0,0,0,0,0,0)) -Force; then Start-Process harness /regressionprobe; finally Remove-ItemProperty marker. Input: isolated disabled StartupApproved marker. Literal log: autostart Run entry rewritten but state=disabled; REGRESSION autostart stale_path_fixed=1 state=disabled. Exit status: 0; PROBE_MARKER_CLEAN=True. The earlier pre-fix attempt logged Invalid memory read/write in NumGet; fixed by hexadecimal-text parsing and re-tested.
+
+DEPLOYED BOOT-PATH REGRESSION:
+- Installed exe and candidate exe SHA256 both FB155BD0D9B05A49DF92EC0F6BFB4678B1A7B70A7C724C9EDA95BE13A761AB70. Original installed exe backup: C:\Users\24676\Desktop\AirPodsBuddy\AirPodsBuddy.pre-v1.9.14.exe, SHA256 F2E435FC093A8A3572F3D21ACA0B306BB5D74CCCC8009E73D8BE9E008A6E3295.
+- Initial start via explorer.exe of installed exe: PID 39660; app_settings.ini acquired autostart=1 from existing active Run entry; log `boot v1.9.14 compiled=1`, `navigation ok`.
+- IMPORTANT negative test: tool PowerShell `Remove-ItemProperty HKCU:\...\Run -Name AirPodsBuddy` reported missing, yet Explorer-launched app logged `autostart Run observed: "C:\Users\24676\Desktop\AirPodsBuddy\AirPodsBuddy.exe"`. The tool and desktop process do not share the same effective HKCU view; this deletion did not exercise the desktop app's missing-key branch. Tool-side key was restored.
+- Final command: stop installed app; launch verification\2026-09-25\LIVE_STARTUP_20260925.exe via `Start-Process explorer.exe -ArgumentList '"E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-25\LIVE_STARTUP_20260925.exe"' -WindowStyle Hidden`. Input: installed app v1.9.14, autostart=1, desktop user's actual Run value present. Helper deletes that value, launches installed app, waits 5 s, rereads Run and checks process.
+- Literal helper output (verification\2026-09-25\live_startup_probe.log):
+before="C:\Users\24676\Desktop\AirPodsBuddy\AirPodsBuddy.exe"
+deleted=1
+after="C:\Users\24676\Desktop\AirPodsBuddy\AirPodsBuddy.exe"
+process=1
+result=pass
+- Helper process exit code was not captured through Explorer; its literal `result=pass` log is the observed outcome (that branch calls ExitApp(0)). Final app PID 31272. Installed app log at 22:41:05: `autostart repair check: preference=1`; `autostart Run absent/read failed: (2) 系统找不到指定的文件。`; `autostart Run entry restored: "C:\Users\24676\Desktop\AirPodsBuddy\AirPodsBuddy.exe"`; `navigation ok`. No new ERROR in final startup segment.
+- This verifies real desktop-user Run deletion, application restart, recreation, and running state. The entire OS was not rebooted. No GitHub Release was created.
+
+Additional: git diff --check exit=0; bash -n ROLLBACK.sh exit=0. Candidate source remains changed. Historical installations with neither stored autostart preference nor Run value cannot infer prior user intent and are not covered by repair.
+
+POST-DEPLOY AUDIO REGRESSION — FAILED (2026-09-25 22:44-22:45):
+Input: user clicked Connect in installed v1.9.14. Literal app log: `rpc: connect` at 22:44:48; `link verified` at 22:44:51; `audio endpoint NOT up after ~9s` at 22:45:10. WMI/PnP inspection: AirPods BTHENUM A2DP MEDIA record present and OK; no matching AudioEndpoint render record. The prior connect/disconnect harness test only proved Bluetooth link operations, not playback. Enterprise WeCom cache `E:\共享\工作\微盛\每日笔记\wecom-cache\2026.9.25.md` (refreshed through the daily-note skill exporter) has relevant feedback at 10:43, 11:15, 21:34. The cached file transfers are placeholders, while the local app log contains the observed 22:45 failure. Release gate: fail; playback not verified. There is no observed process exit code for the UI action; its observed result is missing output endpoint.
+
+ACTUAL AUDIO RETEST — FAILED (2026-09-25 23:00-23:09):
+- User UI input: clicked Connect at 23:00:04. Literal app log: link verified 23:00:10, audio endpoint NOT up 23:00:29. System event: BTHUSB ID 16 at 23:00:52, mutual authentication failed for the same AirPods device address.
+- Command: Start-Process verification\2026-09-25\REGRESSION_20260925.exe -ArgumentList /regressionaudio -WindowStyle Hidden -Wait -PassThru. Input: current user setting auto_mic_switch=0, phone state not controlled. Literal result: connect result=ok, link verified, audio final link=0 render=0 capture=0. Process exit status: 4.
+- Same command/input after user confirmed phone Bluetooth was off: connect result=ok, link verified, audio final link=0 render=0 capture=0. Process exit status: 4.
+- Command: Start-Process same executable -ArgumentList /regressionaudiohfp -WindowStyle Hidden -Wait -PassThru. Input: phone Bluetooth off; temporary isolated setting auto_mic_switch=1. Literal result: connect result=ok, link NOT up after ~9s, audio final link=0 render=0 capture=0. Process exit status: 4. Temporary setting deleted, user's auto_mic_switch=0 unchanged.
+- Command: pnputil /restart-device <AirPods BTHENUM A2DP MEDIA instance ID>. Input: target PnP status OK, no AudioEndpoint. Literal output: `Failed to restart device` and `Access is denied.` The PowerShell process exit status was 0 despite this failure text; no device restart occurred.
+- Audio result remains failed. BTHUSB authentication failure is a correlation/lead, not a fully proven root cause. Do not ship v1.9.14 as an audio fix.
