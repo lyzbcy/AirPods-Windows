@@ -10,7 +10,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\WebView2\WebView2.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.14"
+APP_VERSION   := "1.9.15"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -1179,7 +1179,8 @@ AudioVerifyTick(name, left, gen) {
         return   ; 已被断开/新连接取代，本轮作废
     if (AudioEndpointAlive(name)) {
         LogMsg("audio endpoint verified: '" name "'")
-        MicSwitchTo(name)   ; v1.9.11：Windows 只自动切播放端，录音端要自己动手
+        RenderSwitchTo(name)   ; v1.9.15：实测 Windows 连默认播放都不自动切（多虚拟声卡机尤甚）——用户「连上没声音」主诉
+        MicSwitchTo(name)      ; 录音端按用户设置
         PushEvent("toast", JsonStr("🎧 音频已切到电脑"))
         return
     }
@@ -1215,6 +1216,45 @@ AudioEndpointAlive(name) {
 ; 但 Vista→11 一直在，系统声音面板/AudioDeviceCmdlets 同款后门）；端点
 ; ID 从 WMI 的 PnP 实例名取（SWD\MMDEVAPI\{0.0.1.…}.{guid}，0.0.1=录音
 ; 端点），免整套 MMDevice COM 枚举。
+; 播放端点设为默认输出（v1.9.15）：Windows 不会自动切默认播放——耳机端点
+; 出来了声音仍走扬声器，这是「连上没声音」的用户主诉之一。与切麦同一
+; IPolicyConfig 后门；连接核实通过后调用。
+RenderSwitchTo(name) {
+    ep := FindAudioEndpointId(name, "0.0.0")
+    if (ep = "") {
+        LogMsg("render switch: no active render endpoint for '" name "', skip", "WARN")
+        return
+    }
+    hr := 0
+    try {
+        pc := ComObject("{870af99c-171d-4f9e-af0d-e63df40c2bc9}", "{f8679f50-850a-41cf-9c72-430f290290c8}")
+        hr := ComCall(14, pc, "wstr", ep)
+    } catch as e {
+        LogMsg("render switch: threw " e.Message, "WARN")
+        return
+    }
+    if (hr = 0) {
+        LogMsg("render switch: default render endpoint -> '" name "'")
+        PushEvent("toast", JsonStr("🔊 声音输出已切到耳机"))
+    } else
+        LogMsg("render switch: hr=0x" Format("{:08X}", hr & 0xFFFFFFFF), "WARN")
+}
+
+; 通用端点查找：prefix "0.0.0"=播放 / "0.0.1"=录音
+FindAudioEndpointId(name, prefix) {
+    safe := StrReplace(name, "'", "''")
+    q := "SELECT PNPDeviceID, ConfigManagerErrorCode FROM Win32_PnPEntity WHERE PnPClass='AudioEndpoint' AND Name LIKE '%" safe "%' AND PNPDeviceID LIKE '%{" prefix ".%'"
+    try {
+        wmi := ComObject("WbemScripting.SWbemLocator").ConnectServer(".", "root\cimv2")
+        for dev in wmi.ExecQuery(q)
+            if (dev.ConfigManagerErrorCode = 0)
+                return dev.PNPDeviceID
+    } catch as e {
+        LogMsg("endpoint find failed: " e.Message, "WARN")
+    }
+    return ""
+}
+
 MicSwitchTo(name) {
     if (SettingRead("auto_mic_switch", "1") != "1")
         return
@@ -1240,7 +1280,7 @@ MicSwitchTick(name, left) {
     hr := 0
     try {
         pc := ComObject("{870af99c-171d-4f9e-af0d-e63df40c2bc9}", "{f8679f50-850a-41cf-9c72-430f290290c8}")
-        hr := ComCall(13, pc, "wstr", ep, "int")   ; vtable 13 = SetDefaultDevice
+        hr := ComCall(14, pc, "wstr", ep)   ; vtable 14 = SetDefaultDevice(PCWSTR)（本机实测 13=E_INVALIDARG 14=S_OK，2026-09-26 ctypes 验证）
     } catch as e {
         LogMsg("mic switch: SetDefaultDevice threw: " e.Message, "WARN")
         return

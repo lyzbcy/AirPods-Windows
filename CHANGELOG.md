@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.15] - 2026-09-26
+
+### Fixed
+- **「连上没声音」主链修复（用户现场实测确诊）**：蓝牙与播放端点都在，但 Windows 不自动切默认播放——本机装有 VoiceMeeter/UU 等多虚拟声卡时声音仍走扬声器。ctypes 实测确诊 vtable 序号错误：本机 Win11 的 `IPolicyConfig::SetDefaultDevice` 在 **vtable 14**（项目原用 13 恒返 E_INVALIDARG，09-25 切麦四连败的同因）。新增 `RenderSwitchTo`：连接核实通过后自动把默认输出切到耳机（toast「🔊 声音输出已切到耳机」）；切麦同步改 14。手动 ctypes 切换已当场恢复用户耳机出声。
+- **反馈类型选择器**（GPT v1.9.10 遗留）：视觉重做把 chips 类名 `.chip`→`.tchip`，JS 选择器未跟改——用户点选的问题类型被静默丢弃（日志 types='' 铁证）。已修。
+- **反馈正文泄露本地日志**：通用 rpc 日志把 sendissue 消息全文写入（违反 v1.9.13 声明的隐私惯例）。现只记长度。
+- **'- Find My' 条目假设否证**（PnP 枚举）：重配后 A2DP/AVRCP 服务完好挂同一 MAC，仅设备名变化——连接目标无错，A7 根因收敛至密钥/路由层。
+
 ## [1.9.14] - 2026-09-25
 
 ### Fixed
