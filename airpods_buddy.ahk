@@ -1313,7 +1313,7 @@ WebMessageHandler(core, args) {
         return
     }
     if (cmd != "statuspoll")
-        LogMsg(cmd = "sendfeedback" ? "rpc: sendfeedback (" StrLen(arg1) " chars)" : "rpc: " msg)
+        LogMsg((cmd = "sendfeedback" || cmd = "sendissue") ? ("rpc: " cmd " (" StrLen(arg1) " chars)") : "rpc: " msg)
 
     switch cmd {
         ; NOTE: Reply() injects its payload as a raw JS expression. Anything that

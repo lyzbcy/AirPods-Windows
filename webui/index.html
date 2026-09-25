@@ -875,7 +875,7 @@ async function fbSend(){
 }
 /* ---------- 问题反馈：类型 + 说明 + 完整日志文件 ---------- */
 document.querySelectorAll('#issChips .tchip').forEach(c=>c.onclick=()=>c.classList.toggle('on'));
-function issueTypes(){return [...document.querySelectorAll('#issChips .chip.on')].map(c=>c.dataset.t)}
+function issueTypes(){return [...document.querySelectorAll('#issChips .tchip.on')].map(c=>c.dataset.t)}
 function openIssue(){
   openModal('mIssue');
   document.querySelectorAll('#issChips .tchip').forEach(c=>c.classList.remove('on'));
