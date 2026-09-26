@@ -53,7 +53,7 @@ try {
         }
         'bluetooth' {
             Import-Module (Join-Path $PSScriptRoot 'KsBluetooth.psm1') -Force
-            $ks=Invoke-KsBluetooth -Address ([string]$a.address) -Action ([string]$a.action) -Microphone ([bool]$a.mic)
+            $ks=Invoke-KsBluetooth -Address ([string]$a.address) -Action ([string]$a.action) -Microphone ([bool]$a.mic) -MicRestore ([bool]$a.micRestore)
             foreach($key in $ks.Keys){if($null -ne $ks[$key]){$result[$key]=$ks[$key]}}
         }
         'noise' {

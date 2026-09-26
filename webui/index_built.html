@@ -554,7 +554,7 @@
     <div class="set-row">
       <div class="set-info">
         <b>使用耳机麦克风</b>
-        <p>开：连接时请求耳机麦克风，并在端点就绪后切换默认麦克风；关：不请求麦克风连接，也不切换默认麦克风。不会启停用户的蓝牙服务或驱动。改动在下次连接生效</p>
+        <p>开：连接时请求耳机麦克风，并在端点就绪后切换默认麦克风。若明确从关改为开、且目标录音端点缺失，下次连接仅尝试一次恢复这副耳机的 HFP 服务（Windows 会安装相应驱动）。关：本应用不请求或切换耳机麦克风；不阻止 Windows 或其他应用使用 HFP。其他蓝牙设备与整机无线电不受此开关操作。改动在下次连接生效。</p>
       </div>
       <label class="switch"><input type="checkbox" id="swMic"><span class="slider"></span></label>
     </div>

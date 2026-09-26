@@ -30,7 +30,7 @@ body = r'''
 #Warn All, StdOut
 OnError((e, mode) => (FileAppend("ERROR " e.Message " line=" e.Line "`n", "*"), ExitApp(2)))
 failures := 0, deviceOps := Map(), operationSerial := 0, routeOwner := 0, actionEpoch := 0, pendingRetryDisconnect := 0
-busy := false, linkUp := false, renderActive := false, endpointOff := true, jobCount := 0, audioChecks := 0, events := [], lastPayload := ""
+busy := false, linkUp := false, renderActive := false, endpointOff := true, micSetting := "0", jobCount := 0, audioChecks := 0, events := [], lastPayload := ""
 devices := [{id: "AABBCCDDEEFF", info: Buffer(560)}, {id: "112233445566", info: Buffer(560)}]
 NumPut("uint64", 0xAABBCCDDEEFF, devices[1].info, 8)
 NumPut("uint64", 0x112233445566, devices[2].info, 8)
@@ -148,6 +148,23 @@ gen := BeginDeviceOp("AABBCCDDEEFF", "disconnect")
 linkUp := -1
 DownVerifyTick("AABBCCDDEEFF", 1, gen)
 Check("unknown_link_query_cannot_claim_disconnect", deviceOps["AABBCCDDEEFF"].state = "disconnect_failed")
+gen := BeginDeviceOp("AABBCCDDEEFF", "connect")
+deviceOps["AABBCCDDEEFF"].backend := "ks", deviceOps["AABBCCDDEEFF"].address := "AABBCCDDEEFF"
+LinkVerifyTick("AABBCCDDEEFF", 1, gen)
+Check("unknown_link_cannot_schedule_connect_retry", deviceOps["AABBCCDDEEFF"].state = "link_failed" && deviceOps["AABBCCDDEEFF"].retryCount = 0 && jobCount = 6)
+gen := BeginDeviceOp("AABBCCDDEEFF", "connect")
+deviceOps["AABBCCDDEEFF"].backend := "ks", deviceOps["AABBCCDDEEFF"].address := "AABBCCDDEEFF"
+ScheduleKsConnectRetry("AABBCCDDEEFF", gen, "link")
+TryKsConnectRetry("AABBCCDDEEFF", gen, deviceOps["AABBCCDDEEFF"].retryEpoch)
+Check("unknown_link_at_retry_does_not_submit_ks", deviceOps["AABBCCDDEEFF"].state = "link_failed" && jobCount = 6)
+gen := BeginDeviceOp("AABBCCDDEEFF", "connect")
+AudioVerifyTick("AABBCCDDEEFF", 1, gen)
+Check("unknown_link_audio_phase_does_not_route_or_retry", deviceOps["AABBCCDDEEFF"].state = "link_failed" && jobCount = 6)
+gen := BeginDeviceOp("AABBCCDDEEFF", "connect")
+linkUp := 1, micSetting := "1"
+MicSwitchTick("AABBCCDDEEFF", 1, gen)
+Check("missing_target_microphone_reports_without_changing_default", events[events.Length].name = "toast" && audioChecks = 3)
+micSetting := "0", linkUp := 0
 FileAppend("RESULT failures=" failures "`n", "*")
 ExitApp(failures ? 1 : 0)
 Check(name, ok) {
@@ -211,10 +228,11 @@ DeviceKey(dev) {
     return dev.id
 }
 SettingRead(*) {
-    return "0"
+    global micSetting
+    return micSetting
 }
 '''
-for name in ["BeginDeviceOp", "OpCurrent", "CanRoute", "SetOpState", "DoAction", "LinkVerifyTick", "ScheduleKsConnectRetry", "TryKsConnectRetry", "FinishKsConnectRetry", "DrainRetryDisconnect", "RunQueuedRetryDisconnect", "AudioVerifyTick", "StartDownVerify", "DownVerifyTick", "FinishBluetoothAction", "ValidEndpointId", "DeviceAudioState", "JsonStr"]:
+for name in ["BeginDeviceOp", "OpCurrent", "CanRoute", "SetOpState", "DoAction", "LinkVerifyTick", "ScheduleKsConnectRetry", "TryKsConnectRetry", "FinishKsConnectRetry", "DrainRetryDisconnect", "RunQueuedRetryDisconnect", "AudioVerifyTick", "MicSwitchTick", "StartDownVerify", "DownVerifyTick", "FinishBluetoothAction", "ValidEndpointId", "DeviceAudioState", "JsonStr"]:
     body += function(name)
 with tempfile.TemporaryDirectory(prefix="apb_ks_retry_") as directory:
     script = Path(directory) / "retry_test.ahk"

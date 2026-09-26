@@ -87,6 +87,9 @@ OnConnectSuccess() {
 IsLinkUp(*) {
     return true
 }
+GetLinkState(*) {
+    return 1
+}
 ScheduleKsConnectRetry(*) {
     return false
 }

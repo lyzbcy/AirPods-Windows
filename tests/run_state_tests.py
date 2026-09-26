@@ -3,7 +3,7 @@ import subprocess,sys
 sys.stdout.reconfigure(encoding='utf-8')
 ROOT=Path(__file__).resolve().parents[1]
 source=(ROOT/'airpods_buddy.ahk').read_text(encoding='utf-8-sig')
-names=['DoAction','BeginDeviceOp','OpCurrent','SetOpState','CanRoute','FindDevByName','ValidEndpointId','AtomicWriteText','SavePriority','LoadPriority','SettingRead','SettingWrite','Join','SortDevices','DevLess','DeviceSortKey','IsAppleDevice','DeviceAudioState','DeviceKey','DeviceLabel','JsonStr','FinishBluetoothAction','DaysSince','ValidBridgeArgs','AutostartEnabled','AutostartSet','WatchAudioRoutes']
+names=['DoAction','BeginDeviceOp','OpCurrent','SetOpState','CanRoute','FindDevByName','ValidEndpointId','AtomicWriteText','SavePriority','LoadPriority','SettingRead','SettingWrite','MicPreferenceSet','Join','SortDevices','DevLess','DeviceSortKey','IsAppleDevice','DeviceAudioState','DeviceKey','DeviceLabel','JsonStr','FinishBluetoothAction','DaysSince','ValidBridgeArgs','AutostartEnabled','AutostartSet','WatchAudioRoutes']
 body=r'''
 #Requires AutoHotkey v2.0
 #SingleInstance Off
@@ -67,6 +67,25 @@ Check("locked_target_reports_failure", !AtomicWriteText(SETTINGS_PATH, "test=aft
 DllCall("CloseHandle", "ptr", handle)
 Check("failed_replace_keeps_old_content", SettingRead("test", "missing") = "before")
 Check("setting_update_after_unlock", SettingWrite("test", "after") && SettingRead("test", "missing") = "after")
+Check("mic_off_preference_written", MicPreferenceSet("0") && SettingRead("auto_mic_switch", "") = "0" && SettingRead("mic_restore_pending", "") = "0")
+Check("explicit_mic_on_arms_once", MicPreferenceSet("1") && SettingRead("auto_mic_switch", "") = "1" && SettingRead("mic_restore_pending", "") = "1")
+Check("idempotent_mic_on_keeps_pending", MicPreferenceSet("1") && SettingRead("mic_restore_pending", "") = "1")
+Check("invalid_mic_preference_rejected", !MicPreferenceSet("yes") && SettingRead("mic_restore_pending", "") = "1")
+devices := [{id:"AABBCCDDEEFF",name:"Headphones",info:Buffer(560)}]
+NumPut("uint64", 0xAABBCCDDEEFF, devices[1].info, 8)
+Check("failed_migration_worker_restores_one_time_pending", DoAction("AABBCCDDEEFF", "connect") = "fail" && SettingRead("mic_restore_pending", "") = "1")
+Check("mic_off_clears_pending", MicPreferenceSet("0") && SettingRead("mic_restore_pending", "") = "0")
+MicPreferenceSet("1"), SettingWrite("mic_restore_pending", "0")
+gen := BeginDeviceOp("AABBCCDDEEFF", "connect")
+deviceOps["AABBCCDDEEFF"].micRestore := true
+FinishBluetoothAction("AABBCCDDEEFF", "connect", gen, Map("status", "fail", "micRepair", "disabled"))
+Check("failed_target_mic_migration_restores_old_preference", SettingRead("auto_mic_switch", "") = "0" && SettingRead("mic_restore_pending", "") = "0")
+MicPreferenceSet("1"), SettingWrite("mic_restore_pending", "0")
+gen := BeginDeviceOp("AABBCCDDEEFF", "connect")
+deviceOps["AABBCCDDEEFF"].micRestore := true
+FinishBluetoothAction("AABBCCDDEEFF", "connect", gen, Map("status", "ok", "backend", "ks", "container", "11111111-1111-1111-1111-111111111111", "requested", "1", "renderId", "{0.0.0.00000000}.{AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA}", "captureId", "{0.0.1.00000000}.{BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB}", "micRepair", "restored"))
+Check("verified_target_mic_migration_keeps_new_preference", SettingRead("auto_mic_switch", "") = "1")
+MicPreferenceSet("0")
 devices := [{id:"001122334455",name:"Headphones",connected:true}]
 routeEvents := [], routeFresh := false
 gen := BeginDeviceOp("001122334455", "connect")

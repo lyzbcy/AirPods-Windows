@@ -1085,11 +1085,39 @@ SettingWrite(key, value) {
 
 
 
+; Only an explicit 0->1 preference change arms one target-scoped legacy HFP
+; migration. Both fields are persisted in one atomic settings write.
+MicPreferenceSet(value) {
+    global SETTINGS_PATH
+    if (value != "0" && value != "1")
+        return false
+    wasCritical := A_IsCritical
+    Critical("On")
+    try {
+        old := SettingRead("auto_mic_switch", "1")
+        pending := value = "0" ? "0" : (old = "0" ? "1" : SettingRead("mic_restore_pending", "0"))
+        lines := []
+        if FileExist(SETTINGS_PATH) {
+            loop read SETTINGS_PATH {
+                line := Trim(A_LoopReadLine)
+                p := InStr(line, "=")
+                if (p && (SubStr(line, 1, p - 1) = "auto_mic_switch" || SubStr(line, 1, p - 1) = "mic_restore_pending"))
+                    continue
+                if line != ""
+                    lines.Push(line)
+            }
+        }
+        lines.Push("auto_mic_switch=" value)
+        lines.Push("mic_restore_pending=" pending)
+        return AtomicWriteText(SETTINGS_PATH, Join(lines, "`n") "`n")
+    } finally Critical(wasCritical)
+}
+
 ; Per-device tasks retain cancellation across link/audio/microphone phases.
 BeginDeviceOp(name, action) {
     global deviceOps, operationSerial, routeOwner, actionEpoch
     gen := ++operationSerial
-    deviceOps[name] := {gen: gen, state: action, started: A_TickCount, backend: "", container: "", renderId: "", captureId: "", targetEndpoints: "", address: "", micRequested: false, retryCount: 0, retryEpoch: actionEpoch}
+    deviceOps[name] := {gen: gen, state: action, started: A_TickCount, backend: "", container: "", renderId: "", captureId: "", targetEndpoints: "", address: "", micRequested: false, micRestore: false, retryCount: 0, retryEpoch: actionEpoch}
     if (action = "connect")
         routeOwner := gen
     return gen
@@ -1121,9 +1149,20 @@ AudioVerifyTick(name, left, gen) {
     global deviceOps, actionEpoch
     if (!CanRoute(name, gen) || deviceOps[name].retryEpoch != actionEpoch || deviceOps[name].state = "retry_cancelled")
         return
-    if !IsLinkUp(name) {
+    linkState := GetLinkState(name)
+    if linkState = 0 {
         SetOpState(name, gen, "link_failed")
         PushEvent("linkfail", JsonStr(name))
+        return
+    }
+    if linkState = -1 {
+        if left > 1
+            SetTimer(() => AudioVerifyTick(name, left - 1, gen), -1500)
+        else {
+            SetOpState(name, gen, "link_failed")
+            LogMsg("Bluetooth link query unavailable during audio verification: '" name "'", "WARN")
+            PushEvent("linkfail", JsonStr(name))
+        }
         return
     }
     renderId := deviceOps[name].renderId
@@ -1157,11 +1196,22 @@ MicSwitchTo(name, gen) {
 
 MicSwitchTick(name, left, gen) {
     global deviceOps
-    if (!CanRoute(name, gen) || SettingRead("auto_mic_switch", "1") != "1" || !IsLinkUp(name))
+    if (!CanRoute(name, gen) || SettingRead("auto_mic_switch", "1") != "1")
         return
+    linkState := GetLinkState(name)
+    if linkState != 1 {
+        if (linkState = -1 && left > 1)
+            SetTimer(() => MicSwitchTick(name, left - 1, gen), -2000)
+        else
+            LogMsg("mic route skipped: Bluetooth link " (linkState = -1 ? "unknown" : "down") " '" name "'", "WARN")
+        return
+    }
     ep := deviceOps[name].captureId
-    if (ep = "")
+    if (ep = "") {
+        LogMsg("mic route unavailable: target capture endpoint missing '" name "'", "WARN")
+        PushEvent("toast", JsonStr("耳机已连接，但 Windows 没有提供这副耳机的麦克风；原默认麦克风保持不变"))
         return
+    }
     if (CaptureSwitchToId(ep)) {
         LogMsg("mic route verified (roles 0/1/2): '" name "'")
         PushEvent("toast", JsonStr("麦克风默认设备已确认切到耳机"))
@@ -1169,8 +1219,10 @@ MicSwitchTick(name, left, gen) {
     }
     if (left > 1)
         SetTimer(() => MicSwitchTick(name, left - 1, gen), -2000)
-    else
+    else {
         LogMsg("mic route not ready after 4 attempts: '" name "'", "WARN")
+        PushEvent("toast", JsonStr("耳机已连接，但耳机麦克风未就绪；原默认麦克风保持不变"))
+    }
 }
 
 
@@ -1259,7 +1311,7 @@ WebMessageHandler(core, args) {
         case "getautostart":      Reply(id, JsonStr(AutostartEnabled()))
         case "setautostart":      Reply(id, JsonStr(AutostartSet(arg1 = "1")))
         case "getmicswitch":      Reply(id, JsonStr(SettingRead("auto_mic_switch", "1")))
-        case "setmicswitch":      Reply(id, SettingWrite("auto_mic_switch", arg1) ? "true" : "false")
+        case "setmicswitch":      Reply(id, MicPreferenceSet(arg1) ? "true" : "false")
         case "getrescue":         Reply(id, JsonStr("0"))
         case "setrescue":         Reply(id, "false")
         case "sendfeedback":      SendFeedbackAsync(id, arg1)
@@ -1366,11 +1418,16 @@ DoAction(name, action) {
         SetTrayLoading(true)
         deviceOps[name].address := Format("{:012X}", NumGet(dev.info, 8, "uint64"))
         deviceOps[name].micRequested := SettingRead("auto_mic_switch", "1") = "1"
-        payload := '{"address":' JsonStr(deviceOps[name].address) ',"action":' JsonStr(action) ',"mic":' (deviceOps[name].micRequested ? "true" : "false") '}'
+        deviceOps[name].micRestore := action = "connect" && deviceOps[name].micRequested && SettingRead("mic_restore_pending", "0") = "1"
+        if (deviceOps[name].micRestore && !SettingWrite("mic_restore_pending", "0"))
+            throw Error("Cannot persist one-time microphone migration receipt")
+        payload := '{"address":' JsonStr(deviceOps[name].address) ',"action":' JsonStr(action) ',"mic":' (deviceOps[name].micRequested ? "true" : "false") ',"micRestore":' (deviceOps[name].micRestore ? "true" : "false") '}'
         if !StartBackgroundJob("bluetooth", payload, (result, job) => FinishBluetoothAction(name, action, gen, result), 30000)
             throw Error("Bluetooth worker launch failed")
         return "ok"
     } catch as e {
+        if deviceOps[name].micRestore
+            SettingWrite("mic_restore_pending", "1")
         busy := false
         SetTrayLoading(false)
         SetOpState(name, gen, "service_failed")
@@ -1390,7 +1447,8 @@ LinkVerifyTick(name, left, gen) {
     global deviceOps, actionEpoch
     if (!CanRoute(name, gen) || deviceOps[name].retryEpoch != actionEpoch || deviceOps[name].state = "retry_cancelled")
         return
-    if IsLinkUp(name) {
+    linkState := GetLinkState(name)
+    if linkState = 1 {
         SetOpState(name, gen, "link_up")
         LogMsg("link verified (audio still pending): '" name "'")
         PushEvent("linkok", JsonStr(name))
@@ -1398,10 +1456,10 @@ LinkVerifyTick(name, left, gen) {
         return
     }
     if (left <= 1) {
-        if ScheduleKsConnectRetry(name, gen, "link")
+        if (linkState = 0 && ScheduleKsConnectRetry(name, gen, "link"))
             return
         SetOpState(name, gen, "link_failed")
-        LogMsg("link not verified before deadline: '" name "'", "WARN")
+        LogMsg((linkState = -1 ? "link query unavailable" : "link not verified") " before deadline: '" name "'", "WARN")
         PetUpdate("fail")
         PushEvent("linkfail", JsonStr(name))
         return
@@ -1432,7 +1490,14 @@ TryKsConnectRetry(name, gen, epoch) {
     global deviceOps, actionEpoch, busy
     if (!CanRoute(name, gen) || actionEpoch != epoch || deviceOps[name].state != "link_retry_wait")
         return
-    if (IsLinkUp(name) && AudioEndpointIdActive(deviceOps[name].renderId, 0)) {
+    linkState := GetLinkState(name)
+    if linkState = -1 {
+        SetOpState(name, gen, "link_failed")
+        LogMsg("KS retry skipped because Bluetooth link query is unavailable: '" name "'", "WARN")
+        PushEvent("linkfail", JsonStr(name))
+        return
+    }
+    if (linkState = 1 && AudioEndpointIdActive(deviceOps[name].renderId, 0)) {
         LogMsg("KS link and exact render active during retry wait; no second request: '" name "'")
         LinkVerifyTick(name, 1, gen)
         return
@@ -1706,7 +1771,7 @@ DeviceLabel(key) {
 FinishBluetoothAction(name, action, gen, result) {
     global busy, deviceOps
     detail := ""
-    for field in ["backend", "container", "renderId", "captureId", "requested", "error", "ksTrace", "targetEndpoints"]
+    for field in ["backend", "container", "renderId", "captureId", "requested", "error", "ksTrace", "targetEndpoints", "linkState", "micRepair"]
         if result.Has(field)
             detail .= " " field "=" result[field]
     status := result.Get("status", "fail")
@@ -1714,6 +1779,15 @@ FinishBluetoothAction(name, action, gen, result) {
     try {
         if !OpCurrent(name, gen)
             return
+        if (action = "connect" && deviceOps[name].micRestore) {
+            repair := result.Get("micRepair", "unknown")
+            if ((repair != "present" && repair != "restored" && repair != "already-enabled") || !ValidEndpointId(result.Get("captureId", ""), 1)) {
+                if !MicPreferenceSet("0")
+                    LogMsg("mic migration failed and preference rollback could not be saved", "ERROR")
+                LogMsg("mic migration incomplete for exact target: " repair " '" name "'", "WARN")
+                PushEvent("toast", JsonStr("耳机麦克风恢复未完成，已恢复原设置；播放连接将单独核实"))
+            }
+        }
         valid := status = "ok" && result.Get("backend", "") = "ks"
         valid := valid && RegExMatch(result.Get("container", ""), "i)^\{?[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}\}?$")
         valid := valid && RegExMatch(result.Get("requested", "") "", "^\d+$")

@@ -10,9 +10,12 @@ source=(ROOT/'airpods_buddy.ahk').read_text(encoding='utf-8-sig')
 mode=sys.argv[1] if len(sys.argv)>1 else 'inspect'
 assert mode in ('inspect','connect','disconnect')
 target_address=sys.argv[2].upper() if len(sys.argv)>2 else ''
+settings_path=Path(sys.argv[3]).resolve() if len(sys.argv)>3 else None
+if settings_path is not None and (not settings_path.is_file() or ROOT not in settings_path.parents):
+    raise SystemExit('settings fixture must be an existing file inside the repository')
 if target_address and not re.fullmatch(r'[0-9A-F]{12}', target_address):
     raise SystemExit('target address must be 12 hexadecimal digits')
-names=['FindAllAudioDevices','FindDevByName','IsLinkUp','GetLinkState','TargetEndpointsInactive','DoAction','BeginDeviceOp','OpCurrent','SetOpState','CanRoute','StartLinkVerify','LinkVerifyTick','ScheduleKsConnectRetry','TryKsConnectRetry','FinishKsConnectRetry','DrainRetryDisconnect','RunQueuedRetryDisconnect','AudioVerifyTick','MicSwitchTo','MicSwitchTick','StartDownVerify','DownVerifyTick','JsonStr','SettingRead','DeviceKey','DeviceLabel','FinishBluetoothAction','ValidEndpointId']
+names=['FindAllAudioDevices','FindDevByName','IsLinkUp','GetLinkState','TargetEndpointsInactive','DoAction','BeginDeviceOp','OpCurrent','SetOpState','CanRoute','StartLinkVerify','LinkVerifyTick','ScheduleKsConnectRetry','TryKsConnectRetry','FinishKsConnectRetry','DrainRetryDisconnect','RunQueuedRetryDisconnect','AudioVerifyTick','MicSwitchTo','MicSwitchTick','StartDownVerify','DownVerifyTick','JsonStr','SettingRead','SettingWrite','MicPreferenceSet','AtomicWriteText','Join','DeviceKey','DeviceLabel','FinishBluetoothAction','ValidEndpointId']
 functions=[]
 for name in names:
     start=source.index('\n'+name+'(');end=source.index('\n}',start)+2
@@ -29,7 +32,7 @@ backgroundJobs := [], appRoot := A_ScriptDir
 OnExit(StopBackgroundJobs)
 devices := [], busy := false, maxRetries := 10
 deviceOps := Map(), operationSerial := 0, routeOwner := 0, actionEpoch := 0, pendingRetryDisconnect := 0
-SETTINGS_PATH := "C:\Users\24676\Desktop\AirPodsBuddy\app_settings.ini"
+SETTINGS_PATH := A_Args.Length > 1 ? A_Args[2] : "C:\Users\24676\Desktop\AirPodsBuddy\app_settings.ini"
 FindAllAudioDevices()
 targets := []
 targetAddress := A_Args.Length ? StrUpper(A_Args[1]) : ""
@@ -106,6 +109,8 @@ try:
     command=[str(ROOT/'tools/ahk_v2_portable/AutoHotkey64.exe'),'/ErrorStdOut=UTF-8',str(script)]
     if target_address:
         command.append(target_address)
+    if settings_path is not None:
+        command.append(str(settings_path))
     proc=subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
     try:
         raw,_=proc.communicate(timeout=100)

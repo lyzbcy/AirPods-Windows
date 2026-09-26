@@ -41,6 +41,56 @@ namespace AirPodsBuddy.Ks {
  public interface IBackend {
   Endpoint[] List(string container); int Send(string endpointId, uint property);
  }
+ // Exact paired-device link query: 1 up, 0 down, -1 unavailable.
+ // An ACTIVE MMDevice endpoint alone is not evidence of a Bluetooth link.
+ public static class BluetoothLink {
+  [DllImport("Bthprops.cpl",EntryPoint="BluetoothFindFirstDevice")]static extern IntPtr First(IntPtr search,IntPtr info);
+  [DllImport("Bthprops.cpl",EntryPoint="BluetoothFindNextDevice")]static extern bool Next(IntPtr handle,IntPtr info);
+  [DllImport("Bthprops.cpl",EntryPoint="BluetoothFindDeviceClose")]static extern bool Close(IntPtr handle);
+  [DllImport("Bthprops.cpl",EntryPoint="BluetoothGetDeviceInfo")]static extern uint Refresh(IntPtr radio,IntPtr info);
+  [DllImport("Bthprops.cpl",EntryPoint="BluetoothSetServiceState")]static extern uint SetService(IntPtr radio,IntPtr info,ref Guid service,uint flags);
+  public static int Read(string address) {
+   ulong target;if(address==null||address.Length!=12||!ulong.TryParse(address,System.Globalization.NumberStyles.HexNumber,
+    System.Globalization.CultureInfo.InvariantCulture,out target))return -1;
+   IntPtr search=Marshal.AllocHGlobal(40),info=Marshal.AllocHGlobal(560),handle=IntPtr.Zero;
+   try {
+    for(int i=0;i<40;i++)Marshal.WriteByte(search,i,0);
+    for(int i=0;i<560;i++)Marshal.WriteByte(info,i,0);
+    Marshal.WriteInt32(search,0,40);Marshal.WriteInt32(search,4,1);
+    Marshal.WriteInt32(info,0,560);
+    handle=First(search,info);if(handle==IntPtr.Zero)return -1;
+    do {
+     if(unchecked((ulong)Marshal.ReadInt64(info,8))==target) {
+      if(Refresh(IntPtr.Zero,info)!=0)return -1;
+      return Marshal.ReadInt32(info,20)!=0?1:0;
+     }
+    }while(Next(handle,info));
+    return -1;
+   }finally{if(handle!=IntPtr.Zero)Close(handle);Marshal.FreeHGlobal(info);Marshal.FreeHGlobal(search);}
+  }
+  // One-time, explicit mic-off -> mic-on migration only. This installs the
+  // target HFP driver; never called by ordinary connect/disconnect policy.
+  public static uint EnableTargetHfp(string address) {
+   ulong target;if(address==null||address.Length!=12||!ulong.TryParse(address,System.Globalization.NumberStyles.HexNumber,
+    System.Globalization.CultureInfo.InvariantCulture,out target))return 87;
+   IntPtr search=Marshal.AllocHGlobal(40),info=Marshal.AllocHGlobal(560),handle=IntPtr.Zero;
+   try {
+    for(int i=0;i<40;i++)Marshal.WriteByte(search,i,0);
+    for(int i=0;i<560;i++)Marshal.WriteByte(info,i,0);
+    Marshal.WriteInt32(search,0,40);Marshal.WriteInt32(search,4,1);
+    Marshal.WriteInt32(info,0,560);
+    handle=First(search,info);if(handle==IntPtr.Zero)return 1168;
+    do {
+     if(unchecked((ulong)Marshal.ReadInt64(info,8))==target) {
+      if(Refresh(IntPtr.Zero,info)!=0)return 1168;
+      Guid hfp=new Guid("0000111e-0000-1000-8000-00805f9b34fb");
+      return SetService(IntPtr.Zero,info,ref hfp,1);
+     }
+    }while(Next(handle,info));
+    return 1168;
+   }finally{if(handle!=IntPtr.Zero)Close(handle);Marshal.FreeHGlobal(info);Marshal.FreeHGlobal(search);}
+  }
+ }
  // Pure transaction policy is shared by the native backend and fault-injection tests.
  public static class Policy {
   public static Endpoint SelectRender(Endpoint[] rows, string container) {
@@ -56,11 +106,12 @@ namespace AirPodsBuddy.Ks {
    if(render.Count!=1)throw new InvalidOperationException(render.Count==0?"No usable target render endpoint":"Ambiguous target render endpoints");
    return render[0];
   }
-  public static RequestResult Run(IBackend backend,string container,bool connect,bool microphone) {
+  public static RequestResult Run(IBackend backend,string container,bool connect,bool microphone,int linkState) {
    var result=new RequestResult();var rows=backend.List(container);
    Guid target; if(!Guid.TryParse(container,out target)||target==Guid.Empty)throw new ArgumentException("Invalid target container");
    Endpoint render=null;
-   if(connect){render=SelectRender(rows,container);result.RenderId=render.Id;}
+   if(connect){render=SelectRender(rows,container);result.RenderId=render.Id;
+    if(linkState<0){result.Error="Bluetooth link state unavailable";return result;}}
    var pending=new List<Endpoint>();var filters=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
    foreach(var ep in rows) {
     Guid c;if(!Guid.TryParse(ep.ContainerId,out c)||c!=target)continue;
@@ -74,7 +125,7 @@ namespace AirPodsBuddy.Ks {
     if(ep.Flow==1&&String.IsNullOrEmpty(result.CaptureId))result.CaptureId=ep.Id;
     // UNPLUGGED audio does not prove the Bluetooth/control link is down.
     // Explicit disconnect must reach every target driver filter, even in state 8.
-    bool already=connect&&ep.State==1;
+    bool already=connect&&ep.State==1&&linkState==1;
     if(already)continue;
     if(!(connect?ep.ReconnectSupported:ep.DisconnectSupported)) {
      result.Error="Target driver does not support requested KS operation";return result;
@@ -173,7 +224,6 @@ namespace AirPodsBuddy.Ks {
     Guid current;uint state;HR(d.GetState(out state));
     if(boundContainer==Guid.Empty||!Guid.TryParse(ReadProperty(d,Container,true),out current)||current!=boundContainer)return unchecked((int)0x80070057);
     if(state!=1&&state!=8)return unchecked((int)0x80070490);
-    if(property==0&&state==1)return 0;
     string filter;ks=Control(d,out filter);if(ks==null)return unchecked((int)0x80004002);
     if(!Supports(ks,property))return unchecked((int)0x80070490);
     var p=new KSPROPERTY{Set=BtAudio,Id=property,Flags=1};uint bytes;

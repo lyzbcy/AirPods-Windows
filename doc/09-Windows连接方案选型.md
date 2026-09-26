@@ -2,13 +2,19 @@
 
 现状：KS 后端已接入 v1.9.20 候选并真机执行；连续重连尚未通过，原始失败证据保留。
 负责人：当前维护 Agent。
-最后更新：2026-09-26。
+最后更新：2026-09-27。
 
 ## 结论
 
 第一优先级是 Windows 用户稳定、可预期、少打扰的体验，而非自研代码量或测试次数。复用已有方案必须看源码、API 语义和已知问题。**v1.9.20 已采用音频驱动 KS 单次连接/断开请求，替代日常路径中反复启停蓝牙服务；硬件稳定性按下方真实结果单独验收。**
 
 当前 1.9.19 保留已通过的默认设备读回、后台截止、回滚、界面刷新等修复。当前重连不稳定仍为 P0；不把单次有声、96 项回归或 GitHub 项目自述当作连续重连通过。
+
+## 2026-09-27 候选复核（最新）
+
+连接策略现在分别读取精确目标蓝牙链路的已连/未连/未知态；仅在链路已连时把 ACTIVE 端点视为无需重连。链路未知不补发 KS，也不作为已断开。录音迁移只由用户明确关麦→开麦触发：若目标 HFP 录音端点缺失，可对精确设备一次性启用 HFP 服务，随后等待端点并核实录音默认角色；日常连接/断开仍不执行驱动安装或移除。此接口会安装对应设备驱动，见[微软 BluetoothSetServiceState 文档](https://learn.microsoft.com/en-us/windows/win32/api/bluetoothapis/nf-bluetoothapis-bluetoothsetservicestate)。
+
+离线 211 项/14 套通过；用户授权的一次迁移使 AirPods 麦克风可打开，发声测得峰值 -17.887286 dB；随后默认播放测试音用户确认从 AirPods 发声。Windows 默认输入三角色和常驻设置已恢复，HFP 驱动保留。严格五轮第 1 轮断开超时，之后链路才断；用户随后说明先前没戴、现已戴好，因此该断开不可单独归因。戴好后的连接两次 KS 接受仍 link=0、render/capture=UNPLUGGED；KS 接受只代表驱动尝试，不代表已连接，见[微软 KS reconnect 文档](https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/ksproperty-oneshot-reconnect)。已请求 Windows 设置原生连接对照也失败；根因仍未定位，P0 不归因、不发 Release。完整证据见 `verification/2026-09-26-final/VERIFICATION.txt`。
 
 ## 1. 关键事实：现在操作的不是单纯连接开关
 

@@ -15,12 +15,13 @@ commands = [
     ('resource_identity', ['python', 'tests/resource_identity_test.py']),
     ('ks_retry', ['python', 'tests/ks_retry_behavior.py']),
     ('p0_timeline', ['python', 'tests/p0_timeline.py', '--self-test']),
+    ('strict_gate', ['python', 'tests/strict_gate.py', '--self-test']),
     ('target_endpoint', ['python', 'tests/target_endpoint_test.py']),
     ('audio', ['python', 'tests/run_ahk.py', 'tests/audio_routing_test.ahk']),
     ('background', ['python', 'tests/run_ahk.py', 'tests/background_job_test.ahk']),
     ('rpc', ['node', 'tests/rpc_test.cjs']),
 ]
-for name, script in [('windows','windows_regression.ps1'), ('update_health','update_health_test.ps1'), ('ks_backend','ks_backend_test.ps1')]:
+for name, script in [('windows','windows_regression.ps1'), ('update_health','update_health_test.ps1'), ('ks_backend','ks_backend_test.ps1'), ('mic_migration','mic_migration_test.ps1')]:
     commands.append((name, ['powershell','-NoProfile','-ExecutionPolicy','Bypass','-File','tests/'+script]))
 records = []
 for name, command in commands:
