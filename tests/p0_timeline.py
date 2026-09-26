@@ -167,7 +167,7 @@ def main():
             "$ev=@(Get-WinEvent -FilterHashtable @{LogName='System';StartTime=$since} -ErrorAction SilentlyContinue | "
             "Where-Object ProviderName -Match 'BTH|Bluetooth|Audio' | "
             "Select-Object TimeCreated,ProviderName,Id,LevelDisplayName,Message); "
-            "@{nodes=@($node | Select-Object InstanceId,Status,Class);events=$ev;" 
+            "@{nodes=@($node | Select-Object InstanceId,Status,Class);events=$ev;"
             "eventCount=$ev.Count} | ConvertTo-Json -Depth 5 -Compress")
         (OUT / 'pnp-events.json').write_text(json.dumps(events, ensure_ascii=False, indent=2), encoding='utf-8')
         print(f'RESULT samples={len(rows)} target={target} action={args.action} '
