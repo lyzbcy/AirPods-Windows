@@ -41,6 +41,11 @@ def parse_inspect(output, address, render):
             'micRoles': [defaults[1][i] for i in range(3)]}
 
 
+def parse_connect_requests(output):
+    return [int(value) for value in re.findall(
+        r'^INFO bluetooth worker connect\b.*?\brequested=(\d+)\s', output, re.MULTILINE)]
+
+
 def self_test():
     example = ('BLUETOOTH X connected=1 address=AABBCCDDEEFF\n'
                'BEFORE 0 state=1 X {0.0.0.00000000}.{11111111-1111-1111-1111-111111111111}\n'
@@ -49,6 +54,9 @@ def self_test():
                         '{0.0.0.00000000}.{11111111-1111-1111-1111-111111111111}')
     assert row['link'] == row['renderState'] == 1
     assert row['outputRoles'] == ['target'] * 3 and row['micRoles'] == ['original'] * 3
+    assert parse_connect_requests('INFO bluetooth worker connect address=X requested=1 ksTrace=...\n') == [1]
+    assert parse_connect_requests('INFO bluetooth worker connect requested=1 \n'
+                                  'INFO bluetooth worker connect requested=1 \n') == [1, 1]
     print('PASS strict_gate_parser_exact_target_and_roles')
     print('RESULT failures=0 tests=1')
 
@@ -60,6 +68,8 @@ def main():
     parser.add_argument('--settings', type=Path)
     parser.add_argument('--cycles', type=int, default=5)
     parser.add_argument('--dwell', type=int, default=15)
+    parser.add_argument('--single-request', action='store_true',
+                        help='diagnostic connect submits one target KS request without delayed retry')
     parser.add_argument('--output', type=Path, default=DEFAULT_OUT)
     args = parser.parse_args()
     if args.self_test:
@@ -95,12 +105,16 @@ def main():
 
     def run(cycle, phase, mode):
         command = ['python', 'tests/live_audio.py', mode, address, str(settings)]
+        if mode == 'connect' and args.single_request:
+            command.append('--single-request')
         started = time.monotonic()
         p = subprocess.run(command, cwd=ROOT, capture_output=True, timeout=115)
         text = (p.stdout + p.stderr).decode('utf-8-sig', errors='replace')
         (out / f'{cycle}-{phase}.txt').write_text(text, encoding='utf-8')
         record = {'cycle': cycle, 'phase': phase, 'command': command, 'exit': p.returncode,
                   'seconds': round(time.monotonic() - started, 2), 'file': f'{cycle}-{phase}.txt'}
+        if args.single_request and mode == 'connect':
+            record['ksRequests'] = parse_connect_requests(text)
         if mode == 'inspect' and p.returncode == 0:
             record.update(parse_inspect(text, address, render))
         records.append(record)
@@ -109,6 +123,8 @@ def main():
               + (f' link={record["link"]} render={record["renderState"]}' if mode == 'inspect' and p.returncode == 0 else ''), flush=True)
         if p.returncode:
             raise RuntimeError(f'{cycle}-{phase} source action failed with exit {p.returncode}')
+        if args.single_request and mode == 'connect' and record['ksRequests'] != [1]:
+            raise RuntimeError(f'{cycle}-{phase} expected exactly one target KS request')
         return record
 
     def check(row, link, state, target_roles, mic_roles):

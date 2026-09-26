@@ -10,6 +10,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -87,6 +88,20 @@ def parse_samples(output):
     return rows
 
 
+def write_heartbeat(path, stop, interval=0.5):
+    """Independent process heartbeat: distinguish sampler stalls from host pauses."""
+    with path.open('w', encoding='ascii') as out:
+        while not stop.is_set():
+            out.write(f'{time.time_ns()}\t{time.monotonic_ns()}\n')
+            out.flush()
+            stop.wait(interval)
+
+
+def max_heartbeat_gap_ms(path):
+    ticks = [int(line.split('\t')[1]) for line in path.read_text(encoding='ascii').splitlines()]
+    return max(((ticks[i] - ticks[i - 1]) // 1_000_000 for i in range(1, len(ticks))), default=0)
+
+
 def self_test():
     rows = parse_samples('SAMPLE\t134349076453976566\t10\t0\t8\tA\tB\tC\t2\t3\t4\n')
     assert rows == [{'utcFiletime': 134349076453976566, 'tick': 10,
@@ -97,6 +112,16 @@ def self_test():
     assert not any(word in BODY for word in ('SetDefault(', 'BluetoothSetServiceState',
                                               'BluetoothRemoveDevice', 'Set-PnpDevice'))
     assert 'raise SystemExit(actions[-1][1].returncode)' in Path(__file__).read_text(encoding='utf-8')
+    with tempfile.TemporaryDirectory() as folder:
+        stop = threading.Event()
+        path = Path(folder) / 'heartbeat.tsv'
+        thread = threading.Thread(target=write_heartbeat, args=(path, stop, 0.01))
+        thread.start()
+        time.sleep(0.035)
+        stop.set()
+        thread.join()
+        assert len(path.read_text(encoding='ascii').splitlines()) >= 2
+        assert max_heartbeat_gap_ms(path) >= 0
     print('PASS timeline_parser_and_read_only_sampler')
     print('RESULT failures=0 tests=1')
 
@@ -115,12 +140,23 @@ def main():
     parser.add_argument('--address')
     parser.add_argument('--seconds', type=int, default=15)
     parser.add_argument('--action', choices=['none', 'connect', 'cycle'], default='none')
+    parser.add_argument('--single-request', action='store_true',
+                        help='diagnostic connect uses one KS request and suppresses delayed retry')
+    parser.add_argument('--settings', type=Path,
+                        help='optional repository-local settings fixture for source action')
     args = parser.parse_args()
     if args.self_test:
         return self_test()
     address = (args.address or '').upper()
     if not ADDRESS.fullmatch(address) or not 1 <= args.seconds <= 120:
         parser.error('exact 12-digit address and 1..120 seconds required')
+    if args.single_request and args.action == 'none':
+        parser.error('single-request requires a connect or cycle action')
+    settings = args.settings.resolve() if args.settings else None
+    if settings and (not settings.is_file() or ROOT not in settings.parents):
+        parser.error('settings fixture must be an existing file inside the repository')
+    if args.single_request and not settings:
+        parser.error('single-request requires an isolated settings fixture')
     OUT.mkdir(parents=True, exist_ok=True)
     probe = powershell_json("Import-Module './scripts/KsBluetooth.psm1' -Force; "
                             f"Get-KsBluetoothProbe '{address}' | ConvertTo-Json -Depth 8 -Compress")
@@ -138,7 +174,11 @@ def main():
         temp = Path(f.name)
     observer = None
     actions = []
+    heartbeat_stop = threading.Event()
+    heartbeat_path = OUT / 'heartbeat.tsv'
+    heartbeat = threading.Thread(target=write_heartbeat, args=(heartbeat_path, heartbeat_stop), daemon=True)
     try:
+        heartbeat.start()
         observer = subprocess.Popen([str(AHK), '/ErrorStdOut=UTF-8', str(temp), address,
                                      target, str(samples)], cwd=ROOT,
                                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -146,13 +186,20 @@ def main():
             time.sleep(1)
             modes = ['disconnect', 'connect'] if args.action == 'cycle' else ['connect']
             for mode in modes:
-                action = subprocess.run(['python', 'tests/live_audio.py', mode, address],
+                command = ['python', 'tests/live_audio.py', mode, address]
+                if settings:
+                    command += [str(settings)]
+                if mode == 'connect' and args.single_request:
+                    command += ['--single-request']
+                action = subprocess.run(command,
                                         cwd=ROOT, capture_output=True, timeout=100)
                 (OUT / ('single-' + mode + '.txt')).write_bytes(action.stdout + action.stderr)
                 actions.append((mode, action))
                 if action.returncode:
                     break
         raw, _ = observer.communicate(timeout=args.seconds + 15)
+        heartbeat_stop.set()
+        heartbeat.join(timeout=2)
         output = raw.decode('utf-8-sig', errors='replace')
         (OUT / 'timeline-raw.txt').write_text(output, encoding='utf-8')
         rows = parse_samples(output)
@@ -177,13 +224,17 @@ def main():
               f'maxGapMs={max((rows[i]["utcFiletime"]-rows[i-1]["utcFiletime"])//10000 for i in range(1,len(rows))) if len(rows)>1 else 0} '
               f'maxLinkMs={max(r["linkMs"] for r in rows)} '
               f'maxEndpointMs={max(r["endpointMs"] for r in rows)} '
-              f'maxDefaultMs={max(r["defaultMs"] for r in rows)}')
+              f'maxDefaultMs={max(r["defaultMs"] for r in rows)} '
+              f'maxHeartbeatGapMs={max_heartbeat_gap_ms(heartbeat_path)}')
         for mode, action in actions:
             print('ACTION_RESULT', mode, *(line for line in action.stdout.decode('utf-8-sig', errors='replace').splitlines()
                                            if line.startswith('RESULT state=')), sep=' ')
         if actions and actions[-1][1].returncode:
             raise SystemExit(actions[-1][1].returncode)
     finally:
+        heartbeat_stop.set()
+        if heartbeat.is_alive():
+            heartbeat.join(timeout=2)
         if observer is not None and observer.poll() is None:
             observer.kill()
             observer.communicate(timeout=5)

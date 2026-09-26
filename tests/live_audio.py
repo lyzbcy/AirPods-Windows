@@ -10,7 +10,14 @@ source=(ROOT/'airpods_buddy.ahk').read_text(encoding='utf-8-sig')
 mode=sys.argv[1] if len(sys.argv)>1 else 'inspect'
 assert mode in ('inspect','connect','disconnect')
 target_address=sys.argv[2].upper() if len(sys.argv)>2 else ''
-settings_path=Path(sys.argv[3]).resolve() if len(sys.argv)>3 else None
+extra=sys.argv[3:]
+single_request='--single-request' in extra
+extra=[value for value in extra if value!='--single-request']
+if len(extra)>1:
+    raise SystemExit('at most one repository-local settings fixture is accepted')
+settings_path=Path(extra[0]).resolve() if extra else None
+if single_request and mode!='connect':
+    raise SystemExit('single-request diagnostic applies only to connect')
 if settings_path is not None and (not settings_path.is_file() or ROOT not in settings_path.parents):
     raise SystemExit('settings fixture must be an existing file inside the repository')
 if target_address and not re.fullmatch(r'[0-9A-F]{12}', target_address):
@@ -18,6 +25,11 @@ if target_address and not re.fullmatch(r'[0-9A-F]{12}', target_address):
 names=['FindAllAudioDevices','FindDevByName','IsLinkUp','GetLinkState','TargetEndpointsInactive','DoAction','BeginDeviceOp','OpCurrent','SetOpState','CanRoute','StartLinkVerify','LinkVerifyTick','ScheduleKsConnectRetry','TryKsConnectRetry','FinishKsConnectRetry','DrainRetryDisconnect','RunQueuedRetryDisconnect','AudioVerifyTick','MicSwitchTo','MicSwitchTick','StartDownVerify','DownVerifyTick','JsonStr','SettingRead','SettingWrite','MicPreferenceSet','AtomicWriteText','Join','DeviceKey','DeviceLabel','FinishBluetoothAction','ValidEndpointId']
 functions=[]
 for name in names:
+    if name == 'ScheduleKsConnectRetry' and single_request:
+        functions.append('\nScheduleKsConnectRetry(name, gen, reason) {\n'
+                         '    LogMsg("DIAGNOSTIC single-request: retry suppressed for " reason)\n'
+                         '    return false\n}\n')
+        continue
     start=source.index('\n'+name+'(');end=source.index('\n}',start)+2
     functions.append(source[start:end])
 body=r'''

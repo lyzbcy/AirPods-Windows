@@ -377,10 +377,11 @@ WatchAudioRoutes() {
     global devices, deviceOps
     for dev in devices {
         key := DeviceKey(dev)
-        if !deviceOps.Has(key) || deviceOps[key].state != "ready"
+        if !deviceOps.Has(key) || (deviceOps[key].state != "ready" && deviceOps[key].state != "audio_failed")
             continue
+        wasReady := deviceOps[key].state = "ready"
         state := DeviceAudioState(key, dev.connected)
-        if state != "ready" {
+        if (wasReady && state != "ready") {
             LogMsg("verified route lost address=" key " state=" state, "WARN")
             PushEvent("routelost", JsonStr(key))
         }
@@ -1747,6 +1748,15 @@ DeviceAudioState(name, connected) {
     }
     if (deviceOps[name].state = "ready" && deviceOps[name].gen != routeOwner)
         return "unknown"
+    ; Windows may finish activating the exact stereo route after the bounded
+    ; request deadline. Recognize that recovery without another KS request or
+    ; changing a newer default-output choice.
+    if (deviceOps[name].state = "audio_failed" && deviceOps[name].gen = routeOwner
+        && ValidEndpointId(deviceOps[name].renderId, 0) && AudioRouteMatchesId(deviceOps[name].renderId)) {
+        deviceOps[name].state := "ready"
+        LogMsg("late audio route verified address=" name)
+        PushEvent("audiook", JsonStr(name))
+    }
     if (deviceOps[name].state = "ready" && !AudioRouteMatchesId(deviceOps[name].renderId))
         deviceOps[name].state := "audio_lost"
     return deviceOps[name].state

@@ -26,6 +26,16 @@ deviceOps["A"].state := "ready"
 Check("ready_state_revalidated", DeviceAudioState("A", true) = "ready")
 routeFresh := false
 Check("changed_output_invalidates_ready", DeviceAudioState("A", true) = "audio_lost")
+routeFresh := false
+deviceOps["A"].state := "audio_failed"
+Check("late_route_does_not_steal_external_output", DeviceAudioState("A", true) = "audio_failed")
+routeFresh := true
+routeOwner := deviceOps["A"].gen + 1
+Check("late_route_ignores_superseded_operation", DeviceAudioState("A", true) = "audio_failed")
+routeOwner := deviceOps["A"].gen
+before := routeEvents.Length
+Check("late_route_reconciles_exact_current_output", DeviceAudioState("A", true) = "ready" && routeEvents.Length = before + 1 && routeEvents[before + 1] = "audiook")
+Check("late_route_emits_success_once", DeviceAudioState("A", true) = "ready" && routeEvents.Length = before + 1)
 devices.Push({name:"A",info:Buffer(560)})
 Check("duplicate_device_name_rejected", !FindDevByName("A"))
 devices := [{id:"001122334455",name:"Same",info:Buffer(560)},{id:"AABBCCDDEEFF",name:"Same",info:Buffer(560)}]
@@ -90,6 +100,11 @@ devices := [{id:"001122334455",name:"Headphones",connected:true}]
 routeEvents := [], routeFresh := false
 gen := BeginDeviceOp("001122334455", "connect")
 deviceOps["001122334455"].renderId := "{0.0.0.00000000}.{AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA}"
+SetOpState("001122334455", gen, "audio_failed")
+routeFresh := true
+WatchAudioRoutes()
+Check("hidden_ui_reconciles_late_audio", deviceOps["001122334455"].state = "ready" && routeEvents.Length = 1 && routeEvents[1] = "audiook")
+routeEvents := [], routeFresh := false
 SetOpState("001122334455", gen, "ready")
 WatchAudioRoutes()
 Check("hidden_ui_observes_route_loss", deviceOps["001122334455"].state = "audio_lost" && routeEvents.Length = 1)
