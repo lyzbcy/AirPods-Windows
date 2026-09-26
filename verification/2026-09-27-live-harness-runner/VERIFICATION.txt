@@ -1,0 +1,27 @@
+branch=fix/audit-20260926
+field=tests/run_suite.py:commands live_audio_extractor suite registration
+originalSha256=AAA0D3C155BFECECA75D5B8D35BCF122B5FEF090B026BD0475788F0733E92B94
+modifiedSha256=69CF4BBF5F6F18E5BC64F7C65670ACAFF33027B245E8BB8127A21EA6D0134A1A
+MODIFIED_FILE=E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-live-harness-runner\MODIFIED_FILE.py
+DIFF_FILE=E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-live-harness-runner\DIFF_FILE.patch
+VERIFICATION.txt=E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-live-harness-runner\VERIFICATION.txt
+ROLLBACK.sh=E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-live-harness-runner\ROLLBACK.sh
+BASELINE command=python tests/run_suite.py --output verification/2026-09-27-live-harness-runner/offline-baseline
+BASELINE input=original tests/run_suite.py, current repository code
+BASELINE literal_output=OFFLINE_PASS assertions=299 suites=19
+BASELINE exit=0
+MODIFIED command=python tests/run_suite.py --output verification/2026-09-27-live-harness-runner/offline-modified
+MODIFIED input=updated tests/run_suite.py, current repository code
+MODIFIED literal_output=live_audio_extractor PASS=2 EXIT=0 | OFFLINE_PASS assertions=301 suites=20
+MODIFIED exit=0
+ROLLBACK command=D:\Program Files\Git\bin\bash.exe verification/2026-09-27-live-harness-runner/ROLLBACK.sh verification/2026-09-27-live-harness-runner/rollback-copy/run_suite.py
+ROLLBACK input=separate copy of modified tests/run_suite.py
+ROLLBACK literal_output=ROLLBACK_OK source=original live_audio_extractor_suite=absent
+ROLLBACK exit=0
+RESTORED_CHECK command=python - <verification script checking rollback-copy bytes, original bytes, suite entry and working copy>
+RESTORED_CHECK input=separate rolled-back copy; original and modified artifacts
+RESTORED_CHECK literal_output=RESTORED_HASH_MATCH True | RESTORED_SUITE_ENTRY_ABSENT True | MODIFIED_WORKING_COPY_KEPT True
+RESTORED_CHECK exit=0
+RESTORED_SHA256=AAA0D3C155BFECECA75D5B8D35BCF122B5FEF090B026BD0475788F0733E92B94
+Prior extractor transaction: E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-live-harness\VERIFICATION.txt
+Final working tests/run_suite.py remains modified. Full suite uses offline tests only; no hardware connect/disconnect/deployment.
