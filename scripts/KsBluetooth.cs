@@ -39,7 +39,7 @@ namespace AirPodsBuddy.Ks {
   public string KsTrace=""; public string TargetEndpoints="";
  }
  public interface IBackend {
-  Endpoint[] List(string container); int Send(string endpointId, uint property);
+  Endpoint[] List(string container); int Send(string endpointId, string expectedFilterId, uint property);
  }
  // Exact paired-device link query: 1 up, 0 down, -1 unavailable.
  // An ACTIVE MMDevice endpoint alone is not evidence of a Bluetooth link.
@@ -138,7 +138,7 @@ namespace AirPodsBuddy.Ks {
    foreach(var ep in pending) {
     long before=DateTime.UtcNow.ToFileTimeUtc();
     int hr;
-    try {hr=backend.Send(ep.Id,connect?0u:1u);}
+    try {hr=backend.Send(ep.Id,ep.FilterId,connect?0u:1u);}
     catch(Exception ex) {
      long failedAt=DateTime.UtcNow.ToFileTimeUtc();result.Requested++;
      if(result.KsTrace.Length>0)result.KsTrace+=";";
@@ -217,14 +217,22 @@ namespace AirPodsBuddy.Ks {
    }finally{Release(enumerator);}
    return rows.ToArray();
   }
-  public int Send(string endpointId,uint property) {
+  public static bool FilterIdentityMatches(string expectedFilterId,string actualFilterId) {
+   return !String.IsNullOrWhiteSpace(expectedFilterId)&&!String.IsNullOrWhiteSpace(actualFilterId)
+    &&String.Equals(expectedFilterId,actualFilterId,StringComparison.OrdinalIgnoreCase);
+  }
+  public int Send(string endpointId,string expectedFilterId,uint property) {
    if(property>1)throw new ArgumentException("Unsupported KS command");
+   if(String.IsNullOrWhiteSpace(expectedFilterId))return unchecked((int)0x80070057);
    var e=(IMMDeviceEnumerator)new MMDeviceEnumerator();IMMDevice d=null;IKsControl ks=null;
    try {HR(e.GetDevice(endpointId,out d));
     Guid current;uint state;HR(d.GetState(out state));
     if(boundContainer==Guid.Empty||!Guid.TryParse(ReadProperty(d,Container,true),out current)||current!=boundContainer)return unchecked((int)0x80070057);
     if(state!=1&&state!=8)return unchecked((int)0x80070490);
     string filter;ks=Control(d,out filter);if(ks==null)return unchecked((int)0x80004002);
+    // The topology may change between List and Send. Reject a different
+    // driver filter before BASICSUPPORT or the state-changing KS property.
+    if(!FilterIdentityMatches(expectedFilterId,filter))return unchecked((int)0x8007000D);
     if(!Supports(ks,property))return unchecked((int)0x80070490);
     var p=new KSPROPERTY{Set=BtAudio,Id=property,Flags=1};uint bytes;
     return ks.KsProperty(ref p,24,IntPtr.Zero,0,out bytes);

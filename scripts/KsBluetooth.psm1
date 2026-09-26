@@ -59,7 +59,8 @@ function Wait-CaptureAfterRestore {
    if(!$requested) {
     if(!$ep.ReconnectSupported){return @{status='unsupported';id='';requested=0;trace=$trace}}
     $before=[DateTime]::UtcNow.ToFileTimeUtc()
-    try {$hr=[int](& $Send $ep.Id 0)} catch {$hr=[int]$_.Exception.HResult}
+    $expectedFilterId=if($ep.PSObject.Properties['FilterId']){$ep.FilterId}else{''}
+    try {$hr=[int](& $Send $ep.Id 0 $expectedFilterId)} catch {$hr=[int]$_.Exception.HResult}
     $after=[DateTime]::UtcNow.ToFileTimeUtc()
     $trace="$before,$after,0,$($ep.Id),0x$($hr.ToString('X8'))"
     $requested=$true
@@ -80,7 +81,7 @@ function Invoke-KsBluetooth {
  $r=[AirPodsBuddy.Ks.Policy]::Run($api,$container,($Action -eq 'connect'),$Microphone,$linkState)
  if($MicRestore -and $Microphone -and $Action -eq 'connect' -and $r.Accepted -and $repair -in 'restored','already-enabled') {
   $list={param($c)$api.List($c)}.GetNewClosure()
-  $send={param($id,$property)$api.Send($id,[uint32]$property)}.GetNewClosure()
+  $send={param($id,$property,$expectedFilterId)$api.Send($id,$expectedFilterId,[uint32]$property)}.GetNewClosure()
   $capture=Wait-CaptureAfterRestore -Container $container -List $list -Send $send -AlreadyRequested ($r.CaptureId -ne '')
   if($capture.trace){$r.KsTrace+=$(if($r.KsTrace){';'}else{''})+$capture.trace}
   if($capture.requested -and $r.CaptureId -eq ''){$r.Requested++}

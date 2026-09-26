@@ -5,10 +5,23 @@ $fake=@'
 namespace AirPodsBuddy.Ks {
  public sealed class FakeBackend : IBackend {
   public Endpoint[] Rows; public System.Collections.Generic.List<string> Calls=new System.Collections.Generic.List<string>();
+  public System.Collections.Generic.List<string> ExpectedFilters=new System.Collections.Generic.List<string>();
+  public System.Collections.Generic.Dictionary<string,string> ActualFilters=new System.Collections.Generic.Dictionary<string,string>(System.StringComparer.OrdinalIgnoreCase);
+  public int PropertyCalls=0;
   public int FailAt=0;
   public int ThrowAt=0;
   public Endpoint[] List(string container){return Rows;}
-  public int Send(string id,uint property){Calls.Add(id+":"+property);if(ThrowAt==Calls.Count)throw new System.Runtime.InteropServices.COMException("driver",unchecked((int)0x80004002));return FailAt==Calls.Count?unchecked((int)0x80004005):0;}
+  public int Send(string id,string expectedFilterId,uint property){
+   Calls.Add(id+":"+property);ExpectedFilters.Add(expectedFilterId);
+   string actualFilterId;
+   if(!ActualFilters.TryGetValue(id,out actualFilterId)){
+    actualFilterId=null;foreach(var ep in Rows)if(ep.Id==id){actualFilterId=ep.FilterId;break;}
+   }
+   if(!NativeBackend.FilterIdentityMatches(expectedFilterId,actualFilterId))return unchecked((int)0x8007000D);
+   PropertyCalls++;
+   if(ThrowAt==Calls.Count)throw new System.Runtime.InteropServices.COMException("driver",unchecked((int)0x80004002));
+   return FailAt==Calls.Count?unchecked((int)0x80004005):0;
+  }
  }
 }
 '@
@@ -34,7 +47,14 @@ Check 'invalid_link_address_read_returns_unknown' ([AirPodsBuddy.Ks.BluetoothLin
 $f=Fake @((Ep 'render' 0 8),(Ep 'other' 0 8 $b));$r=[AirPodsBuddy.Ks.Policy]::Run($f,$a,$true,$false,0)
 Check 'unplugged_exact_container_single_connect_request' ($r.Accepted -and $f.Calls.Count -eq 1 -and $f.Calls[0] -eq 'render:0')
 Check 'ks_trace_records_exact_request_and_hresult' ($r.KsTrace -match '^\d+,\d+,0,render,0x00000000$')
+Check 'preflight_filter_passed_to_send' ($f.ExpectedFilters.Count -eq 1 -and $f.ExpectedFilters[0] -eq 'filter-render')
 Check 'same_name_other_container_untouched' ($f.Calls -notcontains 'other:0')
+$f=Fake @((Ep 'render' 0 8));$f.ActualFilters['render']='filter-replaced';$r=[AirPodsBuddy.Ks.Policy]::Run($f,$a,$true,$false,0)
+Check 'changed_filter_rejected_before_any_ks_property' (!$r.Accepted -and $r.Requested -eq 1 -and $f.PropertyCalls -eq 0 -and $r.Error -match '8007000D')
+Check 'changed_filter_hresult_traced_without_retry' ($f.Calls.Count -eq 1 -and $r.KsTrace -match '^\d+,\d+,0,render,0x8007000D$')
+$f=Fake @((Ep 'render' 0 8));$f.ActualFilters['render']='FILTER-RENDER';$r=[AirPodsBuddy.Ks.Policy]::Run($f,$a,$true,$false,0)
+Check 'matching_filter_allows_one_ks_property' ($r.Accepted -and $f.PropertyCalls -eq 1 -and $f.Calls.Count -eq 1)
+Check 'native_guard_precedes_support_and_action_properties' ($source.IndexOf('FilterIdentityMatches(expectedFilterId,filter)') -gt 0 -and $source.IndexOf('FilterIdentityMatches(expectedFilterId,filter)') -lt $source.IndexOf('Supports(ks,property)') -and $source.IndexOf('Supports(ks,property)') -lt $source.IndexOf('return ks.KsProperty(ref p,24'))
 $f=Fake @((Ep 'render' 0 8),(Ep 'capture' 1 8));$r=[AirPodsBuddy.Ks.Policy]::Run($f,$a,$true,$false,0)
 Check 'mic_off_leaves_capture_service_untouched' ($r.Accepted -and $f.Calls.Count -eq 1)
 $f=Fake @((Ep 'render' 0 8),(Ep 'capture' 1 8));$r=[AirPodsBuddy.Ks.Policy]::Run($f,$a,$true,$true,0)
