@@ -30,6 +30,8 @@
 
 后续常驻旧安装版日志从 01:49 起另有链路反复变化，01:53 收到两条 `disconnect` RPC 并执行旧服务后端；01:54 的链路 0、端点非 ACTIVE 不能反算为 01:39 单请求测试通过，也不能把这些 RPC 的发起者归给测试。发布前的五轮必须走未改写的生产候选路径；`--single-request` 只能验证重试假设，不能充当 Release 回执。
 
+独立代码审查另指出：原 KS 预检记录 `FilterId`，发送时却重新查端点拓扑并取首个可激活 `IKsControl`，未核对是否仍为预检的 filter。现已把预检 `FilterId` 传到发送路径；拓扑变化、身份缺失时，在能力查询和断开/重连属性调用前返回失败，故障注入验证不向变化后的 filter 发请求。此改动是防止误打到其他驱动的 fail-closed 加固，**不是本次物理断开失败的已证根因，也没有新增真机通过轮次**。下一次有界测试的失败点会另存只读链路、精确端点及音频会话快照；会话 Active 只能作为音频流代理证据，不能等同 KS pin/链路原因。[Windows 音频会话状态语义](https://learn.microsoft.com/en-us/windows/win32/api/audiopolicy/nf-audiopolicy-iaudiosessioncontrol-getstate)。
+
 微软说明 KS 断开请求成功只代表驱动尝试，且 HFP 的底层 REQUESTDISCONNECT 是异步完成；本机请求成功不能替代链路读回。[KS 断开属性](https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/ksproperty-oneshot-disconnect)、[HFP 连接机制](https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/hfp-device-connection)。按设备的 `IOCTL_BTH_DISCONNECT_DEVICE` 面向 profile driver，可能切断该设备全部 profile，且没有对应的公开用户态音频重连保证；不把它偷换为日常自动补救。[蓝牙驱动栈](https://learn.microsoft.com/en-us/windows-hardware/drivers/bluetooth/using-the-bluetooth-driver-stack)。
 
 ## 1. 关键事实：现在操作的不是单纯连接开关
