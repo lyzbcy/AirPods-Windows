@@ -22,7 +22,7 @@ if settings_path is not None and (not settings_path.is_file() or ROOT not in set
     raise SystemExit('settings fixture must be an existing file inside the repository')
 if target_address and not re.fullmatch(r'[0-9A-F]{12}', target_address):
     raise SystemExit('target address must be 12 hexadecimal digits')
-names=['IsAppleDevice','IsAudioCandidate','FindAllAudioDevices','FindDevByName','IsLinkUp','GetLinkState','TargetEndpointsInactive','DoAction','BeginDeviceOp','OpCurrent','SetOpState','CanRoute','StartLinkVerify','LinkVerifyTick','ScheduleKsConnectRetry','TryKsConnectRetry','FinishKsConnectRetry','DrainRetryDisconnect','RunQueuedRetryDisconnect','AudioVerifyTick','MicSwitchTo','MicSwitchTick','StartDownVerify','DownVerifyTick','JsonStr','SettingRead','SettingWrite','MicPreferenceSet','AtomicWriteText','Join','DeviceKey','DeviceLabel','FinishBluetoothAction','ValidEndpointId']
+names=['FindAllAudioDevices','FindDevByName','IsLinkUp','GetLinkState','TargetEndpointsInactive','DoAction','BeginDeviceOp','OpCurrent','SetOpState','CanRoute','StartLinkVerify','LinkVerifyTick','ScheduleKsConnectRetry','TryKsConnectRetry','FinishKsConnectRetry','DrainRetryDisconnect','RunQueuedRetryDisconnect','AudioVerifyTick','MicSwitchTo','MicSwitchTick','StartDownVerify','DownVerifyTick','JsonStr','SettingRead','SettingWrite','MicPreferenceSet','AtomicWriteText','Join','DeviceKey','DeviceLabel','FinishBluetoothAction','ValidEndpointId']
 functions=[]
 for name in names:
     if name == 'ScheduleKsConnectRetry' and single_request:
