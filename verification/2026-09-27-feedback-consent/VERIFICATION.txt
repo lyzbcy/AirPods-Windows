@@ -1,0 +1,64 @@
+BRANCH: fix/audit-20260926
+FIELD: SendIssueAsync; unchecked log-consent flag skips both log-tail read and full-log file build, while checked default behavior remains.
+ORIGINAL_SHA256: EA411AEFBD0EAE77DA558DEB7A37B092BD8BA0B8ED5ED0BA133D558E22BAF8EE
+MODIFIED_SHA256: 37BC28D48DF858DCE89ECD5D38EF69677C31B32D9D8809139DA64AE626945939
+
+ARTIFACTS:
+MODIFIED_FILE: E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-feedback-consent\MODIFIED_FILE
+DIFF_FILE: E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-feedback-consent\DIFF_FILE
+VERIFICATION.txt: E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-feedback-consent\VERIFICATION.txt
+ROLLBACK.sh: E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-feedback-consent\ROLLBACK.sh
+Original input copy: E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-feedback-consent\ORIGINAL_FILE
+
+BASELINE command: python tests/feedback_consent_test.py verification/2026-09-27-feedback-consent/ORIGINAL_FILE
+BASELINE input: original AHK source copy, flags 00 then 01, offline fake log/send hooks; no hardware/network.
+BASELINE literal output:
+FAIL unchecked_never_reads_log_tail
+PASS unchecked_never_builds_log_file
+FAIL unchecked_payload_has_no_log
+PASS unchecked_payload_has_no_file_path
+PASS checked_reads_log_tail
+PASS checked_builds_log_file
+PASS checked_payload_has_log_tail
+PASS checked_payload_has_file_path
+RESULT failures=2
+BASELINE exit status: 1
+
+MODIFIED command: python tests/feedback_consent_test.py
+MODIFIED input: changed live AHK source, flags 00 then 01, offline fake log/send hooks; no hardware/network.
+MODIFIED literal output:
+PASS unchecked_never_reads_log_tail
+PASS unchecked_never_builds_log_file
+PASS unchecked_payload_has_no_log
+PASS unchecked_payload_has_no_file_path
+PASS checked_reads_log_tail
+PASS checked_builds_log_file
+PASS checked_payload_has_log_tail
+PASS checked_payload_has_file_path
+RESULT failures=0
+MODIFIED exit status: 0
+
+FULL_OFFLINE command: python tests/run_suite.py --output verification/2026-09-27-feedback-consent/modified-suite
+FULL_OFFLINE input: current local source and tests, no hardware.
+FULL_OFFLINE literal result: OFFLINE_PASS assertions=299 suites=19
+FULL_OFFLINE exit status: 0
+
+ROLLBACK command: & 'D:\Program Files\Git\bin\bash.exe' verification/2026-09-27-feedback-consent/ROLLBACK.sh verification/2026-09-27-feedback-consent/rollback-copy/airpods_buddy.ahk
+ROLLBACK input: a separate copy of modified AHK, not the live source.
+ROLLBACK literal output: ROLLBACK_OK copy restored to original source bytes
+ROLLBACK exit status: 0
+RESTORED_TEST command: python tests/feedback_consent_test.py verification/2026-09-27-feedback-consent/rollback-copy/airpods_buddy.ahk
+RESTORED_TEST literal output:
+FAIL unchecked_never_reads_log_tail
+PASS unchecked_never_builds_log_file
+FAIL unchecked_payload_has_no_log
+PASS unchecked_payload_has_no_file_path
+PASS checked_reads_log_tail
+PASS checked_builds_log_file
+PASS checked_payload_has_log_tail
+PASS checked_payload_has_file_path
+RESULT failures=2
+RESTORED_TEST exit status: 1 (expected baseline behavior)
+RESTORED_COPY_SHA256: EA411AEFBD0EAE77DA558DEB7A37B092BD8BA0B8ED5ED0BA133D558E22BAF8EE
+LIVE_SOURCE_SHA256_AFTER_ROLLBACK_TEST: 37BC28D48DF858DCE89ECD5D38EF69677C31B32D9D8809139DA64AE626945939
+RESTORED BEHAVIOR/STATUS: separate copy returns to baseline (unchecked option still reads/sends log tail); live source remains fixed.

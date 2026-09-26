@@ -1947,9 +1947,7 @@ SendIssueAsync(id, types, note, flags, contact) {
         return
     }
     wantFile := SubStr(flags, 2, 1) = "1"
-    content := "问题反馈：" types "`n" note "`n联系方式：" contact
-    if wantFile
-        content .= "`n" TruncateUtf8(GatherLogTail(), 2200)
+    content := "问题反馈：" types "`n" note "`n联系方式：" contact "`n" TruncateUtf8(GatherLogTail(), 2200)
     logPath := wantFile ? BuildIssueLogFile() : ""
     payload := '{"webhook":' JsonStr(FbWebhook()) ',"payload":{"msgtype":"markdown","markdown":{"content":' JsonStr(content) '}},"wantFile":' (wantFile ? 'true' : 'false') ',"logPath":' JsonStr(logPath) '}'
     SendFeedbackJob(id, "issue", payload, logPath)
