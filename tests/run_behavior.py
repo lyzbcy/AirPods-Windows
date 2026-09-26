@@ -23,13 +23,15 @@ def function(name):
 body = r'''
 #Requires AutoHotkey v2.0
 #SingleInstance Off
+#Warn All, StdOut
 OnError((e, mode) => (FileAppend("ERROR " e.Message " line=" e.Line "`n", "*"), ExitApp(2)))
 failures := 0
 events := [], petStates := [], successCount := 0
 audioVerifyGen := 1, endpointFailStreak := 0, linkFailStreak := 0, btRescueDone := true
-deviceOps := Map(), operationSerial := 0, routeOwner := ""
+deviceOps := Map(), operationSerial := 0, routeOwner := "", actionEpoch := 0
 routeWorks := false
 gen := BeginDeviceOp("Test", "connect")
+deviceOps["Test"].renderId := "{0.0.0.00000000}.{AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA}"
 AudioVerifyTick("Test", 1, gen)
 announced := false
 for ev in events
@@ -62,12 +64,9 @@ DeviceLabel(name) {
 }
 LogMsg(*) {
 }
-AudioEndpointAlive(*) {
-    return true
-}
-RenderSwitchTo(*) {
+RenderSwitchToId(id) {
     global routeWorks
-    return routeWorks
+    return routeWorks && id = "{0.0.0.00000000}.{AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA}"
 }
 MicSwitchTo(*) {
 }
@@ -87,6 +86,9 @@ OnConnectSuccess() {
 }
 IsLinkUp(*) {
     return true
+}
+ScheduleKsConnectRetry(*) {
+    return false
 }
 IsAppleDevice(*) {
     return false

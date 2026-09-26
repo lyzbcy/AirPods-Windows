@@ -30,7 +30,7 @@ Check("partial_name_rejected", SelectAudioEndpoint([stereo], "Test", 0) = "")
 Check("empty_name_rejected", SelectAudioEndpoint([stereo], "", 0) = "")
 Check("wildcards_are_literal", SelectAudioEndpoint([stereo], "%", 0) = "")
 api := MockAudio()
-Check("render_and_capture_separate", FindAudioEndpointId("Test Pods", "0.0.0", api) = "" && FindCaptureForTest(api) = "{capture}")
+Check("render_and_capture_separate", FindAudioEndpointId("Test Pods", "0.0.0", api) = "{target}" && FindCaptureForTest(api) = "{capture}")
 Check("pnp_id_rejected", !SetAudioDefault("SWD\MMDEVAPI\{capture}", 1, api) && api.setCalls = 0)
 api := MockAudio()
 Check("all_roles_and_readback_succeed", SetAudioDefault("{target}", 0, api) && api.setCalls = 3 && api.readCalls = 6)
@@ -46,6 +46,24 @@ api := MockAudio("mismatch")
 Check("s_ok_without_readback_rejected", !SetAudioDefault("{target}", 0, api))
 api := MockAudio("missing")
 Check("missing_prior_default_no_mutation", !SetAudioDefault("{target}", 0, api) && api.setCalls = 0)
+api := MockAudio()
+Check("exact_render_active_routes_three_roles", RenderSwitchToId("{target}", api) && api.setCalls = 3 && AudioRouteMatchesId("{target}", api))
+api := MockAudio()
+Check("wrong_render_id_never_routes", !RenderSwitchToId("{other}", api) && api.setCalls = 0)
+api := MockAudio()
+api.renderState := 8
+Check("inactive_render_never_routes", !RenderSwitchToId("{target}", api) && api.setCalls = 0)
+api := MockAudio()
+Check("exact_capture_routes", CaptureSwitchToId("{capture}", api) && api.setCalls = 3)
+api := MockAudio("render_drops_after_set")
+Check("render_drop_after_roles_is_not_success", !RenderSwitchToId("{target}", api) && api.endpointChecks = 2 && api.lastEndpointReadCount = 6)
+Check("render_drop_restores_prior_defaults", api.defaults[1] = "old0" && api.defaults[2] = "old1" && api.defaults[3] = "old2")
+api := MockAudio("capture_drops_after_set")
+Check("capture_drop_after_roles_is_not_success", !CaptureSwitchToId("{capture}", api) && api.endpointChecks = 2 && api.lastEndpointReadCount = 6)
+Check("capture_drop_restores_prior_defaults", api.defaults[1] = "old0" && api.defaults[2] = "old1" && api.defaults[3] = "old2")
+api := MockAudio("render_drops_after_readback")
+api.defaults := ["{target}", "{target}", "{target}"]
+Check("route_watch_rechecks_active_after_readback", !AudioRouteMatchesId("{target}", api) && api.endpointChecks = 2 && api.lastEndpointReadCount = 3)
 FileAppend("RESULT failures=" failures "`n", "*")
 ExitApp(failures ? 1 : 0)
 
@@ -64,12 +82,17 @@ class MockAudio {
     __New(mode := "success") {
         this.mode := mode, this.defaults := ["old0", "old1", "old2"]
         this.setCalls := 0, this.readCalls := 0
+        this.renderState := 1, this.captureState := 1
+        this.endpointChecks := 0, this.lastEndpointReadCount := -1
     }
-    Endpoints(flow) {
-        return flow = 0 ? [] : [{id: "{capture}", name: "Microphone (Test Pods)"}]
+    Endpoints(flow, states := 1) {
+        this.endpointChecks++, this.lastEndpointReadCount := this.readCalls
+        return flow = 0 ? [{id: "{target}", name: "Speakers (Test Pods)", state: this.renderState}] : [{id: "{capture}", name: "Microphone (Test Pods)", state: this.captureState}]
     }
     DefaultId(flow, role) {
         this.readCalls++
+        if (this.mode = "render_drops_after_readback" && this.readCalls = 3)
+            this.renderState := 8
         if this.mode = "missing"
             throw Error("no prior default")
         return this.defaults[role + 1]
@@ -86,6 +109,10 @@ class MockAudio {
             return -2147024809
         if this.mode != "mismatch"
             this.defaults[role + 1] := id
+        if (id = "{target}" && role = 2 && this.mode = "render_drops_after_set")
+            this.renderState := 8
+        if (id = "{capture}" && role = 2 && this.mode = "capture_drops_after_set")
+            this.captureState := 8
         return 0
     }
 }

@@ -44,5 +44,19 @@ const rpc=(...args)=>context.rpc(...args),pending=()=>vm.runInContext('Object.ke
   context.applyPolledDevices(renamed);assert.equal(renders,2);
   pressed=false;context.applyPolledDevices(renamed);assert.equal(renders,3);
   console.log('PASS press_defers_then_refreshes_rename');
+  const labels=html.slice(html.indexOf('function isConnecting('),html.indexOf('function render(){'));
+  vm.runInContext(labels,context);
+  for(const state of ['link_retry_wait','link_retrying']){
+    const d={connected:false,audioState:state};
+    assert.equal(context.deviceAction(d),'disconnect');assert.equal(context.deviceActionTitle(d),'取消连接');
+    assert.match(context.deviceStatus(d),/重试/);assert.match(context.deviceStatus(d),/取消/);
+  }
+  console.log('PASS retry_wait_and_running_show_cancellable_status');
+  assert.equal(context.deviceAction({connected:false,audioState:'link_failed'}),'connect');
+  assert.equal(context.deviceStatus({connected:false,audioState:'link_failed'}),'未连接');
+  console.log('PASS exhausted_retry_restores_manual_connect');
+  assert.equal(context.deviceStatus({connected:true,audioState:'ready'}),'默认音频已确认');
+  assert.equal(context.deviceAction({connected:true,audioState:'ready'}),'disconnect');
+  console.log('PASS verified_ready_keeps_existing_status');
   console.log('RESULT failures=0');
 })().catch(e=>{console.error(e);process.exitCode=1});

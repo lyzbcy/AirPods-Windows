@@ -7,7 +7,7 @@
 <div align="center">
   <img src="https://img.shields.io/badge/Platform-Windows-blue?style=for-the-badge" alt="Platform">
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="MIT License">
-  <img src="https://img.shields.io/badge/Version-1.9.19-brightgreen?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/badge/Version-1.9.20-brightgreen?style=for-the-badge" alt="Version">
   <img src="https://img.shields.io/badge/%E5%8D%95%E6%96%87%E4%BB%B6-3.4MB-orange?style=for-the-badge" alt="Single exe 3.4MB">
 </div>
 
@@ -19,6 +19,8 @@
 </p>
 
 ---
+
+> 当前源码为 v1.9.20 开发候选，公开下载仍以 Release 页面为准。KS 后端与验收进度见 [开发清单](doc/07-审计修复清单.md)。
 
 ## 🤔 为什么需要它？（和系统设置比一比）
 

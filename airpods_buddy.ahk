@@ -12,7 +12,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\BackgroundJobs.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.19"
+APP_VERSION   := "1.9.20"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -159,11 +159,20 @@ SortDevices() {
 
 ; ------------------------- Resources ---------------------------------
 ; compiled: extract the self-contained web UI + loader dll to temp
+NewResourceRunId() {
+    guid := Buffer(16, 0), text := Buffer(78, 0)
+    if DllCall("ole32\CoCreateGuid", "ptr", guid, "int") != 0
+        throw Error("resource run GUID unavailable")
+    if DllCall("ole32\StringFromGUID2", "ptr", guid, "ptr", text, "int", 39, "int") != 39
+        throw Error("resource run GUID formatting failed")
+    return StrLower(StrReplace(SubStr(StrGet(text, "UTF-16"), 2, 36), "-", ""))
+}
+
 appRoot := A_ScriptDir
 uiHtml := A_ScriptDir "\webui\index_built.html"
 wvDll := A_ScriptDir "\lib\WebView2\64bit\WebView2Loader.dll"
 if A_IsCompiled {
-    appRoot := A_Temp "\AirPodsBuddy_app\" APP_VERSION "-" DllCall("GetCurrentProcessId")
+    appRoot := A_Temp "\AirPodsBuddy_app\" APP_VERSION "-" DllCall("GetCurrentProcessId") "-" NewResourceRunId()
     uiHtml := appRoot "\index_built.html"
     wvDll := appRoot "\WebView2Loader.dll"
     EnsureResources()
@@ -202,6 +211,12 @@ EnsureResources() {
             FileInstall "assets\loading_5.ico", appRoot "\loading_5.ico", 1
         if !FileExist(appRoot "\background-worker.ps1")
             FileInstall "scripts\background-worker.ps1", appRoot "\background-worker.ps1", 1
+        if !FileExist(appRoot "\KsBluetooth.cs")
+            FileInstall "scripts\KsBluetooth.cs", appRoot "\KsBluetooth.cs", 1
+        if !FileExist(appRoot "\KsBluetooth.psm1")
+            FileInstall "scripts\KsBluetooth.psm1", appRoot "\KsBluetooth.psm1", 1
+        if !FileExist(appRoot "\THIRD_PARTY_NOTICES.md")
+            FileInstall "THIRD_PARTY_NOTICES.md", appRoot "\THIRD_PARTY_NOTICES.md", 1
         if !FileExist(appRoot "\UpdateCore.psm1")
             FileInstall "scripts\UpdateCore.psm1", appRoot "\UpdateCore.psm1", 1
         if !FileExist(appRoot "\update-swap.ps1")
@@ -239,6 +254,8 @@ if !A_IsCompiled && FileExist(A_ScriptDir "\assets\star_pudding.ico")
 
 devices := []
 busy := false
+actionEpoch := 0
+pendingRetryDisconnect := 0
 myGui := 0
 wv := 0
 
@@ -751,7 +768,7 @@ TrayQuickAction(action) {
             }
         }
         if !target {
-            StartAudioVerify(DeviceKey(devices[1]))
+            DoAction(DeviceKey(devices[1]), "connect")
             return
         }
         PetShow("connecting")
@@ -1070,9 +1087,9 @@ SettingWrite(key, value) {
 
 ; Per-device tasks retain cancellation across link/audio/microphone phases.
 BeginDeviceOp(name, action) {
-    global deviceOps, operationSerial, routeOwner
+    global deviceOps, operationSerial, routeOwner, actionEpoch
     gen := ++operationSerial
-    deviceOps[name] := {gen: gen, state: action, started: A_TickCount, escalated: false}
+    deviceOps[name] := {gen: gen, state: action, started: A_TickCount, backend: "", container: "", renderId: "", captureId: "", address: "", micRequested: false, retryCount: 0, retryEpoch: actionEpoch}
     if (action = "connect")
         routeOwner := gen
     return gen
@@ -1095,19 +1112,22 @@ SetOpState(name, gen, state) {
 }
 
 StartAudioVerify(name) {
-    gen := BeginDeviceOp(name, "connect")
-    AudioVerifyTick(name, 9, gen)
+    global deviceOps
+    if deviceOps.Has(name) && deviceOps[name].renderId != ""
+        AudioVerifyTick(name, 9, deviceOps[name].gen)
 }
 
 AudioVerifyTick(name, left, gen) {
-    if !CanRoute(name, gen)
+    global deviceOps, actionEpoch
+    if (!CanRoute(name, gen) || deviceOps[name].retryEpoch != actionEpoch || deviceOps[name].state = "retry_cancelled")
         return
     if !IsLinkUp(name) {
         SetOpState(name, gen, "link_failed")
         PushEvent("linkfail", JsonStr(name))
         return
     }
-    if (AudioEndpointAlive(DeviceLabel(name)) && RenderSwitchTo(DeviceLabel(name))) {
+    renderId := deviceOps[name].renderId
+    if (renderId != "" && RenderSwitchToId(renderId)) {
         SetOpState(name, gen, "ready")
         LogMsg("audio route verified (render, roles 0/1/2): '" name "'")
         OnConnectSuccess()
@@ -1118,6 +1138,8 @@ AudioVerifyTick(name, left, gen) {
     }
     SetOpState(name, gen, "audio_pending")
     if (left <= 1) {
+        if ScheduleKsConnectRetry(name, gen, "audio")
+            return
         SetOpState(name, gen, "audio_failed")
         LogMsg("audio route not ready after verification window: '" name "'", "WARN")
         PetUpdate("fail")
@@ -1134,10 +1156,13 @@ MicSwitchTo(name, gen) {
 }
 
 MicSwitchTick(name, left, gen) {
+    global deviceOps
     if (!CanRoute(name, gen) || SettingRead("auto_mic_switch", "1") != "1" || !IsLinkUp(name))
         return
-    ep := FindCaptureEndpointId(DeviceLabel(name))
-    if (SetAudioDefault(ep, 1)) {
+    ep := deviceOps[name].captureId
+    if (ep = "")
+        return
+    if (CaptureSwitchToId(ep)) {
         LogMsg("mic route verified (roles 0/1/2): '" name "'")
         PushEvent("toast", JsonStr("麦克风默认设备已确认切到耳机"))
         return
@@ -1313,11 +1338,23 @@ FindAllAudioDevices() {
 }
 
 DoAction(name, action) {
-    global busy
-    if busy
-        return "busy"
+    global busy, actionEpoch, deviceOps, pendingRetryDisconnect
     if (action != "connect" && action != "disconnect")
         return "invalid"
+    queueRetryDisconnect := action = "disconnect" && deviceOps.Has(name)
+        && (deviceOps[name].state = "link_retrying" || (IsObject(pendingRetryDisconnect) && pendingRetryDisconnect.name = name))
+    actionEpoch++
+    for key, op in deviceOps
+        if (op.state = "link_retry_wait" || op.state = "link_retrying")
+            op.state := "retry_cancelled"
+    if busy {
+        if queueRetryDisconnect {
+            pendingRetryDisconnect := {name: name, epoch: actionEpoch}
+            LogMsg("KS retry cancellation queued same-target disconnect: '" name "'")
+            return "ok"
+        }
+        return "busy"
+    }
     FindAllAudioDevices()
     dev := FindDevByName(name)
     if !dev
@@ -1327,7 +1364,9 @@ DoAction(name, action) {
     gen := BeginDeviceOp(name, action)
     try {
         SetTrayLoading(true)
-        payload := '{"address":' JsonStr(Format("{:012X}", NumGet(dev.info, 8, "uint64"))) ',"action":' JsonStr(action) ',"mic":' (SettingRead("auto_mic_switch", "1") = "1" ? "true" : "false") '}'
+        deviceOps[name].address := Format("{:012X}", NumGet(dev.info, 8, "uint64"))
+        deviceOps[name].micRequested := SettingRead("auto_mic_switch", "1") = "1"
+        payload := '{"address":' JsonStr(deviceOps[name].address) ',"action":' JsonStr(action) ',"mic":' (deviceOps[name].micRequested ? "true" : "false") '}'
         if !StartBackgroundJob("bluetooth", payload, (result, job) => FinishBluetoothAction(name, action, gen, result), 30000)
             throw Error("Bluetooth worker launch failed")
         return "ok"
@@ -1348,7 +1387,8 @@ StartLinkVerify(name, gen) {
 }
 
 LinkVerifyTick(name, left, gen) {
-    if !OpCurrent(name, gen)
+    global deviceOps, actionEpoch
+    if (!CanRoute(name, gen) || deviceOps[name].retryEpoch != actionEpoch || deviceOps[name].state = "retry_cancelled")
         return
     if IsLinkUp(name) {
         SetOpState(name, gen, "link_up")
@@ -1358,6 +1398,8 @@ LinkVerifyTick(name, left, gen) {
         return
     }
     if (left <= 1) {
+        if ScheduleKsConnectRetry(name, gen, "link")
+            return
         SetOpState(name, gen, "link_failed")
         LogMsg("link not verified before deadline: '" name "'", "WARN")
         PetUpdate("fail")
@@ -1367,12 +1409,87 @@ LinkVerifyTick(name, left, gen) {
     SetTimer(() => LinkVerifyTick(name, left - 1, gen), -1200)
 }
 
+; One bounded delayed KS retry after a successful submission whose link did
+; not materialize. This timer never blocks the GUI or switches backends.
+ScheduleKsConnectRetry(name, gen, reason) {
+    global deviceOps, actionEpoch
+    if !CanRoute(name, gen)
+        return false
+    op := deviceOps[name]
+    if (op.backend != "ks" || op.retryCount != 0 || op.retryEpoch != actionEpoch || !RegExMatch(op.address, "i)^[0-9a-f]{12}$"))
+        return false
+    op.retryCount := 1
+    op.retryEpoch := actionEpoch
+    op.retryReason := reason
+    SetOpState(name, gen, "link_retry_wait")
+    LogMsg("KS " reason " not verified; one same-target reconnect scheduled after 15 seconds: '" name "'", "WARN")
+    PushEvent("toast", JsonStr((reason = "audio" ? "耳机播放端点暂未就绪" : "耳机链路暂未建立") "；15 秒后仅对这副耳机重试一次，新操作会取消重试"))
+    SetTimer(() => TryKsConnectRetry(name, gen, op.retryEpoch), -15000)
+    return true
+}
+
+TryKsConnectRetry(name, gen, epoch) {
+    global deviceOps, actionEpoch, busy
+    if (!CanRoute(name, gen) || actionEpoch != epoch || deviceOps[name].state != "link_retry_wait")
+        return
+    if (IsLinkUp(name) && AudioEndpointIdActive(deviceOps[name].renderId, 0)) {
+        LogMsg("KS link and exact render active during retry wait; no second request: '" name "'")
+        LinkVerifyTick(name, 1, gen)
+        return
+    }
+    if busy
+        return
+    op := deviceOps[name]
+    busy := true
+    SetOpState(name, gen, "link_retrying")
+    SetTrayLoading(true)
+    payload := '{"address":' JsonStr(op.address) ',"action":"connect","mic":' (op.micRequested ? "true" : "false") '}'
+    if !StartBackgroundJob("bluetooth", payload, (result, job) => FinishKsConnectRetry(name, gen, epoch, result), 30000) {
+        busy := false
+        SetTrayLoading(false)
+        SetOpState(name, gen, "service_failed")
+        PushEvent("linkfail", JsonStr(name))
+        PushEvent("toast", JsonStr("耳机重试任务启动失败，请查看日志"))
+    }
+}
+
+FinishKsConnectRetry(name, gen, epoch, result) {
+    global actionEpoch, deviceOps, busy
+    if (!CanRoute(name, gen) || actionEpoch != epoch || deviceOps[name].state != "link_retrying") {
+        busy := false
+        SetTrayLoading(false)
+        DrainRetryDisconnect()
+        return
+    }
+    try FinishBluetoothAction(name, "connect", gen, result)
+    finally DrainRetryDisconnect()
+}
+
+DrainRetryDisconnect() {
+    global pendingRetryDisconnect, actionEpoch
+    if !IsObject(pendingRetryDisconnect)
+        return
+    queued := pendingRetryDisconnect
+    pendingRetryDisconnect := 0
+    if queued.epoch = actionEpoch
+        SetTimer(() => RunQueuedRetryDisconnect(queued.name, queued.epoch), -1)
+}
+
+RunQueuedRetryDisconnect(name, epoch) {
+    global actionEpoch
+    if actionEpoch != epoch
+        return
+    if DoAction(name, "disconnect") != "ok" {
+        PushEvent("downfail", JsonStr(name))
+        PushEvent("toast", JsonStr("取消连接后的断开请求未能启动，请查看日志"))
+    }
+}
+
 StartDownVerify(name, gen) {
     DownVerifyTick(name, 8, gen)
 }
 
 DownVerifyTick(name, left, gen) {
-    global deviceOps, busy
     if !OpCurrent(name, gen)
         return
     if !IsLinkUp(name) {
@@ -1383,31 +1500,15 @@ DownVerifyTick(name, left, gen) {
         return
     }
     if (left <= 1) {
-        if !deviceOps[name].escalated {
-            deviceOps[name].escalated := true
-            busy := true
-            payload := '{"address":' JsonStr(name) ',"action":"disconnect","mic":false,"escalateOnly":true}'
-            if StartBackgroundJob("bluetooth", payload, (result, job) => FinishDownEscalation(name, gen, result), 15000)
-                return
-            busy := false
-        }
         SetOpState(name, gen, "disconnect_failed")
-        LogMsg("link still up after AVRCP escalation: '" name "'", "WARN")
+        LogMsg("link still up after disconnect deadline: '" name "'", "WARN")
         PushEvent("downfail", JsonStr(name))
         return
     }
     SetTimer(() => DownVerifyTick(name, left - 1, gen), -1200)
 }
 
-FinishDownEscalation(name, gen, result) {
-    global busy
-    busy := false
-    if OpCurrent(name, gen)
-        DownVerifyTick(name, 8, gen)
-}
-
-; Automatic whole-radio reset removed: endpoint absence is not evidence of a
-; broken radio. No background worker, delayed reconnect, or hidden retry loop.
+; Whole-radio reset and Bluetooth service fallback remain removed.
 
 IsLinkUp(name) {
     searchParams := Buffer(40, 0)
@@ -1510,45 +1611,6 @@ DoUpdate(id) {
 
 
 ; ------------------------- Helpers (upstream core) -------------------
-IsSuccessfulOperation(action, audioProfile, hfStatus, a2Status) {
-    if (action = "connect" && audioProfile = "a2dp")
-        return (a2Status = "ok" && (hfStatus = "ok" || hfStatus = "absent"))
-    allExposedSucceeded := (hfStatus = "ok" || hfStatus = "absent")
-        && (a2Status = "ok" || a2Status = "absent")
-    if (action = "disconnect")
-        return allExposedSucceeded   ; 断开：服务全 absent=本来就关着，幂等成功；链路是否真断由 StartDownVerify 核实
-    atLeastOneProfileExists := (hfStatus = "ok" || a2Status = "ok")
-    return (allExposedSucceeded && atLeastOneProfileExists)
-}
-
-ToggleBluetoothService(deviceInfo, serviceGuidStr, toggleOn, maxRetries) {
-    serviceGuid := Buffer(16)
-    DllCall("ole32\CLSIDFromString", "wstr", serviceGuidStr, "ptr", serviceGuid)
-    toggle := toggleOn
-    retryCount := 0
-    lastHR := 0
-    loop {
-        hr := DllCall("Bthprops.cpl\BluetoothSetServiceState", "ptr", 0, "ptr", deviceInfo, "ptr", serviceGuid, "int", toggle, "uint")
-        lastHR := hr
-        if (hr = 0) {
-            if (toggle = toggleOn)
-                return "ok"
-            toggle := !toggle
-        } else if (hr = 87 || hr = 0x80070057) {
-            if (toggle = toggleOn && toggleOn = 0)
-                return "ok"
-            toggle := !toggle
-        } else if (hr = 1060)
-            return "absent"
-        else if (hr = 1168 && toggleOn = 0)
-            return "absent"   ; 1168=服务记录已不在：关已经关了的东西，幂等视为成功（v1.9.12：不再限 HFP）
-        retryCount++
-        if (retryCount >= maxRetries)
-            return "fail:0x" . Format("{:08X}", lastHR)
-    }
-}
-
-
 AtomicWriteText(path, text) {
     temp := path "." DllCall("GetCurrentProcessId") "." A_TickCount ".tmp"
     try {
@@ -1572,12 +1634,14 @@ DeviceAudioState(name, connected) {
     if !deviceOps.Has(name)
         return "unknown"
     if !connected {
+        if (deviceOps[name].state = "link_retry_wait" || deviceOps[name].state = "link_retrying")
+            return deviceOps[name].state
         deviceOps[name].state := "disconnected"
         return "disconnected"
     }
     if (deviceOps[name].state = "ready" && deviceOps[name].gen != routeOwner)
         return "unknown"
-    if (deviceOps[name].state = "ready" && !AudioRouteMatches(DeviceLabel(name)))
+    if (deviceOps[name].state = "ready" && !AudioRouteMatchesId(deviceOps[name].renderId))
         deviceOps[name].state := "audio_lost"
     return deviceOps[name].state
 }
@@ -1599,28 +1663,47 @@ DeviceLabel(key) {
 }
 
 FinishBluetoothAction(name, action, gen, result) {
-    global busy
+    global busy, deviceOps
     detail := ""
-    for field in ["hfp", "a2dp", "control", "error"]
+    for field in ["backend", "container", "renderId", "captureId", "requested", "error"]
         if result.Has(field)
             detail .= " " field "=" result[field]
-    LogMsg("bluetooth worker " action " address=" name " status=" result["status"] detail)
+    status := result.Get("status", "fail")
+    LogMsg("bluetooth worker " action " address=" name " status=" status detail)
     try {
         if !OpCurrent(name, gen)
             return
-        if result["status"] = "ok" {
+        valid := status = "ok" && result.Get("backend", "") = "ks"
+        valid := valid && RegExMatch(result.Get("container", ""), "i)^\{?[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}\}?$")
+        valid := valid && RegExMatch(result.Get("requested", "") "", "^\d+$")
+        if (action = "connect")
+            valid := valid && ValidEndpointId(result.Get("renderId", ""), 0)
+        if valid {
+            deviceOps[name].backend := result["backend"]
+            deviceOps[name].container := result["container"]
+            deviceOps[name].renderId := result.Get("renderId", "")
+            captureId := result.Get("captureId", "")
+            deviceOps[name].captureId := ValidEndpointId(captureId, 1) ? captureId : ""
             if action = "connect"
                 StartLinkVerify(name, gen)
             else
                 StartDownVerify(name, gen)
         } else {
             SetOpState(name, gen, "service_failed")
+            reason := status = "ok" ? "蓝牙操作结果缺少可信的设备或音频端点信息" : result.Get("error", "蓝牙操作未完成")
+            if (Trim(reason) = "")
+                reason := "蓝牙操作未完成"
             PushEvent(action = "connect" ? "linkfail" : "downfail", JsonStr(name))
+            PushEvent("toast", JsonStr("耳机" (action = "connect" ? "连接" : "断开") "失败：" SubStr(reason, 1, 160)))
         }
     } finally {
         busy := false
         SetTrayLoading(false)
     }
+}
+
+ValidEndpointId(id, flow) {
+    return RegExMatch(id, "i)^\{0\.0\." flow "\.\d{8}\}\.\{[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}\}$")
 }
 DisconnectQueue(queue) {
     global busy
@@ -1763,12 +1846,17 @@ CleanManagedTemp() {
         root := A_Temp "\" kind "\"
         loop files root "*", "D" {
             name := A_LoopFileName
-            pattern := kind = "AirPodsBuddy_app" ? "^\d+\.\d+\.\d+-(\d+)$" : "^(\d+)-\d+-\d+$"
-            if (RegExMatch(name, pattern, &m) && A_LoopFileTimeModified < cutoff && !ProcessExist(m[1]+0)) {
+            pid := ManagedTempPid(kind, name)
+            if (pid > 0 && A_LoopFileTimeModified < cutoff && !ProcessExist(pid)) {
                 path := A_LoopFileFullPath
                 if SubStr(path, 1, StrLen(root)) = root
                     try DirDelete(path, true)
             }
         }
     }
+}
+
+ManagedTempPid(kind, name) {
+    pattern := kind = "AirPodsBuddy_app" ? "^\d+\.\d+\.\d+-(\d+)(?:-[0-9a-fA-F]{32})?$" : "^(\d+)-\d+-\d+$"
+    return RegExMatch(name, pattern, &m) ? m[1]+0 : 0
 }

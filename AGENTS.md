@@ -13,7 +13,7 @@
   - `mac/AirPodsBuddyMac/` — Mac 版（Swift 菜单栏应用，macOS CI 编译和单测已通过，真机验收另记）
   - `doc/` — 知识库（**必读**，见下）
   - `tools/` — 构建工具（gitignore，下载方式见 doc/02 §7）
-- **当前版本**：Windows v1.9.19（已部署、未发 Release；完整审计代码修复）；Mac 状态以 doc/06 与真实构建记录为准
+- **当前版本**：Windows 源码 v1.9.20（KS 后端候选、未发 Release；严格真机第2轮未通过，安装版保持v1.9.19）；Mac 状态以 doc/06 与真实构建记录为准
 
 ## 必读文档（按角色）
 
@@ -88,3 +88,6 @@ swift build -c release        # 需要 macOS 13+ 和 Xcode CLT
 
 ## 当前维护路径
 代码问题按 `doc/07-审计修复清单.md` 核对，当前架构以 `doc/02-架构与原理.md` 为准，更新器变更必须读 `doc/08-更新与后台任务.md`。第一批历史听音与本轮稳定性记录分开，不将测试脚本路由成功冒充安装版全场景成功。
+
+## v1.9.20 最新交付入口
+完整离线 `python tests/run_suite.py`，165 项通过。连接已改为精确 ContainerId + KS 单次请求；不再启停蓝牙服务。原始失败与修正后结果均见 `verification/2026-09-26-ks/VERIFICATION.txt`，最终听音和五轮稳定性独立验收。每次启动资源目录含 GUID，防同版本 PID 重用加载旧模块。

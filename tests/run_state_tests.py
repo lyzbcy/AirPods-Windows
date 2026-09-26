@@ -3,22 +3,25 @@ import subprocess,sys
 sys.stdout.reconfigure(encoding='utf-8')
 ROOT=Path(__file__).resolve().parents[1]
 source=(ROOT/'airpods_buddy.ahk').read_text(encoding='utf-8-sig')
-names=['DoAction','BeginDeviceOp','OpCurrent','SetOpState','CanRoute','FindDevByName','IsSuccessfulOperation','AtomicWriteText','SavePriority','LoadPriority','SettingRead','SettingWrite','Join','SortDevices','DevLess','DeviceSortKey','IsAppleDevice','DeviceAudioState','DeviceKey','DeviceLabel','JsonStr','FinishBluetoothAction','DaysSince','ValidBridgeArgs','AutostartEnabled','AutostartSet','WatchAudioRoutes']
+names=['DoAction','BeginDeviceOp','OpCurrent','SetOpState','CanRoute','FindDevByName','ValidEndpointId','AtomicWriteText','SavePriority','LoadPriority','SettingRead','SettingWrite','Join','SortDevices','DevLess','DeviceSortKey','IsAppleDevice','DeviceAudioState','DeviceKey','DeviceLabel','JsonStr','FinishBluetoothAction','DaysSince','ValidBridgeArgs','AutostartEnabled','AutostartSet','WatchAudioRoutes']
 body=r'''
 #Requires AutoHotkey v2.0
 #SingleInstance Off
+#Warn All, StdOut
 FileEncoding("UTF-8-RAW")
 OnError((e, mode) => (FileAppend("ERROR " e.Message " line=" e.Line "`n", "*"), ExitApp(2)))
 SETTINGS_PATH := A_ScriptDir "\settings-test.ini"
 failures := 0, busy := false, loading := false, maxRetries := 1
 routeEvents := []
-deviceOps := Map(), operationSerial := 0, routeOwner := 0
+linkStarts := 0
+deviceOps := Map(), operationSerial := 0, routeOwner := 0, actionEpoch := 0, pendingRetryDisconnect := 0
 devices := [{name:"A",info:Buffer(560)}]
 result := DoAction("A", "connect")
 Check("backend_exception_returns_failure", result = "fail")
 Check("backend_exception_releases_busy", !busy && !loading)
 Check("failed_task_state_preserved", deviceOps["A"].state = "service_failed")
 routeFresh := true
+deviceOps["A"].renderId := "{0.0.0.00000000}.{AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA}"
 deviceOps["A"].state := "ready"
 Check("ready_state_revalidated", DeviceAudioState("A", true) = "ready")
 routeFresh := false
@@ -38,6 +41,15 @@ Check("calendar_day_arithmetic", DaysSince(DateAdd(A_Now, -16, "days")) = 16)
 busy := true, loading := true
 FinishBluetoothAction("A", "connect", deviceOps["A"].gen, Map("status", "fail"))
 Check("worker_failure_releases_busy", !busy && !loading)
+gen := BeginDeviceOp("A", "connect")
+FinishBluetoothAction("A", "connect", gen, Map("status", "ok", "backend", "ks", "container", "{11111111-1111-1111-1111-111111111111}", "renderId", "{0.0.0.00000000}.{AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA}", "captureId", "{0.0.1.00000000}.{BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB}", "requested", 2))
+Check("ks_result_saves_exact_ids_before_verify", linkStarts = 1 && deviceOps["A"].renderId = "{0.0.0.00000000}.{AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA}" && deviceOps["A"].captureId != "")
+gen := BeginDeviceOp("A", "connect")
+FinishBluetoothAction("A", "connect", gen, Map("status", "ok", "backend", "ks", "container", "{11111111-1111-1111-1111-111111111111}", "renderId", "{0.0.0.00000000}.{AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA}", "requested", 0))
+Check("healthy_zero_request_still_verifies", linkStarts = 2 && deviceOps["A"].state = "connect")
+gen := BeginDeviceOp("A", "connect")
+FinishBluetoothAction("A", "connect", gen, Map("status", "ok", "backend", "ks", "container", "{11111111-1111-1111-1111-111111111111}", "requested", 1))
+Check("missing_render_id_never_starts_verify", linkStarts = 2 && deviceOps["A"].state = "service_failed")
 devices := []
 SortDevices()
 Check("empty_list_sort", devices.Length = 0)
@@ -58,6 +70,7 @@ Check("setting_update_after_unlock", SettingWrite("test", "after") && SettingRea
 devices := [{id:"001122334455",name:"Headphones",connected:true}]
 routeEvents := [], routeFresh := false
 gen := BeginDeviceOp("001122334455", "connect")
+deviceOps["001122334455"].renderId := "{0.0.0.00000000}.{AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA}"
 SetOpState("001122334455", gen, "ready")
 WatchAudioRoutes()
 Check("hidden_ui_observes_route_loss", deviceOps["001122334455"].state = "audio_lost" && routeEvents.Length = 1)
@@ -113,10 +126,12 @@ PushEvent(event, data) {
     routeEvents.Push(event)
 }
 StartLinkVerify(*) {
+    global linkStarts
+    linkStarts++
 }
 StartDownVerify(*) {
 }
-AudioRouteMatches(*) {
+AudioRouteMatchesId(*) {
     global routeFresh
     return routeFresh
 }

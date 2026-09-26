@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param([switch]$Deploy,[string]$Destination=(Join-Path ([Environment]::GetFolderPath('Desktop')) 'AirPodsBuddy'))
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot
@@ -13,7 +13,7 @@ try {
     $inputPaths=@('airpods_buddy.ahk','webui\index.html','webui\index_built.html',
         'webui\pet.html','webui\pet_built.html','webui\build_ui.ps1','tools\noise_mode.ps1',
         'tools\ahk2exe_stable\Ahk2Exe.exe','tools\ahk_v2_portable\AutoHotkey64.exe',
-        'scripts\background-worker.ps1','scripts\UpdateCore.psm1','scripts\update-swap.ps1')
+        'scripts\background-worker.ps1','scripts\KsBluetooth.cs','scripts\KsBluetooth.psm1','THIRD_PARTY_NOTICES.md','scripts\UpdateCore.psm1','scripts\update-swap.ps1')
     $inputPaths+=@(Get-ChildItem (Join-Path $root 'lib') -Recurse -File |
         Where-Object {$_.Extension -in '.ahk','.dll'} |
         ForEach-Object {$_.FullName.Substring($root.Length+1)})

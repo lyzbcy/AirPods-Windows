@@ -84,9 +84,58 @@ FindAudioEndpointId(name, prefix, backend?) {
     }
 }
 
+; Production routing uses the worker's exact MMDevice ID, never a display name.
+AudioEndpointIdActive(id, flow, backend?) {
+    if (id = "" || InStr(id, "SWD\"))
+        return false
+    try {
+        api := IsSet(backend) ? backend : CoreAudioBackend()
+        for row in api.Endpoints(flow, 1)
+            if (StrLower(row.id) = StrLower(id) && row.state = 1)
+                return true
+    } catch as e {
+        LogMsg("audio endpoint state unavailable: " e.Message, "WARN")
+    }
+    return false
+}
+
+RenderSwitchToId(id, backend?) {
+    try {
+        api := IsSet(backend) ? backend : CoreAudioBackend()
+        return AudioEndpointIdActive(id, 0, api) && SetAudioDefault(id, 0, api, true)
+    } catch as e {
+        LogMsg("render route unavailable: " e.Message, "WARN")
+        return false
+    }
+}
+
+CaptureSwitchToId(id, backend?) {
+    try {
+        api := IsSet(backend) ? backend : CoreAudioBackend()
+        return AudioEndpointIdActive(id, 1, api) && SetAudioDefault(id, 1, api, true)
+    } catch as e {
+        LogMsg("capture route unavailable: " e.Message, "WARN")
+        return false
+    }
+}
+
+AudioRouteMatchesId(id, backend?) {
+    try {
+        api := IsSet(backend) ? backend : CoreAudioBackend()
+        if !AudioEndpointIdActive(id, 0, api)
+            return false
+        loop 3
+            if StrLower(api.DefaultId(0, A_Index - 1)) != StrLower(id)
+                return false
+        return AudioEndpointIdActive(id, 0, api)
+    } catch {
+        return false
+    }
+}
+
 ; Success requires three S_OK results AND three matching readbacks. Restore
 ; pre-operation defaults on partial failure, never change visibility/state.
-SetAudioDefault(id, flow, backend?) {
+SetAudioDefault(id, flow, backend?, requireActive := false) {
     if (id = "" || InStr(id, "SWD\"))
         return false
     previous := [], attempted := [], success := false
@@ -104,6 +153,11 @@ SetAudioDefault(id, flow, backend?) {
             if (StrLower(api.DefaultId(flow, A_Index - 1)) != StrLower(id))
                 throw Error("default readback mismatch, role " (A_Index - 1))
         }
+        ; Exact-ID routing must still be ACTIVE after all three role readbacks.
+        ; Keep this check inside the transaction so a stale endpoint triggers
+        ; the same conditional rollback as a failed role/readback.
+        if requireActive && !AudioEndpointIdActive(id, flow, api)
+            throw Error("endpoint became inactive during route verification")
         success := true
         return true
     } catch as e {

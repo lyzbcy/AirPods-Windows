@@ -7,6 +7,7 @@ on:
       - 'scripts/**'
       - 'tests/**'
       - 'webui/**'
+      - 'THIRD_PARTY_NOTICES.md'
       - '.github/workflows/windows-app.yml'
   pull_request:
 jobs:
@@ -35,7 +36,11 @@ jobs:
         run: |
           python tests/run_behavior.py airpods_buddy.ahk
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python tests/ks_retry_behavior.py
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
           python tests/run_state_tests.py
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python tests/resource_identity_test.py
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           python tests/run_ahk.py tests/audio_routing_test.ahk
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
@@ -47,6 +52,8 @@ jobs:
           powershell -NoProfile -ExecutionPolicy Bypass -File tests/windows_regression.ps1
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           powershell -NoProfile -ExecutionPolicy Bypass -File tests/update_health_test.ps1
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          powershell -NoProfile -ExecutionPolicy Bypass -File tests/ks_backend_test.ps1
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           node tests/rpc_test.cjs
           if ($LASTEXITCODE) { exit $LASTEXITCODE }

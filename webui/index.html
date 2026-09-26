@@ -554,7 +554,7 @@
     <div class="set-row">
       <div class="set-info">
         <b>使用耳机麦克风</b>
-        <p>开：连上后自动把默认麦克风切到耳机；关：完全不启用耳机麦克风（稳定模式，可避免部分电脑上声音时有时无）。改动在下次连接生效</p>
+        <p>开：连接时请求耳机麦克风，并在端点就绪后切换默认麦克风；关：不请求麦克风连接，也不切换默认麦克风。不会启停用户的蓝牙服务或驱动。改动在下次连接生效</p>
       </div>
       <label class="switch"><input type="checkbox" id="swMic"><span class="slider"></span></label>
     </div>
@@ -698,6 +698,15 @@ async function refreshList(){
   devices=d;
   render();
 }
+function isConnecting(d){return ['connect','link_pending','link_retry_wait','link_retrying'].includes(d.audioState)}
+function deviceAction(d){return d.connected||isConnecting(d)?'disconnect':'connect'}
+function deviceActionTitle(d){return isConnecting(d)?'取消连接':(d.connected?'断开':'连接')}
+function deviceStatus(d){
+  if(d.audioState==='link_retry_wait')return '链路未就绪 · 等待一次重试（可取消）';
+  if(d.audioState==='link_retrying')return '正在重试连接（仅一次，可取消）';
+  if(isConnecting(d))return '正在连接（可取消）';
+  return d.connected?(d.audioState==='ready'?'默认音频已确认':'蓝牙已连接 · 音频未确认'):'未连接';
+}
 function render(){
   renderOrb();
   const box=document.getElementById('devices');
@@ -710,7 +719,7 @@ function render(){
   }
   const on=devices.filter(d=>d.connected).length;
   const bd=document.getElementById('badge');
-  bd.textContent=on?('蓝牙已连 '+on+' 台'):'未连接';
+  bd.textContent=devices.some(isConnecting)?'正在连接…':(on?('蓝牙已连 '+on+' 台'):'未连接');
   bd.classList.toggle('on',on>0);
   box.innerHTML=devices.map((d,i)=>`
     <div class="card" style="animation-delay:${i*60}ms">
@@ -718,14 +727,14 @@ function render(){
       <div class="info">
         <div class="name" title="${esc(d.name)}"><span class="txt">${esc(d.name)}</span>
           <span class="prio-mark">优先 ${i+1}</span></div>
-        <div class="st ${d.connected?'ok':''}" data-st="${esc(d.id)}"><span class="dot ${d.connected?'on':''}"></span>${d.connected?(d.audioState==='ready'?'默认音频已确认':'蓝牙已连接 · 音频未确认'):'未连接'}</div>
+        <div class="st ${d.connected?'ok':''}" data-st="${esc(d.id)}"><span class="dot ${d.connected?'on':''}"></span>${deviceStatus(d)}</div>
       </div>
       <div class="prio">
         <button class="pbtn" data-up="${i}" ${i===0?'disabled':''} title="提高优先级">▲</button>
         <button class="pbtn" data-down="${i}" ${i===devices.length-1?'disabled':''} title="降低优先级">▼</button>
       </div>
-      <button class="act ${d.connected?'on':''}" data-act="${d.connected?'disconnect':'connect'}" data-name="${esc(d.id)}" title="${d.connected?'断开':'连接'}">
-        ${d.connected?stopSvg:playSvg}</button>
+      <button class="act ${d.connected?'on':''}" data-act="${deviceAction(d)}" data-name="${esc(d.id)}" title="${deviceActionTitle(d)}">
+        ${deviceAction(d)==='disconnect'?stopSvg:playSvg}</button>
       <button class="del" data-del="${esc(d.id)}" title="删除">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
           <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
@@ -747,8 +756,8 @@ function renderOrb(){
   const t=orbTarget();
   orb.className='orb'+(t.connected?' on':'');
   orb.innerHTML=`${art(kindOf(t.name))}<span class="oname">${esc(t.name)}</span>
-    <span class="ost">${t.connected?'蓝牙已连接 · 点按断开':'未连接 · 点按连接'}</span>`;
-  orb.onclick=()=>doAction(null,t.id,t.connected?'disconnect':'connect');
+    <span class="ost">${isConnecting(t)?deviceStatus(t)+' · 点按取消':(t.connected?'蓝牙已连接 · 点按断开':'未连接 · 点按连接')}</span>`;
+  orb.onclick=()=>doAction(null,t.id,deviceAction(t));
   hint.textContent=t.connected?('「'+t.name+'」蓝牙已连接'):('下一步将连接「'+t.name+'」');
 }
 async function movePrio(i,dir){

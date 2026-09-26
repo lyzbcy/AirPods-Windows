@@ -24,3 +24,6 @@ mac/AirPodsBuddyMac/.build/
 !tools/noise_mode.ps1
 apb*_*.ahk
 chk_*.ahk
+
+# Python test bytecode
+__pycache__/
