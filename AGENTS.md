@@ -91,3 +91,6 @@ swift build -c release        # 需要 macOS 13+ 和 Xcode CLT
 
 ## v1.9.20 最新交付入口
 完整离线 `python tests/run_suite.py`，165 项通过。连接已改为精确 ContainerId + KS 单次请求；不再启停蓝牙服务。原始失败与修正后结果均见 `verification/2026-09-26-ks/VERIFICATION.txt`，最终听音和五轮稳定性独立验收。每次启动资源目录含 GUID，防同版本 PID 重用加载旧模块。
+
+## 2026-09-26 发布条件复核追加
+用户已授权“没有问题就发版”；已发现P0连续连接失败与旧 micOff 偏好语义回归，条件不成立。对照实验在手机/Mac蓝牙关闭后第2轮仍 link_failed；安装/Release 未执行。资产名 `AirPodsBuddy-Windows.zip` 已在本地通过更新器校验，不能当作真机稳定通过。完整当前证据 `verification/2026-09-26-release/VERIFICATION.txt`。

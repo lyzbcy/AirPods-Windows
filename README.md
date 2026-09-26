@@ -111,4 +111,4 @@ MIT
 
 ## 维护与验收
 
-当前开发版 v1.9.19，尚未发布 GitHub Release；公开下载页仍按其已发布版本提供安装包。开发入口 [SKILL.md](SKILL.md)，审计清单 [doc/07-审计修复清单.md](doc/07-审计修复清单.md)。Windows 与 Mac 应用各有独立 CI，不把 Stream Deck helper 的构建当主应用验收。
+当前源码候选 v1.9.20，尚未发布 GitHub Release；公开下载页仍按已发布版本提供安装包。开发入口 [SKILL.md](SKILL.md)，审计清单 [doc/07-审计修复清单.md](doc/07-审计修复清单.md)。Windows 与 Mac 应用各有独立 CI，不把 Stream Deck helper 的构建当主应用验收。
