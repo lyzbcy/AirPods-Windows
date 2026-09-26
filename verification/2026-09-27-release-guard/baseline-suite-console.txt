@@ -1,0 +1,15 @@
+behavior PASS=9 EXIT=0
+state PASS=50 EXIT=0
+resource_identity PASS=9 EXIT=0
+ks_retry PASS=34 EXIT=0
+p0_timeline PASS=1 EXIT=0
+strict_gate PASS=1 EXIT=0
+target_endpoint PASS=6 EXIT=0
+audio PASS=25 EXIT=0
+background PASS=5 EXIT=0
+rpc PASS=12 EXIT=0
+windows PASS=20 EXIT=0
+update_health PASS=3 EXIT=0
+ks_backend PASS=28 EXIT=0
+mic_migration PASS=13 EXIT=0
+OFFLINE_PASS assertions=216 suites=14

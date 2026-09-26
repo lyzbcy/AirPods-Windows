@@ -1,0 +1,544 @@
+--- /dev/null
++++ b/.gitattributes
+@@ -0,0 +1 @@
++verification/2026-09-27-release-guard/ROLLBACK.sh text eol=lf
+--- a/tests/strict_gate.py
++++ b/tests/strict_gate.py
+@@ -5,6 +5,7 @@
+ """
+ from pathlib import Path
+ import argparse
++import hashlib
+ import json
+ import re
+ import subprocess
+@@ -13,6 +14,13 @@
+ 
+ ROOT = Path(__file__).resolve().parents[1]
+ DEFAULT_OUT = ROOT / 'verification/2026-09-26-final/strict-gate'
++RUNTIME_INPUTS = ('airpods_buddy.ahk', 'lib/AudioRouting.ahk',
++                  'lib/BackgroundJobs.ahk', 'scripts/background-worker.ps1',
++                  'scripts/KsBluetooth.cs', 'scripts/KsBluetooth.psm1')
++
++
++def sha256(path):
++    return hashlib.sha256(path.read_bytes()).hexdigest().upper()
+ 
+ 
+ def parse_inspect(output, address, render):
+@@ -70,6 +78,8 @@
+     parser.add_argument('--dwell', type=int, default=15)
+     parser.add_argument('--single-request', action='store_true',
+                         help='diagnostic connect submits one target KS request without delayed retry')
++    parser.add_argument('--release-gate', action='store_true',
++                        help='require five unmodified production-path cycles and emit a source-bound pass record')
+     parser.add_argument('--output', type=Path, default=DEFAULT_OUT)
+     args = parser.parse_args()
+     if args.self_test:
+@@ -79,6 +89,8 @@
+         parser.error('exact target address required')
+     if not 1 <= args.cycles <= 5 or not 0 <= args.dwell <= 30:
+         parser.error('bounded cycles/dwell required')
++    if args.release_gate and (args.cycles != 5 or args.dwell < 15 or args.single_request):
++        parser.error('release gate requires five cycles, >=15s dwell and no diagnostic retry suppression')
+     settings = args.settings.resolve() if args.settings else None
+     if not settings or not settings.is_file() or ROOT not in settings.parents:
+         parser.error('existing repository-local settings fixture required')
+@@ -88,7 +100,11 @@
+     out = args.output.resolve()
+     if ROOT not in out.parents:
+         parser.error('output must remain inside repository')
++    if args.release_gate and (out / 'results.json').exists():
++        parser.error('release gate requires a fresh output directory')
+     out.mkdir(parents=True, exist_ok=True)
++    source_hash, settings_hash = sha256(ROOT / 'airpods_buddy.ahk'), sha256(settings)
++    runtime_hashes = {name: sha256(ROOT / name) for name in RUNTIME_INPUTS}
+     probe_command = ['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
+                      "Import-Module './scripts/KsBluetooth.psm1' -Force; "
+                      f"Get-KsBluetoothProbe '{address}' | ConvertTo-Json -Depth 8 -Compress"]
+@@ -112,8 +128,9 @@
+         text = (p.stdout + p.stderr).decode('utf-8-sig', errors='replace')
+         (out / f'{cycle}-{phase}.txt').write_text(text, encoding='utf-8')
+         record = {'cycle': cycle, 'phase': phase, 'command': command, 'exit': p.returncode,
+-                  'seconds': round(time.monotonic() - started, 2), 'file': f'{cycle}-{phase}.txt'}
+-        if args.single_request and mode == 'connect':
++                  'seconds': round(time.monotonic() - started, 2), 'file': f'{cycle}-{phase}.txt',
++                  'logSha256': sha256(out / f'{cycle}-{phase}.txt')}
++        if (args.single_request or args.release_gate) and mode == 'connect':
+             record['ksRequests'] = parse_connect_requests(text)
+         if mode == 'inspect' and p.returncode == 0:
+             record.update(parse_inspect(text, address, render))
+@@ -125,6 +142,8 @@
+             raise RuntimeError(f'{cycle}-{phase} source action failed with exit {p.returncode}')
+         if args.single_request and mode == 'connect' and record['ksRequests'] != [1]:
+             raise RuntimeError(f'{cycle}-{phase} expected exactly one target KS request')
++        if args.release_gate and mode == 'connect' and record['ksRequests'] not in ([1], [1, 1]):
++            raise RuntimeError(f'{cycle}-{phase} production connect request budget violated')
+         return record
+ 
+     def check(row, link, state, target_roles, mic_roles):
+@@ -153,6 +172,17 @@
+         (out / 'failure.txt').write_text(str(exc), encoding='utf-8')
+         print('GATE_FAIL', exc)
+         raise SystemExit(5)
++    if args.release_gate:
++        if ({name: sha256(ROOT / name) for name in RUNTIME_INPUTS} != runtime_hashes
++                or sha256(settings) != settings_hash):
++            raise RuntimeError('runtime source or settings changed during release gate')
++        proof = {'result': 'GATE_PASS', 'releaseGate': True, 'cycles': 5,
++                 'dwell': args.dwell, 'productionPath': True, 'singleRequest': False, 'address': address,
++                 'renderId': render, 'settings': str(settings),
++                 'settingsSha256': settings_hash, 'sourceSha256': source_hash,
++                 'runtimeInputs': runtime_hashes,
++                 'resultsSha256': sha256(out / 'results.json')}
++        (out / 'gate-pass.json').write_text(json.dumps(proof, ensure_ascii=False, indent=2), encoding='utf-8')
+     print(f'GATE_PASS cycles={args.cycles} dwell={args.dwell}')
+ 
+ 
+--- a/tests/run_suite.py
++++ b/tests/run_suite.py
+@@ -16,6 +16,8 @@
+     ('ks_retry', ['python', 'tests/ks_retry_behavior.py']),
+     ('p0_timeline', ['python', 'tests/p0_timeline.py', '--self-test']),
+     ('strict_gate', ['python', 'tests/strict_gate.py', '--self-test']),
++    ('release_precheck', ['python', 'tests/release_precheck_test.py']),
++    ('audio_sessions', ['python', 'tests/audio_sessions.py', '--self-test']),
+     ('target_endpoint', ['python', 'tests/target_endpoint_test.py']),
+     ('audio', ['python', 'tests/run_ahk.py', 'tests/audio_routing_test.ahk']),
+     ('background', ['python', 'tests/run_ahk.py', 'tests/background_job_test.ahk']),
+--- /dev/null
++++ b/scripts/release-precheck.py
+@@ -0,0 +1,187 @@
++"""Offline release guard: production gate, installed acceptance, packaged EXE parity.
++
++This script reads evidence and artifacts. It never connects hardware, deploys, or publishes.
++"""
++from pathlib import Path
++import argparse
++import hashlib
++import json
++import re
++import sys
++import zipfile
++
++
++ROOT = Path(__file__).resolve().parents[1]
++PHASES = ('disconnect', 'after-disconnect', 'delayed-disconnect',
++          'connect', 'after-connect', 'delayed-connect')
++SHA256 = re.compile(r'^[0-9A-F]{64}$')
++ADDRESS = re.compile(r'^[0-9A-F]{12}$')
++RUNTIME_INPUTS = ('airpods_buddy.ahk', 'lib/AudioRouting.ahk',
++                  'lib/BackgroundJobs.ahk', 'scripts/background-worker.ps1',
++                  'scripts/KsBluetooth.cs', 'scripts/KsBluetooth.psm1')
++
++
++def digest(path):
++    return hashlib.sha256(path.read_bytes()).hexdigest().upper()
++
++
++def require(ok, message):
++    if not ok:
++        raise ValueError(message)
++
++
++def verified_hash(value, field):
++    require(isinstance(value, str) and SHA256.fullmatch(value), f'invalid {field} hash')
++    return value
++
++
++def verify_gate(folder, package):
++    folder = Path(folder)
++    proof = json.loads((folder / 'gate-pass.json').read_text(encoding='utf-8'))
++    rows_path = folder / 'results.json'
++    rows = json.loads(rows_path.read_text(encoding='utf-8'))
++    require(proof.get('result') == 'GATE_PASS' and proof.get('releaseGate') is True,
++            'release gate has no pass record')
++    require(proof.get('cycles') == 5 and isinstance(proof.get('dwell'), int)
++            and 15 <= proof['dwell'] <= 30 and proof.get('productionPath') is True
++            and proof.get('singleRequest') is False,
++            'release gate is not five unmodified production-path cycles with adequate dwell')
++    address, render = proof.get('address'), proof.get('renderId')
++    require(isinstance(address, str) and ADDRESS.fullmatch(address), 'invalid gate target address')
++    require(isinstance(render, str) and re.fullmatch(
++        r'\{0\.0\.0\.00000000\}\.\{[0-9a-fA-F-]{36}\}', render), 'invalid gate render ID')
++    require(verified_hash(proof.get('sourceSha256'), 'gate source') == package['sourceSha256'],
++            'gate source differs from final build source')
++    require(proof.get('runtimeInputs') == package['runtimeInputs'],
++            'gate runtime inputs differ from final build inputs')
++    require(verified_hash(proof.get('resultsSha256'), 'gate results') == digest(rows_path),
++            'gate results changed after pass')
++    settings = Path(proof.get('settings', ''))
++    require(settings.is_file() and verified_hash(proof.get('settingsSha256'), 'gate settings') == digest(settings),
++            'gate settings changed or missing')
++    require(isinstance(rows, list) and len(rows) == 31, 'gate must contain baseline plus 30 cycle phases')
++    expected = [(0, 'baseline', 'inspect')]
++    expected += [(cycle, phase, phase if phase in ('connect', 'disconnect') else 'inspect')
++                 for cycle in range(1, 6) for phase in PHASES]
++    baseline_mic = None
++    for row, (cycle, phase, mode) in zip(rows, expected):
++        require(isinstance(row, dict) and row.get('cycle') == cycle and row.get('phase') == phase
++                and type(row.get('exit')) is int and row['exit'] == 0,
++                f'gate phase missing or failed: {cycle}-{phase}')
++        command = ['python', 'tests/live_audio.py', mode, address, str(settings)]
++        require(row.get('command') == command, f'gate command changed: {cycle}-{phase}')
++        filename = f'{cycle}-{phase}.txt'
++        require(row.get('file') == filename and (folder / filename).is_file(),
++                f'gate phase log missing: {filename}')
++        require(verified_hash(row.get('logSha256'), f'{filename} log') == digest(folder / filename),
++                f'gate phase log changed after pass: {filename}')
++        if mode == 'connect':
++            log = (folder / filename).read_text(encoding='utf-8')
++            requests = [int(value) for value in re.findall(
++                r'^INFO bluetooth worker connect\b.*?\brequested=(\d+)\s', log, re.MULTILINE)]
++            require(row.get('ksRequests') in ([1], [1, 1]) and requests == row['ksRequests'],
++                    f'production connect request budget violated: {cycle}')
++        if mode != 'inspect':
++            continue
++        require(row.get('link') in (0, 1) and row.get('renderState') in (1, 8),
++                f'invalid inspected link/endpoint state: {cycle}-{phase}')
++        output, mic = row.get('outputRoles'), row.get('micRoles')
++        require(isinstance(output, list) and len(output) == 3
++                and isinstance(mic, list) and len(mic) == 3,
++                f'missing default roles: {cycle}-{phase}')
++        if baseline_mic is None:
++            baseline_mic = mic
++        require(mic == baseline_mic, f'microphone defaults changed: {cycle}-{phase}')
++        disconnected = phase in ('after-disconnect', 'delayed-disconnect')
++        require(row['link'] == (0 if disconnected else 1)
++                and row['renderState'] == (8 if disconnected else 1),
++                f'link or render state failed: {cycle}-{phase}')
++        require((all(value.lower() != render.lower() for value in output) if disconnected else
++                 all(value.lower() == render.lower() for value in output)),
++                f'default playback roles failed: {cycle}-{phase}')
++    return proof
++
++
++def verify_package(build_dir, archive_path, source):
++    build_dir, archive_path, source = Path(build_dir), Path(archive_path), Path(source)
++    require(archive_path.name == 'AirPodsBuddy-Windows.zip', 'release asset name is not updater-compatible')
++    manifest = json.loads((build_dir / 'build-manifest.json').read_text(encoding='utf-8-sig'))
++    source_hash = digest(source)
++    require(verified_hash(manifest.get('source'), 'manifest source') == source_hash,
++            'build source differs from current source')
++    version = re.search(r'APP_VERSION\s*:=\s*"([^"]+)"', source.read_text(encoding='utf-8-sig'))
++    require(version is not None and manifest.get('version') == version.group(1),
++            'build version differs from current source')
++    exe_hash = verified_hash(manifest.get('sha256'), 'manifest exe')
++    require(digest(build_dir / 'AirPodsBuddy.exe') == exe_hash,
++            'built EXE differs from build manifest')
++    inputs = manifest.get('inputs')
++    require(isinstance(inputs, dict), 'build manifest has no input hashes')
++    runtime = {name: digest(source.parent / name) for name in RUNTIME_INPUTS}
++    require(all(verified_hash(inputs.get(name), name) == runtime[name] for name in RUNTIME_INPUTS),
++            'build manifest runtime inputs differ from current files')
++    with zipfile.ZipFile(archive_path) as archive:
++        require(archive.testzip() is None, 'release ZIP failed CRC verification')
++        require(archive.namelist().count('AirPodsBuddy.exe') == 1,
++                'release ZIP must contain exactly one root AirPodsBuddy.exe')
++        packaged_hash = hashlib.sha256(archive.read('AirPodsBuddy.exe')).hexdigest().upper()
++    require(packaged_hash == exe_hash, 'release ZIP EXE differs from final build EXE')
++    return {'version': manifest['version'], 'sourceSha256': source_hash,
++            'runtimeInputs': runtime,
++            'exeSha256': exe_hash, 'zipSha256': digest(archive_path)}
++
++
++def verify_acceptance(receipt_path, package, gate):
++    """Require manually supplied, hash-bound installed/restart/listening/mic-on evidence."""
++    receipt_path = Path(receipt_path)
++    receipt = json.loads(receipt_path.read_text(encoding='utf-8'))
++    installed = Path(receipt.get('installedExePath', ''))
++    require(installed.is_absolute() and installed.is_file(), 'installed EXE evidence missing')
++    require(verified_hash(receipt.get('installedExeSha256'), 'installed EXE') == package['exeSha256']
++            and digest(installed) == package['exeSha256'],
++            'installed EXE differs from final release build')
++    require(receipt.get('gateResultsSha256') == gate['resultsSha256'],
++            'installed acceptance is not bound to this production gate')
++    checks = receipt.get('checks')
++    require(isinstance(checks, dict), 'installed acceptance checks missing')
++    for name in ('restartReconnect', 'defaultOutputListening', 'micOn'):
++        row = checks.get(name)
++        require(isinstance(row, dict) and row.get('passed') is True,
++                f'installed acceptance not passed: {name}')
++        filename = row.get('evidence')
++        require(isinstance(filename, str) and filename == Path(filename).name
++                and filename not in ('.', '..'), f'bad acceptance evidence path: {name}')
++        evidence = receipt_path.parent / filename
++        require(evidence.is_file() and verified_hash(row.get('sha256'), name) == digest(evidence),
++                f'acceptance evidence missing or changed: {name}')
++    require(checks['defaultOutputListening'].get('userConfirmed') is True,
++            'default-output listening lacks user confirmation')
++    require(checks['micOn'].get('autoMicSwitch') == '1',
++            'common mic-on preference was not tested')
++    return receipt
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument('--gate-dir', type=Path, required=True)
++    parser.add_argument('--build-dir', type=Path, required=True)
++    parser.add_argument('--zip', type=Path, required=True)
++    parser.add_argument('--acceptance', type=Path, required=True,
++                        help='manual installed-app restart/listening/mic-on receipt and hashed evidence')
++    parser.add_argument('--source', type=Path, default=ROOT / 'airpods_buddy.ahk')
++    args = parser.parse_args()
++    try:
++        package = verify_package(args.build_dir, args.zip, args.source)
++        gate = verify_gate(args.gate_dir, package)
++        verify_acceptance(args.acceptance, package, gate)
++    except (OSError, ValueError, KeyError, json.JSONDecodeError, zipfile.BadZipFile) as exc:
++        print(f'RELEASE_PRECHECK_FAIL {exc}')
++        return 1
++    print('RELEASE_PRECHECK_PASS cycles=5 productionPath=true installedAcceptance=true '
++          f'version={package["version"]} sourceSha256={package["sourceSha256"]} '
++          f'exeSha256={package["exeSha256"]} zipSha256={package["zipSha256"]}')
++    return 0
++
++
++if __name__ == '__main__':
++    sys.exit(main())
+--- /dev/null
++++ b/tests/release_precheck_test.py
+@@ -0,0 +1,203 @@
++"""Offline fault injection for the manual Windows release precheck."""
++from pathlib import Path
++import hashlib
++import importlib.util
++import json
++import subprocess
++import tempfile
++import zipfile
++
++
++ROOT = Path(__file__).resolve().parents[1]
++SCRIPT = ROOT / 'scripts/release-precheck.py'
++spec = importlib.util.spec_from_file_location('release_precheck', SCRIPT)
++guard = importlib.util.module_from_spec(spec)
++spec.loader.exec_module(guard)
++passes = 0
++
++
++def check(name, condition):
++    global passes
++    if not condition:
++        raise AssertionError(name)
++    passes += 1
++    print('PASS', name)
++
++
++def fails(callback):
++    try:
++        callback()
++    except (ValueError, OSError, KeyError, zipfile.BadZipFile):
++        return True
++    return False
++
++
++def sha(data):
++    return hashlib.sha256(data).hexdigest().upper()
++
++
++def fixture(folder):
++    source = folder / 'airpods_buddy.ahk'
++    source.write_text('APP_VERSION := "1.9.20"\n', encoding='utf-8')
++    runtime = {}
++    for name in guard.RUNTIME_INPUTS:
++        path = folder / name
++        path.parent.mkdir(parents=True, exist_ok=True)
++        if name != 'airpods_buddy.ahk':
++            path.write_text('runtime fixture\n', encoding='utf-8')
++        runtime[name] = sha(path.read_bytes())
++    build = folder / 'build'
++    build.mkdir()
++    exe = b'MZ final candidate fixture'
++    (build / 'AirPodsBuddy.exe').write_bytes(exe)
++    (build / 'build-manifest.json').write_text(json.dumps({
++        'source': sha(source.read_bytes()), 'sha256': sha(exe),
++        'version': '1.9.20', 'inputs': runtime}), encoding='utf-8')
++    archive = folder / 'AirPodsBuddy-Windows.zip'
++    with zipfile.ZipFile(archive, 'w') as z:
++        z.writestr('AirPodsBuddy.exe', exe)
++    settings = folder / 'mic-off.ini'
++    settings.write_text('auto_mic_switch=0\nmic_restore_pending=0\n', encoding='utf-8')
++    gate = folder / 'gate'
++    gate.mkdir()
++    address = 'AABBCCDDEEFF'
++    render = '{0.0.0.00000000}.{11111111-1111-1111-1111-111111111111}'
++    mic = ['original'] * 3
++    rows = []
++    expected = [(0, 'baseline', 'inspect')]
++    expected += [(cycle, phase, phase if phase in ('connect', 'disconnect') else 'inspect')
++                 for cycle in range(1, 6) for phase in guard.PHASES]
++    for cycle, phase, mode in expected:
++        filename = f'{cycle}-{phase}.txt'
++        command = ['python', 'tests/live_audio.py', mode, address, str(settings)]
++        row = {'cycle': cycle, 'phase': phase, 'command': command, 'exit': 0, 'file': filename}
++        if mode == 'connect':
++            row['ksRequests'] = [1]
++            (gate / filename).write_text('INFO bluetooth worker connect address=AABBCCDDEEFF requested=1 ksTrace=x\n', encoding='utf-8')
++        else:
++            (gate / filename).write_text('RESULT ok\n', encoding='utf-8')
++        row['logSha256'] = sha((gate / filename).read_bytes())
++        if mode == 'inspect':
++            disconnected = phase in ('after-disconnect', 'delayed-disconnect')
++            row.update({'link': 0 if disconnected else 1,
++                        'renderState': 8 if disconnected else 1,
++                        'outputRoles': ['other'] * 3 if disconnected else [render] * 3,
++                        'micRoles': mic})
++        rows.append(row)
++    results = gate / 'results.json'
++    results.write_text(json.dumps(rows), encoding='utf-8')
++    proof = {'result': 'GATE_PASS', 'releaseGate': True, 'cycles': 5, 'dwell': 15,
++             'productionPath': True, 'singleRequest': False, 'address': address, 'renderId': render,
++             'settings': str(settings), 'settingsSha256': sha(settings.read_bytes()),
++             'sourceSha256': sha(source.read_bytes()), 'runtimeInputs': runtime,
++             'resultsSha256': sha(results.read_bytes())}
++    (gate / 'gate-pass.json').write_text(json.dumps(proof), encoding='utf-8')
++    receipt = folder / 'installed-acceptance.json'
++    installed = folder / 'installed-AirPodsBuddy.exe'
++    installed.write_bytes(exe)
++    checks = {}
++    for name in ('restartReconnect', 'defaultOutputListening', 'micOn'):
++        evidence = f'{name}.txt'
++        data = f'{name} fixture pass\n'.encode()
++        (folder / evidence).write_bytes(data)
++        checks[name] = {'passed': True, 'evidence': evidence, 'sha256': sha(data)}
++    checks['defaultOutputListening']['userConfirmed'] = True
++    checks['micOn']['autoMicSwitch'] = '1'
++    receipt.write_text(json.dumps({'installedExePath': str(installed),
++                                   'installedExeSha256': sha(exe),
++                                   'gateResultsSha256': proof['resultsSha256'],
++                                   'checks': checks}), encoding='utf-8')
++    return source, build, archive, gate, receipt
++
++
++with tempfile.TemporaryDirectory() as tmp:
++    source, build, archive, gate, receipt_file = fixture(Path(tmp))
++    package = guard.verify_package(build, archive, source)
++    check('final_archive_matches_build_manifest_and_exe', package['exeSha256'] == sha((build / 'AirPodsBuddy.exe').read_bytes()))
++    check('five_production_cycles_accepted', guard.verify_gate(gate, package)['cycles'] == 5)
++    check('installed_restart_listening_micon_receipts_accepted',
++          guard.verify_acceptance(receipt_file, package, guard.verify_gate(gate, package))['checks']['micOn']['passed'])
++
++    receipt = json.loads(receipt_file.read_text(encoding='utf-8'))
++    receipt['checks']['defaultOutputListening']['userConfirmed'] = False
++    receipt_file.write_text(json.dumps(receipt), encoding='utf-8')
++    check('missing_user_listening_confirmation_rejected',
++          fails(lambda: guard.verify_acceptance(receipt_file, package, guard.verify_gate(gate, package))))
++    receipt['checks']['defaultOutputListening']['userConfirmed'] = True
++    receipt_file.write_text(json.dumps(receipt), encoding='utf-8')
++    receipt['checks']['micOn']['autoMicSwitch'] = '0'
++    receipt_file.write_text(json.dumps(receipt), encoding='utf-8')
++    check('mic_off_only_acceptance_rejected',
++          fails(lambda: guard.verify_acceptance(receipt_file, package, guard.verify_gate(gate, package))))
++    receipt['checks']['micOn']['autoMicSwitch'] = '1'
++    receipt_file.write_text(json.dumps(receipt), encoding='utf-8')
++
++    proof_file = gate / 'gate-pass.json'
++    proof = json.loads(proof_file.read_text(encoding='utf-8'))
++    proof['cycles'] = 1
++    proof_file.write_text(json.dumps(proof), encoding='utf-8')
++    check('one_cycle_cannot_pass_release', fails(lambda: guard.verify_gate(gate, package)))
++    proof['cycles'] = 5
++    proof_file.write_text(json.dumps(proof), encoding='utf-8')
++
++    proof['productionPath'], proof['singleRequest'] = False, True
++    proof_file.write_text(json.dumps(proof), encoding='utf-8')
++    check('diagnostic_single_request_report_rejected', fails(lambda: guard.verify_gate(gate, package)))
++    proof['productionPath'], proof['singleRequest'] = True, False
++    proof_file.write_text(json.dumps(proof), encoding='utf-8')
++
++    proof['runtimeInputs']['scripts/KsBluetooth.cs'] = '0' * 64
++    proof_file.write_text(json.dumps(proof), encoding='utf-8')
++    check('gate_runtime_drift_rejected', fails(lambda: guard.verify_gate(gate, package)))
++    proof['runtimeInputs']['scripts/KsBluetooth.cs'] = package['runtimeInputs']['scripts/KsBluetooth.cs']
++    proof_file.write_text(json.dumps(proof), encoding='utf-8')
++
++    log = gate / '2-connect.txt'
++    rows_file = gate / 'results.json'
++    rows = json.loads(rows_file.read_text(encoding='utf-8'))
++    connect_row = next(row for row in rows if row['cycle'] == 2 and row['phase'] == 'connect')
++    connect_row['ksRequests'] = [1, 1]
++    log.write_text('INFO bluetooth worker connect requested=1 x\n' * 2, encoding='utf-8')
++    connect_row['logSha256'] = sha(log.read_bytes())
++    rows_file.write_text(json.dumps(rows), encoding='utf-8')
++    proof['resultsSha256'] = sha(rows_file.read_bytes())
++    proof_file.write_text(json.dumps(proof), encoding='utf-8')
++    check('bounded_production_retry_accepted', guard.verify_gate(gate, package)['cycles'] == 5)
++
++    log.write_text('INFO bluetooth worker connect requested=1 x\n' * 3, encoding='utf-8')
++    check('tampered_phase_log_rejected', fails(lambda: guard.verify_gate(gate, package)))
++    connect_row['ksRequests'] = [1, 1, 1]
++    connect_row['logSha256'] = sha(log.read_bytes())
++    rows_file.write_text(json.dumps(rows), encoding='utf-8')
++    proof['resultsSha256'] = sha(rows_file.read_bytes())
++    proof_file.write_text(json.dumps(proof), encoding='utf-8')
++    check('third_ks_connect_request_rejected', fails(lambda: guard.verify_gate(gate, package)))
++    connect_row['ksRequests'] = [1]
++    log.write_text('INFO bluetooth worker connect address=AABBCCDDEEFF requested=1 ksTrace=x\n', encoding='utf-8')
++    connect_row['logSha256'] = sha(log.read_bytes())
++    rows_file.write_text(json.dumps(rows), encoding='utf-8')
++    proof['resultsSha256'] = sha(rows_file.read_bytes())
++    proof_file.write_text(json.dumps(proof), encoding='utf-8')
++
++    rows[-1]['exit'] = 5
++    rows_file.write_text(json.dumps(rows), encoding='utf-8')
++    check('changed_or_failed_results_rejected', fails(lambda: guard.verify_gate(gate, package)))
++
++    with zipfile.ZipFile(archive, 'w') as z:
++        z.writestr('AirPodsBuddy.exe', b'MZ stale candidate')
++    check('stale_zip_exe_rejected', fails(lambda: guard.verify_package(build, archive, source)))
++
++    runtime_file = source.parent / 'scripts/KsBluetooth.cs'
++    runtime_file.write_text('changed runtime fixture\n', encoding='utf-8')
++    check('build_runtime_drift_rejected', fails(lambda: guard.verify_package(build, archive, source)))
++
++    source.write_text('APP_VERSION := "1.9.21"\n', encoding='utf-8')
++    check('changed_source_rejected', fails(lambda: guard.verify_package(build, archive, source)))
++
++for args in [('--cycles', '1', '--release-gate'),
++             ('--cycles', '5', '--single-request', '--release-gate')]:
++    p = subprocess.run(['python', 'tests/strict_gate.py', '--address', 'AABBCCDDEEFF', *args],
++                       cwd=ROOT, capture_output=True)
++    check('release_gate_rejects_invalid_cli_' + args[1], p.returncode == 2)
++
++print(f'RESULT failures=0 tests={passes}')
+--- a/doc/04-项目进度.md
++++ b/doc/04-项目进度.md
+@@ -1,3 +1,11 @@
++# 2026-09-27 · 五轮单请求发版门槛仍失败，补发布预检
++
++隔离 `--single-request` 五轮对照（`verification/2026-09-27-single5/`）从目标 link=1/播放 ACTIVE/三默认输出角色一致起步，但第 1 轮断开约 39.48 秒后仍 `disconnect_failed`、link=1、exit5，脚本按首错即停，**没有进入重连**。本轮 render 与 capture 的目标 KS 断开请求均返回 HRESULT0，仅表示请求被接受。约 01:54 CST（测试后约15分钟）的独立只读快照为目标 connected=0、render/capture state=4、默认输出三角色回 Realtek；然而仍运行的旧安装版日志另记 01:53:15/01:53:35 两条 `rpc: disconnect`、01:53:24 旧服务后端 `hfp=ok a2dp=ok`、01:54:00 link=0，事件发起者未知。因此 01:54 状态已受另一断开操作影响，不能归为单请求测试的迟到结果，不能把39.48秒失败改写为通过。旧安装版及其设置未变。单请求连接假设本轮未得到检验，五轮门槛未过，候选仍不部署、不发 Release。
++
++发布准备新增**未改写生产连接路径**的 `tests/strict_gate.py --release-gate --cycles 5 --dwell 15`：拒绝诊断用 `--single-request`，仅新目录可写通过回执，回执绑定运行时源码、设置、完整结果及各阶段原始日志哈希。`scripts/release-precheck.py` 离线复核五轮 31 个阶段、每轮连接最多一次有界重试，并比对当前源码、最终构建清单/exe 与 `AirPodsBuddy-Windows.zip` 内 exe 三方 SHA256。还必须提供可读回哈希的安装 exe、重启复连、默认输出用户听音和 micOn 常用设置的独立人工验收回执及哈希绑定证据，缺一即阻断。现存本地 ZIP 内 exe 为 `AD4913DA...`，最新构建 exe 为 `3049C8F8...`，预检实际拒绝旧包；不得把它上传为最终资产。新增发布预检离线故障注入 17 项，并将只读音频会话工具的 2 项自测接入，总计完整本机回归 236 项/16 套通过。单请求对照只作诊断证据，不用于发布放行。
++
++---
++
+ # 2026-09-27 · Windows CI 与本地回归入口对齐
+ 
+ 原 Windows CI 逐项列出旧测试，未执行本轮新增的 `p0_timeline`、`strict_gate` 解析及 `mic_migration` 单测。现统一调用离线 `python tests/run_suite.py`，随后仍独立构建前端和 exe；本机 YAML 解析、216项/14套离线回归及 build-only 均通过。此变更只封闭“本地通过但CI漏测”的发布流程缺口，不能代替真实耳机五轮验收。 首次远端Windows CI `36258897049` 在新增心跳自测因35ms睡眠不足两个tick而失败；将该自测改用确定性三步停止器，本地连续20次自测与完整216项回归通过，远端重跑 `36259037171` 的完整离线、前端和exe构建均通过。该run同时提示旧版 GitHub Actions 内部 Node20 运行时即将弃用；按官方动作仓库说明把Windows工作流的checkout/setup-python/setup-node升级到v5/v6/v5并禁用不需要的自动包管理缓存，新一轮远端 Windows CI `36259245852` 的完整离线回归、前端构建和exe build-only 均通过，退出0。
+--- a/doc/08-更新与后台任务.md
++++ b/doc/08-更新与后台任务.md
+@@ -2,7 +2,13 @@
+ 
+ 现状：v1.9.19 实现，故障注入与真实部署回滚已执行；公开 Release 尚未发布。
+ 负责人：项目维护者与当前 Agent。
+-最后更新：2026-09-26。
++最后更新：2026-09-27。
++
++## 公开发布前的离线预检
++
++Windows CI 只运行离线回归与 build-only，不运行真实耳机，也不上传资产。真实发版前先在隔离设置下运行 `python tests/strict_gate.py --address <12位目标地址> --settings <仓库内micOff设置文件> --cycles 5 --dwell 15 --release-gate --output <新的仓库内证据目录>`；此路径不改写生产重试函数，首错即停，只有完整五轮成功才生成 `gate-pass.json`。回执绑定运行时源码、设置、逐阶段结果及各阶段原始日志 SHA256；诊断用 `--single-request` 明确被发布门槛拒绝。
++
++用最终源码执行 `scripts/build-deploy.ps1` 的 build-only，依据该构建产物制作精确命名的 `AirPodsBuddy-Windows.zip`。安装候选后，再独立完成人工验收回执 `installed-acceptance.json`：`installedExePath` 指向实际运行的安装 exe，`installedExeSha256` 与最终构建一致，`gateResultsSha256` 绑定本次生产五轮结果；`checks` 中的 `restartReconnect`、`defaultOutputListening`、`micOn` 均需 `passed:true`、同目录证据文件名 `evidence` 与对应 `sha256`，听音还需 `userConfirmed:true`，micOn 需 `autoMicSwitch:"1"`。回执应在真实重启复连、默认路径听音及 micOn 检查后由验收人填写，预检不自动生成成功回执。上传前运行 `python scripts/release-precheck.py --gate-dir <通过的证据目录> --build-dir <最终构建目录> --zip <最终AirPodsBuddy-Windows.zip> --acceptance <installed-acceptance.json>`；预检要求生产五轮 31 阶段、最多一次有界连接重试，当前源码/构建/ZIP 内 exe 一致，安装版及三项人工验收证据哈希一致。预检只验证提交证据的内部一致性，**不自行证明人工回执所述听音或操作真实发生**；验收人仍须核对原始记录与用户确认。预检输出 ZIP SHA256 供上传后与 GitHub 资产 digest 交叉核对；缺任一项即不发 Release。
+ 
+ ## 修改原因
+ 旧更新器直接接受网页 URL，同步下载，固定临时目录、未检查 tar 退出码、脚本追加且无版本健康回滚。旧反馈把 no-cors opaque 响应当送达，蓝牙与网络阻塞宿主。
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -1,4 +1,6 @@
+ # v1.9.20（2026-09-26，KS 连接候选，未发 Release）
++
++- 2026-09-27 发布预检防线：未改写生产路径的严格五轮通过回执绑定运行时源码/设置/逐阶段结果和原始日志哈希，诊断 `--single-request` 结果不可放行；预检核对 31 阶段、连接有界重试预算、最终 ZIP 内 exe 与构建清单/实物 exe 哈希一致，还必须提供安装版哈希、重启复连、用户默认路径听音及 micOn 的独立验收回执与证据。现有旧 ZIP 被拒绝。最新单请求真机对照第 1 轮断开约39.48秒后仍 link=1、exit5，未进入重连；五轮门槛未过，不部署、不发 Release。发布预检离线新增17项，另将只读音频会话工具2项自测接入，完整236项/16套通过。
+ 
+ - Windows CI 的 checkout/setup-python/setup-node 升到 Node24 runtime 对应版本（v5/v6/v5），setup-node 关闭不需要的自动包管理缓存；Windows CI 回归入口统一为 `python tests/run_suite.py`，避免新加的严格门槛解析、同钟采样及麦克风迁移单测只在本机跑而遗漏到发布流水线；构建仍独立执行，不触碰真机。 首次远端运行抓到心跳自测依赖毫秒级睡眠的非确定性，已改为确定性三步停止器并经远端复跑通过；动作版本升级后 Windows CI `36259245852` 全步骤通过。
+ 

@@ -1,0 +1,2 @@
+PASS strict_gate_parser_exact_target_and_roles
+RESULT failures=0 tests=1

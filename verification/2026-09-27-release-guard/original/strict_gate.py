@@ -5,7 +5,6 @@ It never installs, deploys, publishes, resets the adapter or alters pairing.
 """
 from pathlib import Path
 import argparse
-import hashlib
 import json
 import re
 import subprocess
@@ -14,13 +13,6 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUT = ROOT / 'verification/2026-09-26-final/strict-gate'
-RUNTIME_INPUTS = ('airpods_buddy.ahk', 'lib/AudioRouting.ahk',
-                  'lib/BackgroundJobs.ahk', 'scripts/background-worker.ps1',
-                  'scripts/KsBluetooth.cs', 'scripts/KsBluetooth.psm1')
-
-
-def sha256(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest().upper()
 
 
 def parse_inspect(output, address, render):
@@ -78,8 +70,6 @@ def main():
     parser.add_argument('--dwell', type=int, default=15)
     parser.add_argument('--single-request', action='store_true',
                         help='diagnostic connect submits one target KS request without delayed retry')
-    parser.add_argument('--release-gate', action='store_true',
-                        help='require five unmodified production-path cycles and emit a source-bound pass record')
     parser.add_argument('--output', type=Path, default=DEFAULT_OUT)
     args = parser.parse_args()
     if args.self_test:
@@ -89,8 +79,6 @@ def main():
         parser.error('exact target address required')
     if not 1 <= args.cycles <= 5 or not 0 <= args.dwell <= 30:
         parser.error('bounded cycles/dwell required')
-    if args.release_gate and (args.cycles != 5 or args.dwell < 15 or args.single_request):
-        parser.error('release gate requires five cycles, >=15s dwell and no diagnostic retry suppression')
     settings = args.settings.resolve() if args.settings else None
     if not settings or not settings.is_file() or ROOT not in settings.parents:
         parser.error('existing repository-local settings fixture required')
@@ -100,11 +88,7 @@ def main():
     out = args.output.resolve()
     if ROOT not in out.parents:
         parser.error('output must remain inside repository')
-    if args.release_gate and (out / 'results.json').exists():
-        parser.error('release gate requires a fresh output directory')
     out.mkdir(parents=True, exist_ok=True)
-    source_hash, settings_hash = sha256(ROOT / 'airpods_buddy.ahk'), sha256(settings)
-    runtime_hashes = {name: sha256(ROOT / name) for name in RUNTIME_INPUTS}
     probe_command = ['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
                      "Import-Module './scripts/KsBluetooth.psm1' -Force; "
                      f"Get-KsBluetoothProbe '{address}' | ConvertTo-Json -Depth 8 -Compress"]
@@ -128,9 +112,8 @@ def main():
         text = (p.stdout + p.stderr).decode('utf-8-sig', errors='replace')
         (out / f'{cycle}-{phase}.txt').write_text(text, encoding='utf-8')
         record = {'cycle': cycle, 'phase': phase, 'command': command, 'exit': p.returncode,
-                  'seconds': round(time.monotonic() - started, 2), 'file': f'{cycle}-{phase}.txt',
-                  'logSha256': sha256(out / f'{cycle}-{phase}.txt')}
-        if (args.single_request or args.release_gate) and mode == 'connect':
+                  'seconds': round(time.monotonic() - started, 2), 'file': f'{cycle}-{phase}.txt'}
+        if args.single_request and mode == 'connect':
             record['ksRequests'] = parse_connect_requests(text)
         if mode == 'inspect' and p.returncode == 0:
             record.update(parse_inspect(text, address, render))
@@ -142,8 +125,6 @@ def main():
             raise RuntimeError(f'{cycle}-{phase} source action failed with exit {p.returncode}')
         if args.single_request and mode == 'connect' and record['ksRequests'] != [1]:
             raise RuntimeError(f'{cycle}-{phase} expected exactly one target KS request')
-        if args.release_gate and mode == 'connect' and record['ksRequests'] not in ([1], [1, 1]):
-            raise RuntimeError(f'{cycle}-{phase} production connect request budget violated')
         return record
 
     def check(row, link, state, target_roles, mic_roles):
@@ -172,17 +153,6 @@ def main():
         (out / 'failure.txt').write_text(str(exc), encoding='utf-8')
         print('GATE_FAIL', exc)
         raise SystemExit(5)
-    if args.release_gate:
-        if ({name: sha256(ROOT / name) for name in RUNTIME_INPUTS} != runtime_hashes
-                or sha256(settings) != settings_hash):
-            raise RuntimeError('runtime source or settings changed during release gate')
-        proof = {'result': 'GATE_PASS', 'releaseGate': True, 'cycles': 5,
-                 'dwell': args.dwell, 'productionPath': True, 'singleRequest': False, 'address': address,
-                 'renderId': render, 'settings': str(settings),
-                 'settingsSha256': settings_hash, 'sourceSha256': source_hash,
-                 'runtimeInputs': runtime_hashes,
-                 'resultsSha256': sha256(out / 'results.json')}
-        (out / 'gate-pass.json').write_text(json.dumps(proof, ensure_ascii=False, indent=2), encoding='utf-8')
     print(f'GATE_PASS cycles={args.cycles} dwell={args.dwell}')
 
 

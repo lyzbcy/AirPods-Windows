@@ -16,8 +16,6 @@ commands = [
     ('ks_retry', ['python', 'tests/ks_retry_behavior.py']),
     ('p0_timeline', ['python', 'tests/p0_timeline.py', '--self-test']),
     ('strict_gate', ['python', 'tests/strict_gate.py', '--self-test']),
-    ('release_precheck', ['python', 'tests/release_precheck_test.py']),
-    ('audio_sessions', ['python', 'tests/audio_sessions.py', '--self-test']),
     ('target_endpoint', ['python', 'tests/target_endpoint_test.py']),
     ('audio', ['python', 'tests/run_ahk.py', 'tests/audio_routing_test.ahk']),
     ('background', ['python', 'tests/run_ahk.py', 'tests/background_job_test.ahk']),

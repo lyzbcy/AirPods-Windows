@@ -1,0 +1,130 @@
+[
+  {
+    "name": "behavior",
+    "command": "python tests/run_behavior.py airpods_buddy.ahk",
+    "input": "airpods_buddy.ahk",
+    "exit": 0,
+    "passes": 9,
+    "output": "E:\\共享\\创业\\BluetoothDeviceConnector\\verification\\2026-09-26-all\\behavior_airpods_buddy.ahk (174) : ==> Warning: This local variable has the same name as a global variable.\r\n     Specifically: gen  (in function BeginDeviceOp)\r\nPASS failed_route_never_announces_audio_success\r\nPASS link_only_does_not_increment_success\r\nPASS link_only_does_not_show_pet_success\r\nPASS control_char_json_escaped\r\nPASS stale_audio_callback_is_ignored\r\nPASS bulk_disconnect_keeps_both_tasks\r\nPASS same_device_invalidates_old_callback\r\nPASS latest_connect_owns_audio_route\r\nPASS disconnect_cancels_mic_retry\r\nRESULT failures=0\r\n"
+  },
+  {
+    "name": "state",
+    "command": "python tests/run_state_tests.py",
+    "input": "tests/run_state_tests.py",
+    "exit": 0,
+    "passes": 50,
+    "output": "E:\\共享\\创业\\BluetoothDeviceConnector\\verification\\2026-09-26-all\\state-tests.ahk (191) : ==> Warning: This local variable has the same name as a global variable.\r\n     Specifically: gen  (in function DoAction)\r\nE:\\共享\\创业\\BluetoothDeviceConnector\\verification\\2026-09-26-all\\state-tests.ahk (216) : ==> Warning: This local variable has the same name as a global variable.\r\n     Specifically: gen  (in function BeginDeviceOp)\r\nE:\\共享\\创业\\BluetoothDeviceConnector\\verification\\2026-09-26-all\\state-tests.ahk (261) : ==> Warning: This local variable has the same name as a global variable.\r\n     Specifically: file  (in function AtomicWriteText)\r\nE:\\共享\\创业\\BluetoothDeviceConnector\\verification\\2026-09-26-all\\state-tests.ahk (576) : ==> Warning: This local variable has the same name as a global variable.\r\n     Specifically: lnk  (in function AutostartSet)\r\nPASS backend_exception_returns_failure\r\nPASS backend_exception_releases_busy\r\nPASS failed_task_state_preserved\r\nPASS ready_state_revalidated\r\nPASS changed_output_invalidates_ready\r\nPASS late_route_does_not_steal_external_output\r\nPASS late_route_ignores_superseded_operation\r\nPASS late_route_reconciles_exact_current_output\r\nPASS late_route_emits_success_once\r\nPASS duplicate_device_name_rejected\r\nPASS stable_address_selects_requested_device\r\nPASS duplicate_audio_label_fails_closed\r\nPASS bridge_rejects_update_url\r\nPASS bridge_accepts_no_url_update\r\nPASS bridge_rejects_invalid_boolean\r\nPASS bridge_rejects_unknown_command\r\nPASS bridge_address_not_name\r\nPASS invalid_date_falls_back\r\nPASS calendar_day_arithmetic\r\nPASS worker_failure_releases_busy\r\nPASS ks_result_saves_exact_ids_before_verify\r\nPASS healthy_zero_request_still_verifies\r\nPASS missing_render_id_never_starts_verify\r\nPASS empty_list_sort\r\nPASS priority_write_succeeds\r\nPASS priority_reloads_all_entries\r\nPASS setting_initial_write\r\nPASS setting_readback\r\nPASS test_file_exclusively_locked\r\nPASS locked_target_reports_failure\r\nPASS failed_replace_keeps_old_content\r\nPASS setting_update_after_unlock\r\nPASS mic_off_preference_written\r\nPASS explicit_mic_on_arms_once\r\nPASS idempotent_mic_on_keeps_pending\r\nPASS invalid_mic_preference_rejected\r\nPASS failed_migration_worker_restores_one_time_pending\r\nPASS mic_off_clears_pending\r\nPASS failed_target_mic_migration_restores_old_preference\r\nPASS verified_target_mic_migration_keeps_new_preference\r\nPASS hidden_ui_reconciles_late_audio\r\nPASS hidden_ui_observes_route_loss\r\nPASS route_loss_event_not_repeated\r\nPASS hidden_ui_observes_disconnection\r\nPASS disabled_startup_returns_failure\r\nPASS failed_startup_restores_shortcut\r\nPASS failed_startup_restores_preference\r\nPASS failed_startup_restores_missing_run\r\nPASS startup_enable_migrates_shortcut\r\nPASS startup_disable_verified\r\nRESULT failures=0\r\n"
+  },
+  {
+    "name": "resource_identity",
+    "command": "python tests/resource_identity_test.py",
+    "input": "tests/resource_identity_test.py",
+    "exit": 0,
+    "passes": 9,
+    "output": "PASS runtime_path_uses_guid\r\nPASS cleanup_uses_shared_parser\r\nPASS guid_is_32_hex\r\nPASS same_pid_launches_are_isolated\r\nPASS new_app_folder_cleanup_pid\r\nPASS legacy_app_folder_cleanup_pid\r\nPASS job_folder_cleanup_pid\r\nPASS malformed_app_folder_ignored\r\nPASS foreign_folder_ignored\r\nRESULT failures=0\r\n"
+  },
+  {
+    "name": "ks_retry",
+    "command": "python tests/ks_retry_behavior.py",
+    "input": "tests/ks_retry_behavior.py",
+    "exit": 0,
+    "passes": 34,
+    "output": "PASS bounded_15_second_timer\r\nPASS audio_exhaustion_shares_retry\r\nPASS delayed_disconnect_30_second_window\r\nC:\\Users\\24676\\AppData\\Local\\Temp\\apb_ks_retry_yfnziyhc\\retry_test.ahk (211) : ==> Warning: This local variable has the same name as a global variable.\r\n     Specifically: gen  (in function BeginDeviceOp)\r\nC:\\Users\\24676\\AppData\\Local\\Temp\\apb_ks_retry_yfnziyhc\\retry_test.ahk (254) : ==> Warning: This local variable has the same name as a global variable.\r\n     Specifically: gen  (in function DoAction)\r\nC:\\Users\\24676\\AppData\\Local\\Temp\\apb_ks_retry_yfnziyhc\\retry_test.ahk (260) : ==> Warning: This local variable appears to never be assigned a value.\r\n     Specifically: SettingWrite\r\nC:\\Users\\24676\\AppData\\Local\\Temp\\apb_ks_retry_yfnziyhc\\retry_test.ahk (436) : ==> Warning: This local variable appears to never be assigned a value.\r\n     Specifically: CaptureSwitchToId\r\nC:\\Users\\24676\\AppData\\Local\\Temp\\apb_ks_retry_yfnziyhc\\retry_test.ahk (488) : ==> Warning: This local variable appears to never be assigned a value.\r\n     Specifically: MicPreferenceSet\r\nC:\\Users\\24676\\AppData\\Local\\Temp\\apb_ks_retry_yfnziyhc\\retry_test.ahk (509) : ==> Warning: This local variable appears to never be assigned a value.\r\n     Specifically: StartLinkVerify\r\nC:\\Users\\24676\\AppData\\Local\\Temp\\apb_ks_retry_yfnziyhc\\retry_test.ahk (543) : ==> Warning: This local variable appears to never be assigned a value.\r\n     Specifically: AudioRouteMatchesId\r\nPASS successful_ks_no_link_enters_one_wait\r\nPASS ui_poll_keeps_retry_wait\r\nPASS one_same_target_worker_only\r\nPASS ui_poll_keeps_retry_inflight\r\nPASS failed_retry_is_terminal\r\nPASS retry_limit_one\r\nPASS external_link_skips_second_request\r\nPASS stale_same_device_timer_cannot_resend\r\nPASS new_other_device_action_starts\r\nPASS new_other_device_action_cancels_retry\r\nPASS old_link_timer_does_not_overwrite_cancel\r\nPASS other_disconnect_before_wait_starts\r\nPASS new_action_before_deadline_prevents_retry\r\nPASS audio_exhaustion_enters_shared_wait\r\nPASS link_up_render_inactive_resends_ks\r\nPASS audio_retry_failure_is_terminal\r\nPASS active_audio_wait_scheduled\r\nPASS link_and_render_active_skip_second_request\r\nPASS retry_worker_inflight\r\nPASS busy_disconnect_queues_target_only\r\nPASS repeat_cancel_keeps_latest_disconnect\r\nPASS cancelled_worker_result_does_not_verify\r\nPASS initial_ks_failure_never_schedules_retry\r\nPASS disconnect_still_up_at_deadline_fails\r\nPASS delayed_link_down_succeeds_without_new_request\r\nPASS active_target_endpoint_cannot_claim_disconnect\r\nPASS unknown_link_query_cannot_claim_disconnect\r\nPASS unknown_link_cannot_schedule_connect_retry\r\nPASS unknown_link_at_retry_does_not_submit_ks\r\nPASS unknown_link_audio_phase_does_not_route_or_retry\r\nPASS missing_target_microphone_reports_without_changing_default\r\nRESULT failures=0\r\n"
+  },
+  {
+    "name": "p0_timeline",
+    "command": "python tests/p0_timeline.py --self-test",
+    "input": "--self-test",
+    "exit": 0,
+    "passes": 2,
+    "output": "PASS timeline_parser_and_read_only_sampler\r\nPASS observer_output_spool_and_cadence_detection\r\nRESULT failures=0 tests=2\r\n"
+  },
+  {
+    "name": "strict_gate",
+    "command": "python tests/strict_gate.py --self-test",
+    "input": "--self-test",
+    "exit": 0,
+    "passes": 1,
+    "output": "PASS strict_gate_parser_exact_target_and_roles\r\nRESULT failures=0 tests=1\r\n"
+  },
+  {
+    "name": "release_precheck",
+    "command": "python tests/release_precheck_test.py",
+    "input": "tests/release_precheck_test.py",
+    "exit": 0,
+    "passes": 17,
+    "output": "PASS final_archive_matches_build_manifest_and_exe\r\nPASS five_production_cycles_accepted\r\nPASS installed_restart_listening_micon_receipts_accepted\r\nPASS missing_user_listening_confirmation_rejected\r\nPASS mic_off_only_acceptance_rejected\r\nPASS one_cycle_cannot_pass_release\r\nPASS diagnostic_single_request_report_rejected\r\nPASS gate_runtime_drift_rejected\r\nPASS bounded_production_retry_accepted\r\nPASS tampered_phase_log_rejected\r\nPASS third_ks_connect_request_rejected\r\nPASS changed_or_failed_results_rejected\r\nPASS stale_zip_exe_rejected\r\nPASS build_runtime_drift_rejected\r\nPASS changed_source_rejected\r\nPASS release_gate_rejects_invalid_cli_1\r\nPASS release_gate_rejects_invalid_cli_5\r\nRESULT failures=0 tests=17\r\n"
+  },
+  {
+    "name": "audio_sessions",
+    "command": "python tests/audio_sessions.py --self-test",
+    "input": "--self-test",
+    "exit": 0,
+    "passes": 2,
+    "output": "PASS exact_endpoint_validation\r\nPASS session_row_parsing_and_read_only_contract\r\nRESULT failures=0 tests=2\r\n"
+  },
+  {
+    "name": "target_endpoint",
+    "command": "python tests/target_endpoint_test.py",
+    "input": "tests/target_endpoint_test.py",
+    "exit": 0,
+    "passes": 6,
+    "output": "C:\\Users\\24676\\AppData\\Local\\Temp\\apb_endpoint_ly5vgxym\\endpoint_test.ahk (46) : ==> Warning: This local variable has the same name as a global variable.\r\n     Specifically: api  (in function TargetEndpointsInactive)\r\nC:\\Users\\24676\\AppData\\Local\\Temp\\apb_endpoint_ly5vgxym\\endpoint_test.ahk (46) : ==> Warning: This local variable appears to never be assigned a value.\r\n     Specifically: CoreAudioBackend\r\nPASS inactive_render_and_capture_verified\r\nPASS active_render_rejected\r\nPASS active_capture_rejected\r\nPASS missing_id_is_not_verified\r\nPASS invalid_id_is_not_verified\r\nPASS empty_id_list_is_not_verified\r\nRESULT failures=0\r\n"
+  },
+  {
+    "name": "audio",
+    "command": "python tests/run_ahk.py tests/audio_routing_test.ahk",
+    "input": "tests/audio_routing_test.ahk",
+    "exit": 0,
+    "passes": 25,
+    "output": "PASS stereo_preferred_over_hfp\r\nPASS hfp_only_render_rejected\r\nPASS ambiguous_stereo_rejected\r\nPASS partial_name_rejected\r\nPASS empty_name_rejected\r\nPASS wildcards_are_literal\r\nPASS render_and_capture_separate\r\nPASS pnp_id_rejected\r\nPASS all_roles_and_readback_succeed\r\nPASS one_failed_role_is_failure\r\nPASS partial_change_rolled_back\r\nPASS untouched_roles_not_rewritten\r\nPASS external_default_not_overwritten\r\nPASS exception_is_retryable_failure\r\nPASS s_ok_without_readback_rejected\r\nPASS missing_prior_default_no_mutation\r\nPASS exact_render_active_routes_three_roles\r\nPASS wrong_render_id_never_routes\r\nPASS inactive_render_never_routes\r\nPASS exact_capture_routes\r\nPASS render_drop_after_roles_is_not_success\r\nPASS render_drop_restores_prior_defaults\r\nPASS capture_drop_after_roles_is_not_success\r\nPASS capture_drop_restores_prior_defaults\r\nPASS route_watch_rechecks_active_after_readback\r\nRESULT failures=0\r\n"
+  },
+  {
+    "name": "background",
+    "command": "python tests/run_ahk.py tests/background_job_test.ahk",
+    "input": "tests/background_job_test.ahk",
+    "exit": 0,
+    "passes": 5,
+    "output": "PASS worker_timeout_terminates_owned_process\r\nPASS callback_runs_once\r\nPASS private_files_and_handle_cleaned\r\nPASS completed_late_poll_keeps_result\r\nPASS successful_result_has_no_synthetic_error\r\nRESULT failures=0\r\n"
+  },
+  {
+    "name": "rpc",
+    "command": "node tests/rpc_test.cjs",
+    "input": "tests/rpc_test.cjs",
+    "exit": 0,
+    "passes": 12,
+    "output": "PASS synchronous_reply_not_lost\nPASS timeout_cleanup_and_late_reply\nPASS send_exception_cleanup\nPASS delimiter_injection_rejected\nPASS priority_preserves_all_devices\nPASS action_exception_restores_ui\nPASS same_link_audio_state_change_refreshes\nPASS hover_does_not_freeze_disconnection\nPASS press_defers_then_refreshes_rename\nPASS retry_wait_and_running_show_cancellable_status\nPASS exhausted_retry_restores_manual_connect\nPASS verified_ready_keeps_existing_status\nRESULT failures=0\n"
+  },
+  {
+    "name": "windows",
+    "command": "powershell -NoProfile -ExecutionPolicy Bypass -File tests/windows_regression.ps1",
+    "input": "tests/windows_regression.ps1",
+    "exit": 0,
+    "passes": 20,
+    "output": "PASS bad_hash_does_not_modify_install\r\nPASS health_failure_restores_original\r\nPASS health_exception_restores_original\r\nPASS healthy_update_preserves_backup\r\nPASS corrupt_backup_explicit_failure_not_false_rollback\r\nPASS trusted_metadata_and_digest_accepted\r\nPASS missing_digest_rejected\r\nPASS foreign_asset_host_rejected\r\nPASS draft_release_rejected\r\nPASS zip_traversal_rejected\r\nPASS non_pe_candidate_rejected\r\nPASS verified_archive_extracts_exact_executable\r\nPASS repair_failure_reenables_target\r\nPASS capture_only_not_success\r\nPASS different_render_not_success\r\nPASS exact_active_render_success\r\nPASS broad_device_repair_rejected\r\nPASS http_delivery_without_business_success_rejected\r\nPASS business_success_accepted\r\nPASS unapproved_feedback_endpoint_rejected\r\nRESULT failures=0 tests=20\r\n"
+  },
+  {
+    "name": "update_health",
+    "command": "powershell -NoProfile -ExecutionPolicy Bypass -File tests/update_health_test.ps1",
+    "input": "tests/update_health_test.ps1",
+    "exit": 0,
+    "passes": 3,
+    "output": "PASS health_exception_kills_child_update-swap.ps1\r\nPASS health_exception_kills_child_build-deploy.ps1\r\nWARNING: Update receipt write failed: simulated receipt denial\nPASS receipt_denial_does_not_block_old_app_restart\r\nRESULT failures=0 tests=3\r\n"
+  },
+  {
+    "name": "ks_backend",
+    "command": "powershell -NoProfile -ExecutionPolicy Bypass -File tests/ks_backend_test.ps1",
+    "input": "tests/ks_backend_test.ps1",
+    "exit": 0,
+    "passes": 28,
+    "output": "PASS already_active_render_is_not_disconnected_or_reconnected\r\nPASS active_endpoint_with_link_down_sends_exact_reconnect\r\nPASS unknown_link_fails_before_active_reconnect\r\nPASS unknown_link_fails_before_unplugged_reconnect\r\nPASS invalid_link_address_read_returns_unknown\r\nPASS unplugged_exact_container_single_connect_request\r\nPASS ks_trace_records_exact_request_and_hresult\r\nPASS same_name_other_container_untouched\r\nPASS mic_off_leaves_capture_service_untouched\r\nPASS mic_on_includes_target_capture\r\nPASS disconnect_covers_render_and_capture_only_target\r\nPASS disconnect_returns_exact_target_endpoint_ids\r\nPASS unplugged_audio_still_requests_control_link_disconnect\r\nPASS shared_ks_filter_requested_only_once\r\nPASS unsupported_capture_aborts_before_any_disconnect\r\nPASS unsupported_connect_does_not_toggle_services\r\nPASS user_disabled_endpoint_not_enabled\r\nPASS notpresent_endpoint_not_connected\r\nPASS ambiguous_stereo_endpoints_fail_closed\r\nPASS known_hfp_render_not_selected_as_stereo\r\nPASS driver_error_not_accepted_and_no_blind_retry\r\nPASS ks_trace_records_driver_failure_hresult\r\nPASS ks_trace_records_exception_hresult_without_retry\r\nPASS empty_container_rejected\r\nPASS invalid_address_rejected_before_discovery\r\nPASS address_resolves_exact_pnp_container_not_friendly_name\r\nPASS duplicate_physical_nodes_rejected\r\nPASS empty_pnp_container_rejected\r\nRESULT failures=0 tests=28\r\n"
+  },
+  {
+    "name": "mic_migration",
+    "command": "powershell -NoProfile -ExecutionPolicy Bypass -File tests/mic_migration_test.ps1",
+    "input": "tests/mic_migration_test.ps1",
+    "exit": 0,
+    "passes": 13,
+    "output": "PASS existing_capture_does_not_install_driver\r\nPASS user_disabled_capture_not_overridden\r\nPASS hfp_filter_without_capture_not_reinstalled\r\nPASS missing_capture_one_exact_hfp_enable_then_readback\r\nPASS already_enabled_still_requires_capture_readback\r\nPASS unsupported_hfp_reports_without_retry\r\nPASS late_capture_timeout_stops_after_one_enable\r\nPASS invalid_address_rejected_before_enable\r\nPASS invalid_native_address_no_service_call\r\nPASS late_active_capture_readback_needs_no_new_request\r\nPASS late_unplugged_capture_one_target_request_then_active\r\nPASS previous_policy_request_never_duplicated\r\nPASS late_user_disabled_capture_not_enabled\r\nRESULT failures=0 tests=13\r\n"
+  }
+]

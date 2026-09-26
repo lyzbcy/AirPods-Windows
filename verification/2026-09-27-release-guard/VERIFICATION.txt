@@ -1,0 +1,39 @@
+VERIFICATION — 2026-09-27 — Windows release readiness guard, no publish/hardware action
+CHANGED branch/field: fix/audit-20260926; tests/strict_gate.py --release-gate production-path proof; scripts/release-precheck.py gate/package/installed-acceptance checks; tests/release_precheck_test.py; tests/run_suite.py offline entry; doc/04, doc/08, CHANGELOG; .gitattributes preserves executable ROLLBACK.sh LF on Windows checkout.
+
+FOUR ARTIFACTS (absolute):
+MODIFIED_FILE: E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-release-guard\MODIFIED_FILE
+DIFF_FILE: E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-release-guard\DIFF_FILE
+VERIFICATION.txt: E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-release-guard\VERIFICATION.txt
+ROLLBACK.sh: E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-release-guard\ROLLBACK.sh
+
+Original primary input: original/strict_gate.py SHA256=54EE20FBA471343C64DEAC5FE37A165EFBEBFF886254A6DED861281CA50605B8.
+MODIFIED_FILE and current tests/strict_gate.py SHA256=066BD831AF24C5CCED45C93BD4E9AE91BE5B45F8CF3CFC82657390724EC20F7B.
+DIFF_FILE is the actual unified diff for eight release/test/document/attribute files. No p0_timeline.py or main AHK edits by this work.
+
+BASELINE command: python tests/strict_gate.py --self-test
+BASELINE input: original tests/strict_gate.py before release guard.
+BASELINE literal output/result: PASS strict_gate_parser_exact_target_and_roles | RESULT failures=0 tests=1 ; exit=0. Full output: baseline-strict.txt.
+BASELINE command: python tests/run_suite.py --output verification/2026-09-27-release-guard/baseline-suite
+BASELINE input: source/test tree before this release guard; included 14 offline suites.
+BASELINE literal output/result: OFFLINE_PASS assertions=216 suites=14 ; exit=0. Full output: baseline-suite-console.txt.
+
+MODIFIED command: python tests/release_precheck_test.py
+MODIFIED input: current scripts/release-precheck.py, tests/strict_gate.py and isolated synthetic files in a temporary directory; no hardware.
+MODIFIED literal output/result: RESULT failures=0 tests=17 ; exit=0. Full output: modified-guard-test-final.txt.
+MODIFIED command: python tests/run_suite.py --output verification/2026-09-27-release-guard/modified-suite-final-v2
+MODIFIED input: current source/test tree including independently added read-only audio_sessions.py self-test.
+MODIFIED literal output/result: OFFLINE_PASS assertions=236 suites=16 ; exit=0. Full output: modified-suite-final-v2-console.txt.
+CURRENT CANDIDATE PRECHECK command: python scripts/release-precheck.py --gate-dir verification/2026-09-27-single5 --build-dir dist/build-2006b23cc4ae4a8aa5ac7e57b8987ac9 --zip verification/2026-09-26-ks/AirPodsBuddy-Windows.zip --acceptance verification/2026-09-27-release-guard/installed-acceptance.json
+CURRENT CANDIDATE PRECHECK input: incomplete diagnostic five-cycle result (cycle 1 disconnect exit5), old ZIP whose embedded exe SHA256=AD4913DA1282D424CCD29018BAA36BC4D7079F81ACDD9D60B673408C81FA365C, latest build exe SHA256=3049C8F8F973F6B988A641B41AE31437A3F44FFB5774CE9C04CC82490598A131, no installed acceptance receipt.
+CURRENT CANDIDATE PRECHECK literal output/result: RELEASE_PRECHECK_FAIL release ZIP EXE differs from final build EXE ; exit=1. This is the first independent blocker; gate and acceptance also remain incomplete.
+
+ROLLBACK syntax command: & 'D:\Program Files\Git\bin\bash.exe' -n verification/2026-09-27-release-guard/ROLLBACK.sh
+ROLLBACK syntax input: executable ROLLBACK.sh.
+ROLLBACK syntax literal result: empty output ; exit=0.
+ROLLBACK command: & 'D:\Program Files\Git\bin\bash.exe' verification/2026-09-27-release-guard/ROLLBACK.sh verification/2026-09-27-release-guard/rollback-test-copy
+ROLLBACK input: disposable copy of all eight modified/added files, seeded from the still-modified workspace and checked against modified SHA256 values; original snapshots in original/.
+ROLLBACK literal output/result: ROLLBACK_OK original_sha256=54EE20FBA471343C64DEAC5FE37A165EFBEBFF886254A6DED861281CA50605B8 ; exit=0.
+ROLLBACK restored behavior/status: disposable strict_gate.py and four other original files match their pre-change hashes; three added files are absent in the disposable copy. The live source and MODIFIED_FILE remain changed at SHA256=066BD831AF24C5CCED45C93BD4E9AE91BE5B45F8CF3CFC82657390724EC20F7B. No installation or Release was performed.
+
+HARDWARE gate status: verification/2026-09-27-single5/records only baseline then cycle 1 disconnect exit5 after 39.48s/link=1; no connect phase ran. This diagnostic no-retry run cannot be a production release proof. Production-path five-cycle gate, installed exe/restart reconnect, actual default-output listening and micOn acceptance remain unmet. The later 01:54 CST disconnected snapshot occurred after separate old-installed-app disconnect RPCs at 01:53 and does not revise this gate result.
