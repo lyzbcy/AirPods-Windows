@@ -112,15 +112,19 @@ def self_test():
     assert not any(word in BODY for word in ('SetDefault(', 'BluetoothSetServiceState',
                                               'BluetoothRemoveDevice', 'Set-PnpDevice'))
     assert 'raise SystemExit(actions[-1][1].returncode)' in Path(__file__).read_text(encoding='utf-8')
+    class ThreeTicks:
+        count = 0
+
+        def is_set(self):
+            return self.count >= 3
+
+        def wait(self, _interval):
+            self.count += 1
+
     with tempfile.TemporaryDirectory() as folder:
-        stop = threading.Event()
         path = Path(folder) / 'heartbeat.tsv'
-        thread = threading.Thread(target=write_heartbeat, args=(path, stop, 0.01))
-        thread.start()
-        time.sleep(0.035)
-        stop.set()
-        thread.join()
-        assert len(path.read_text(encoding='ascii').splitlines()) >= 2
+        write_heartbeat(path, ThreeTicks(), 0)
+        assert len(path.read_text(encoding='ascii').splitlines()) == 3
         assert max_heartbeat_gap_ms(path) >= 0
     print('PASS timeline_parser_and_read_only_sampler')
     print('RESULT failures=0 tests=1')
