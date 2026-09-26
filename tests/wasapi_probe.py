@@ -3,6 +3,7 @@ low-amplitude, bounded stream to the exact endpoint ID supplied by the operator.
 Never changes endpoint volume, mute, defaults, visibility, or radio state.
 """
 import ctypes as C,sys,json,time,math
+from datetime import datetime
 from ctypes import wintypes as W
 sys.stdout.reconfigure(encoding='utf-8')
 ole=C.OleDLL('ole32'); HRESULT=C.c_long; PTR=C.c_void_p
@@ -36,7 +37,7 @@ try:
     volume=activate('{5CDF2C82-841E-4546-9722-0CF74078229A}')
     scalar=C.c_float();mute=W.BOOL()
     call(volume,9,[C.POINTER(C.c_float)],C.byref(scalar));call(volume,15,[C.POINTER(W.BOOL)],C.byref(mute))
-    print(json.dumps({'endpoint':endpoint_id,'selection':sys.argv[1],'volume':round(scalar.value,3),'mute':bool(mute.value)},ensure_ascii=False),flush=True)
+    print(json.dumps({'time':datetime.now().isoformat(),'endpoint':endpoint_id,'selection':sys.argv[1],'volume':round(scalar.value,3),'mute':bool(mute.value)},ensure_ascii=False),flush=True)
     if '--play' in sys.argv:
         client=activate('{1CB9AD4C-DBFA-4C32-B178-C2F568A703B2}')
         fmt=PTR();call(client,8,[C.POINTER(PTR)],C.byref(fmt))
@@ -75,7 +76,11 @@ try:
                 if sent==total and padding.value==0:break
                 time.sleep(0.01)
             print(json.dumps({'frames_submitted':sent,'frames_expected':total,'remaining_padding':padding.value,'audible_confirmation':'pending'}),flush=True)
-            if sent!=total or padding.value:raise RuntimeError('stream did not drain before deadline')
+            end_state=W.DWORD();call(device,6,[C.POINTER(W.DWORD)],C.byref(end_state))
+            current=PTR();call(enum,4,[C.c_int,C.c_int,C.POINTER(PTR)],0,1,C.byref(current));own(current)
+            current_id=PTR();call(current,5,[C.POINTER(PTR)],C.byref(current_id));current_text=C.wstring_at(current_id);ole.CoTaskMemFree(current_id)
+            print(json.dumps({'time':datetime.now().isoformat(),'end_endpoint_state':end_state.value,'end_default':current_text,'default_unchanged':current_text==endpoint_id}),flush=True)
+            if sent!=total or padding.value or end_state.value!=1 or (sys.argv[1]=='--default' and current_text!=endpoint_id):raise RuntimeError('stream drain or final route validation failed')
         finally:call(client,11,[])
 finally:
     for p in reversed(objects):release(p)

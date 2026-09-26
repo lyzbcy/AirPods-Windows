@@ -622,6 +622,7 @@ function rpc(cmd,...args){
 window.__rpc=(id,data)=>{const p=pending[id];if(p){clearTimeout(p.timer);delete pending[id];p.resolve(data)}};
 window.__event=(name,data)=>{if(name==='update')showUpdate(data);if(name==='starask')showStarAsk();
   if(name==='toast')toast(data);if(name==='audioheld')onAudioHeld(data);
+  if(name==='routelost'){toast('之前确认的耳机音频路由已失效，请检查当前连接和声音输出。');refreshList()}
   if(name==='linkok'){toast('蓝牙链路已连接，正在确认音频…');refreshList()}
   if(name==='audiook'){toast('耳机播放端点及三个默认输出角色已确认');refreshList()}
   if(name==='linkdown'){toast('已核实断开：'+deviceName(data));refreshList()}
@@ -926,7 +927,7 @@ async function issueSend(){
     } else if(r==='nofile'){
       document.getElementById('issOps').style.display='none';
       document.getElementById('issFail').style.display='none';
-      document.getElementById('issDone').textContent='✓ 反馈已送达！💕（完整日志文件没发出去——多半被安全软件拦了；摘要日志已带上，不影响定位）';
+      document.getElementById('issDone').textContent='✓ 反馈已送达！💕（完整日志文件未送达；已送达内容见回执，请保留本地日志以便进一步排查）';
       document.getElementById('issDone').style.display='block';
       setTimeout(()=>{closeModal('mIssue');document.getElementById('issDone').style.display='none';
         document.getElementById('issOps').style.display='flex'},3400);
@@ -970,7 +971,7 @@ async function openSettings(){
   const sw = document.getElementById('swAuto');
   sw.checked = (st==='on'); sw.disabled = (st==='disabled');
   document.getElementById('autoHint').textContent =
-    st==='disabled' ? '开机自启动已被安全软件或任务管理器禁用：请在 任务管理器 → 启动应用 里重新开启' : '';
+    st==='disabled' ? '开机自启动当前被系统标记为禁用：请在 任务管理器 → 启动应用 里重新开启' : '';
   document.getElementById('swMic').checked = (await rpc('getmicswitch'))==='1';
   document.getElementById('swRescue').checked = (await rpc('getrescue'))==='1';
 }

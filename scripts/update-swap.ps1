@@ -7,6 +7,20 @@ $child=$null
 $old=$null
 $healthFile=$null
 $originalHash=(Get-FileHash -LiteralPath (Join-Path $r.directory 'AirPodsBuddy.exe')).Hash
+
+function Invoke-UpdateFailureRecovery {
+    param([string]$Directory,[string]$OriginalHash,[object]$OldProcess,
+          [string]$Receipt,[string]$Message,
+          [scriptblock]$WriteReceipt = {param($path,$text) [IO.File]::WriteAllText($path,$text)},
+          [scriptblock]$StartApp = {param($exe) Start-Process -FilePath $exe -WindowStyle Hidden | Out-Null})
+    try { & $WriteReceipt $Receipt ('fail '+$Message) }
+    catch { Write-Warning ('Update receipt write failed: '+$_.Exception.Message) }
+    $exe=Join-Path $Directory 'AirPodsBuddy.exe'
+    if ((!$OldProcess -or $OldProcess.HasExited) -and
+        (Get-FileHash -LiteralPath $exe).Hash -eq $OriginalHash) {
+        & $StartApp $exe
+    }
+}
 try {
     $old=Get-Process -Id $r.oldPid -ErrorAction SilentlyContinue
     if ($old -and !$old.WaitForExit(30000)) { throw 'Old application did not exit' }
@@ -14,27 +28,34 @@ try {
     $check={
         param($exe)
         $script:child=Start-Process -FilePath $exe -ArgumentList @('/update-health',$r.token) -WindowStyle Hidden -PassThru
+        $healthy=$false
         $deadline=(Get-Date).AddSeconds(40)
-        while((Get-Date) -lt $deadline -and !$script:child.HasExited) {
-            if (Test-Path -LiteralPath $healthFile) {
-                if ((Get-Content -LiteralPath $healthFile -Raw).Trim() -eq $r.version) {
-                    Start-Sleep -Seconds 3
-                    if (!$script:child.HasExited -and (Get-Content -LiteralPath $healthFile -Raw).Trim() -eq $r.version) {return $true}
+        try {
+            while((Get-Date) -lt $deadline -and !$script:child.HasExited) {
+                if (Test-Path -LiteralPath $healthFile) {
+                    if ((Get-Content -LiteralPath $healthFile -Raw).Trim() -eq $r.version) {
+                        Start-Sleep -Seconds 3
+                        if (!$script:child.HasExited -and (Get-Content -LiteralPath $healthFile -Raw).Trim() -eq $r.version) {
+                            $healthy=$true
+                            return $true
+                        }
+                    }
+                    break
                 }
-                break
+                Start-Sleep -Milliseconds 250
             }
-            Start-Sleep -Milliseconds 250
+            return $false
+        } finally {
+            if (!$healthy -and $script:child -and !$script:child.HasExited) {
+                $script:child.Kill()
+                $script:child.WaitForExit(5000) | Out-Null
+            }
         }
-        if (!$script:child.HasExited) { $script:child.Kill(); $script:child.WaitForExit(5000) | Out-Null }
-        return $false
     }
     $result=Invoke-UpdateTransaction -Candidate $r.candidate -Destination (Join-Path $r.directory 'AirPodsBuddy.exe') -ExpectedHash $r.hash -HealthCheck $check
     [IO.File]::WriteAllText($receipt,'ok')
 } catch {
-    [IO.File]::WriteAllText($receipt,'fail '+$_.Exception.Message)
-    if ((!$old -or $old.HasExited) -and (Get-FileHash -LiteralPath (Join-Path $r.directory 'AirPodsBuddy.exe')).Hash -eq $originalHash) {
-        Start-Process -FilePath (Join-Path $r.directory 'AirPodsBuddy.exe') -WindowStyle Hidden
-    }
+    Invoke-UpdateFailureRecovery -Directory $r.directory -OriginalHash $originalHash -OldProcess $old -Receipt $receipt -Message $_.Exception.Message
     exit 1
 } finally {
     if ($healthFile -and (Test-Path -LiteralPath $healthFile)) { Remove-Item -LiteralPath $healthFile -Force }

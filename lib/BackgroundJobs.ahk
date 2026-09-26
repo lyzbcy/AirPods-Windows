@@ -32,7 +32,7 @@ StartBackgroundJob(kind, payload, callback, timeoutMs := 45000) {
 
 PollBackgroundJob(job) {
     done := DllCall("WaitForSingleObject", "ptr", job.handle, "uint", 0, "uint") = 0
-    timedOut := A_TickCount - job.started > job.timeout
+    timedOut := BackgroundJobTimedOut(done, job.started, job.timeout, A_TickCount)
     if (!done && !timedOut) {
         SetTimer(() => PollBackgroundJob(job), -100)
         return
@@ -43,17 +43,28 @@ PollBackgroundJob(job) {
         DllCall("WaitForSingleObject", "ptr", job.handle, "uint", 1000)
     } else {
         try {
+            parsed := Map()
             for line in StrSplit(FileRead(job.result, "UTF-8"), "`n", "`r") {
                 pos := InStr(line, "=")
                 if pos
-                    result[SubStr(line, 1, pos-1)] := SubStr(line, pos+1)
+                    parsed[SubStr(line, 1, pos-1)] := SubStr(line, pos+1)
             }
+            if parsed.Has("status") && (parsed["status"] = "ok" || parsed["status"] = "fail"
+                || parsed["status"] = "ready" || parsed["status"] = "current"
+                || parsed["status"] = "available" || parsed["status"] = "nofile")
+                result := parsed  ; do not retain a synthetic missing-result error
         }
     }
     try job.callback.Call(result, job)
     catch as e
         LogMsg("worker callback failed: " e.Message, "ERROR")
     finally CleanupBackgroundJob(job)
+}
+
+; Process completion wins over a late UI timer tick. A completed worker must
+; have its result read even if polling resumed after the nominal deadline.
+BackgroundJobTimedOut(done, started, timeout, now) {
+    return !done && now - started > timeout
 }
 
 CleanupBackgroundJob(job) {

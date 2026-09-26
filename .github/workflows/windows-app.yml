@@ -46,6 +46,8 @@ jobs:
         run: |
           powershell -NoProfile -ExecutionPolicy Bypass -File tests/windows_regression.ps1
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          powershell -NoProfile -ExecutionPolicy Bypass -File tests/update_health_test.ps1
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
           node tests/rpc_test.cjs
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Build embedded frontend

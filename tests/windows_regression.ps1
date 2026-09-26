@@ -1,4 +1,4 @@
-$ErrorActionPreference='Stop'
+﻿$ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot
 Import-Module (Join-Path $root 'scripts\UpdateCore.psm1') -Force
 Import-Module (Join-Path $root 'scripts\RepairCore.psm1') -Force
@@ -15,6 +15,16 @@ Check 'health_failure_restores_original' ((MustThrow {Invoke-UpdateTransaction $
 Check 'health_exception_restores_original' ((MustThrow {Invoke-UpdateTransaction $candidate $installed $hash {throw 'crash'}}) -and (Get-Content $installed -Raw) -eq 'original fixture')
 $success=Invoke-UpdateTransaction $candidate $installed $hash {$true}
 Check 'healthy_update_preserves_backup' ($success.Status -eq 'ok' -and (Get-Content $installed -Raw) -eq 'new candidate fixture' -and (Get-Content $success.Backup -Raw) -eq 'original fixture')
+$corruptTarget=Join-Path $work 'corrupt-backup-test.exe'
+[IO.File]::WriteAllText($corruptTarget,'original fixture')
+$message=''
+try {
+ Invoke-UpdateTransaction $candidate $corruptTarget $hash {
+  Get-ChildItem -LiteralPath $work -Filter 'corrupt-backup-test.exe.backup-*' | ForEach-Object { [IO.File]::WriteAllText($_.FullName,'corrupt backup') }
+  return $false
+ } | Out-Null
+} catch {$message=$_.Exception.Message}
+Check 'corrupt_backup_explicit_failure_not_false_rollback' ($message -like 'ROLLBACK_FAILED:*' -and (Get-Content $corruptTarget -Raw) -eq 'new candidate fixture')
 $release=[pscustomobject]@{draft=$false;prerelease=$false;tag_name='v1.9.99';assets=@([pscustomobject]@{name='AirPodsBuddy-Windows.zip';browser_download_url='https://github.com/lyzbcy/AirPods-Windows/releases/download/v1.9.99/AirPodsBuddy-Windows.zip';digest=('sha256:'+'a'*64)})}
 Check 'trusted_metadata_and_digest_accepted' ((Get-ApprovedRelease '1.9.19' {$release}).Version -eq '1.9.99')
 $release.assets[0].digest=''

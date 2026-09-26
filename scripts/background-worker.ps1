@@ -1,4 +1,4 @@
-param([Parameter(Mandatory)][string]$Request)
+﻿param([Parameter(Mandatory)][string]$Request)
 $ErrorActionPreference='Stop'
 $r=Get-Content -LiteralPath $Request -Raw -Encoding UTF8 | ConvertFrom-Json
 $a=$r.args
@@ -75,7 +75,7 @@ public static class NativeBt {
                         elseif ($hr -in 87,2147942487) { if($state -eq 0 -and $wanted -eq 0){return 'ok'};$state=1-$state }
                         elseif ($hr -eq 1060 -or ($hr -eq 1168 -and $wanted -eq 0)) { return 'absent' }
                     }
-                    return 'fail'
+                    return ('fail:0x{0:X8}' -f $hr)
                 }
                 $hf='{0000111e-0000-1000-8000-00805f9b34fb}';$a2='{0000110b-0000-1000-8000-00805f9b34fb}'
                 if ($a.escalateOnly) {
@@ -93,6 +93,9 @@ public static class NativeBt {
                     $h=Set-ServiceState $hf 0;$s=Set-ServiceState $a2 0
                     $ok=$h -in 'ok','absent' -and $s -in 'ok','absent'
                 }
+                if ($null -ne $h) {$result.hfp=$h}
+                if ($null -ne $s) {$result.a2dp=$s}
+                if ($null -ne $control) {$result.control=$control}
                 if ($ok) {$result.status='ok'} else {$result.status='fail'}
             } finally { [Runtime.InteropServices.Marshal]::FreeHGlobal($info) }
         }

@@ -167,6 +167,7 @@ if A_IsCompiled {
     uiHtml := appRoot "\index_built.html"
     wvDll := appRoot "\WebView2Loader.dll"
     EnsureResources()
+    SetTimer(EnsureResources, 30000)
 }
 
 EnsureResources() {
@@ -310,6 +311,7 @@ WatchTrayState() {
     SortDevices()
     UpdateTrayIcon()
     WatchFlap()
+    WatchAudioRoutes()
 }
 
 ; 连接来回跳检测（v1.9.8，用户 2026-09-06）：手机/电脑抢耳机或链路不稳时
@@ -322,7 +324,7 @@ flapAdvised := Map()  ; name -> 上次提示时刻
 WatchFlap() {
     global devices, flapLog, flapPrev, flapAdvised
     for dev in devices {
-        key := dev.name
+        key := DeviceKey(dev)
         now := dev.connected ? 1 : 0
         if !flapPrev.Has(key) {
             flapPrev[key] := now
@@ -330,6 +332,7 @@ WatchFlap() {
         }
         if (flapPrev[key] = now)
             continue
+        LogMsg("bluetooth link changed address=" key " connected=" now)
         flapPrev[key] := now
         stamps := flapLog.Has(key) ? flapLog[key] : ""
         stamps .= (stamps = "" ? "" : "|") A_Now
@@ -347,8 +350,23 @@ WatchFlap() {
         flapAdvised[key] := A_Now
         flapLog[key] := ""
         LogMsg("flap detected: '" key "' x" cnt "/120s", "WARN")
-        TrayTip("AirPods 小助手", "检测到 «" key "» 连接来回跳（手机和电脑在抢耳机）`n建议：暂停手机蓝牙或退出手机上的音乐，再点一次连接锁定", 4)
+        TrayTip("检测到 «" dev.name "» 蓝牙链路反复变化；原因尚未确认，请查看日志与 Windows 蓝牙状态。", "AirPods 小助手", 2)
         PushEvent("flapping", JsonStr(key))
+    }
+}
+
+; Observe loss even while the WebView is hidden. Never reclaim a newer output choice.
+WatchAudioRoutes() {
+    global devices, deviceOps
+    for dev in devices {
+        key := DeviceKey(dev)
+        if !deviceOps.Has(key) || deviceOps[key].state != "ready"
+            continue
+        state := DeviceAudioState(key, dev.connected)
+        if state != "ready" {
+            LogMsg("verified route lost address=" key " state=" state, "WARN")
+            PushEvent("routelost", JsonStr(key))
+        }
     }
 }
 
@@ -877,9 +895,9 @@ TruncateUtf8(s, maxBytes) {
 ; 若被安全软件/任务管理器禁用（StartupApproved 首字节为奇数），返回
 ; "disabled" 让前端如实提示，而不是假装开关没生效。
 
-AutostartEnabled() {
+AutostartEnabled(shortcutPath := "") {
     global RUN_KEY, RUN_NAME
-    lnkOn := FileExist(A_Startup "\AirPods小助手.lnk") ? true : false
+    lnkOn := FileExist(shortcutPath != "" ? shortcutPath : A_Startup "\AirPods小助手.lnk") ? true : false
     regOn := false
     try {
         v := RegRead("HKCU\" RUN_KEY, RUN_NAME)
@@ -900,8 +918,11 @@ AutostartEnabled() {
     return lnkOn ? "on" : "off"
 }
 
-AutostartSet(on) {
+AutostartSet(on, shortcutPath := "") {
     global RUN_KEY, RUN_NAME
+    lnk := shortcutPath != "" ? shortcutPath : A_Startup "\AirPods小助手.lnk"
+    backup := lnk ".backup-" DllCall("GetCurrentProcessId") "-" A_TickCount
+    moved := false
     oldPreference := SettingRead("autostart", "")
     oldRun := "", hadRun := false
     try {
@@ -917,12 +938,18 @@ AutostartSet(on) {
         } else if hadRun {
             RegDelete("HKCU\" RUN_KEY, RUN_NAME)
         }
-        lnk := A_Startup "\AirPods小助手.lnk"
-        if FileExist(lnk)
-            FileDelete(lnk)
-        state := AutostartEnabled()
+        if FileExist(lnk) {
+            FileMove(lnk, backup, 0)
+            moved := true
+        }
+        state := AutostartEnabled(lnk)
         if (on && state != "on") || (!on && state != "off")
             throw Error("autostart readback: " state)
+        if moved {
+            try FileDelete(backup)
+            catch as cleanupError
+                LogMsg("autostart backup retained: " cleanupError.Message, "WARN")
+        }
         return "ok"
     } catch as e {
         try {
@@ -930,6 +957,11 @@ AutostartSet(on) {
                 RegWrite(oldRun, "REG_SZ", "HKCU\" RUN_KEY, RUN_NAME)
             else
                 RegDelete("HKCU\" RUN_KEY, RUN_NAME)
+        }
+        if moved {
+            try FileMove(backup, lnk, 0)
+            catch as restoreError
+                LogMsg("autostart shortcut restore failed; backup=" backup " error=" restoreError.Message, "ERROR")
         }
         SettingWrite("autostart", oldPreference)
         LogMsg("autostart change rolled back: " e.Message, "ERROR")
@@ -1568,6 +1600,11 @@ DeviceLabel(key) {
 
 FinishBluetoothAction(name, action, gen, result) {
     global busy
+    detail := ""
+    for field in ["hfp", "a2dp", "control", "error"]
+        if result.Has(field)
+            detail .= " " field "=" result[field]
+    LogMsg("bluetooth worker " action " address=" name " status=" result["status"] detail)
     try {
         if !OpCurrent(name, gen)
             return

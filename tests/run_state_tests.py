@@ -3,7 +3,7 @@ import subprocess,sys
 sys.stdout.reconfigure(encoding='utf-8')
 ROOT=Path(__file__).resolve().parents[1]
 source=(ROOT/'airpods_buddy.ahk').read_text(encoding='utf-8-sig')
-names=['DoAction','BeginDeviceOp','OpCurrent','SetOpState','CanRoute','FindDevByName','IsSuccessfulOperation','AtomicWriteText','SavePriority','LoadPriority','SettingRead','SettingWrite','Join','SortDevices','DevLess','DeviceSortKey','IsAppleDevice','DeviceAudioState','DeviceKey','DeviceLabel','JsonStr','FinishBluetoothAction','DaysSince','ValidBridgeArgs']
+names=['DoAction','BeginDeviceOp','OpCurrent','SetOpState','CanRoute','FindDevByName','IsSuccessfulOperation','AtomicWriteText','SavePriority','LoadPriority','SettingRead','SettingWrite','Join','SortDevices','DevLess','DeviceSortKey','IsAppleDevice','DeviceAudioState','DeviceKey','DeviceLabel','JsonStr','FinishBluetoothAction','DaysSince','ValidBridgeArgs','AutostartEnabled','AutostartSet','WatchAudioRoutes']
 body=r'''
 #Requires AutoHotkey v2.0
 #SingleInstance Off
@@ -11,6 +11,7 @@ FileEncoding("UTF-8-RAW")
 OnError((e, mode) => (FileAppend("ERROR " e.Message " line=" e.Line "`n", "*"), ExitApp(2)))
 SETTINGS_PATH := A_ScriptDir "\settings-test.ini"
 failures := 0, busy := false, loading := false, maxRetries := 1
+routeEvents := []
 deviceOps := Map(), operationSerial := 0, routeOwner := 0
 devices := [{name:"A",info:Buffer(560)}]
 result := DoAction("A", "connect")
@@ -54,6 +55,38 @@ Check("locked_target_reports_failure", !AtomicWriteText(SETTINGS_PATH, "test=aft
 DllCall("CloseHandle", "ptr", handle)
 Check("failed_replace_keeps_old_content", SettingRead("test", "missing") = "before")
 Check("setting_update_after_unlock", SettingWrite("test", "after") && SettingRead("test", "missing") = "after")
+devices := [{id:"001122334455",name:"Headphones",connected:true}]
+routeEvents := [], routeFresh := false
+gen := BeginDeviceOp("001122334455", "connect")
+SetOpState("001122334455", gen, "ready")
+WatchAudioRoutes()
+Check("hidden_ui_observes_route_loss", deviceOps["001122334455"].state = "audio_lost" && routeEvents.Length = 1)
+WatchAudioRoutes()
+Check("route_loss_event_not_repeated", routeEvents.Length = 1)
+devices[1].connected := false
+SetOpState("001122334455", gen, "ready")
+WatchAudioRoutes()
+Check("hidden_ui_observes_disconnection", deviceOps["001122334455"].state = "disconnected")
+RUN_NAME := "AirPodsBuddyTest_" DllCall("GetCurrentProcessId")
+RUN_KEY := "Software\AirPodsBuddyTests\" RUN_NAME
+approved := "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"
+lnk := A_ScriptDir "\shortcut-fixture.lnk"
+FileAppend("original shortcut bytes", lnk)
+try {
+    SettingWrite("autostart", "1")
+    RegWrite("030000000000000000000000", "REG_BINARY", approved, RUN_NAME)
+    Check("disabled_startup_returns_failure", AutostartSet(true, lnk) = "fail")
+    Check("failed_startup_restores_shortcut", FileExist(lnk) && FileRead(lnk) = "original shortcut bytes")
+    Check("failed_startup_restores_preference", SettingRead("autostart", "") = "1")
+    Check("failed_startup_restores_missing_run", RegRead("HKCU\" RUN_KEY, RUN_NAME, "absent") = "absent")
+    RegDelete(approved, RUN_NAME)
+    Check("startup_enable_migrates_shortcut", AutostartSet(true, lnk) = "ok" && !FileExist(lnk))
+    Check("startup_disable_verified", AutostartSet(false, lnk) = "ok" && AutostartEnabled(lnk) = "off")
+} finally {
+    try RegDelete(approved, RUN_NAME)
+    try RegDeleteKey("HKCU\" RUN_KEY)
+    try FileDelete(lnk)
+}
 FileDelete(PRIO_PATH)
 FileDelete(SETTINGS_PATH)
 FileAppend("RESULT failures=" failures "`n", "*")
@@ -75,7 +108,9 @@ SetTrayLoading(on) {
 StartBackgroundJob(*) {
     throw Error("injected worker launch failure")
 }
-PushEvent(*) {
+PushEvent(event, data) {
+    global routeEvents
+    routeEvents.Push(event)
 }
 StartLinkVerify(*) {
 }
