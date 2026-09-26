@@ -102,6 +102,40 @@ def max_heartbeat_gap_ms(path):
     return max(((ticks[i] - ticks[i - 1]) // 1_000_000 for i in range(1, len(ticks))), default=0)
 
 
+def start_observer(command, cwd=ROOT):
+    """Spool stdout to a file so source actions cannot fill an unread pipe."""
+    output = tempfile.TemporaryFile(mode='w+b')
+    try:
+        process = subprocess.Popen(command, cwd=cwd, stdout=output, stderr=subprocess.STDOUT)
+    except BaseException:
+        output.close()
+        raise
+    return process, output
+
+
+def max_sample_gap_ms(rows):
+    return max(((rows[i]['utcFiletime'] - rows[i - 1]['utcFiletime']) // 10000
+                for i in range(1, len(rows))), default=0)
+
+
+def write_timeline_quality(out, run_id, quality, **details):
+    """Atomically publish which run, if any, owns the fixed timeline output."""
+    record = {'runId': run_id, 'quality': quality, **details}
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.tmp', prefix='timeline-quality-',
+                                     dir=out, encoding='utf-8', delete=False) as file:
+        json.dump(record, file, ensure_ascii=False, indent=2)
+        temporary = Path(file.name)
+    try:
+        temporary.replace(out / 'timeline-quality.json')
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def begin_timeline_run(out, run_id):
+    write_timeline_quality(out, run_id, 'incomplete', reason='in-progress')
+    (out / 'timeline.json').unlink(missing_ok=True)
+
+
 def self_test():
     rows = parse_samples('SAMPLE\t134349076453976566\t10\t0\t8\tA\tB\tC\t2\t3\t4\n')
     assert rows == [{'utcFiletime': 134349076453976566, 'tick': 10,
@@ -126,8 +160,36 @@ def self_test():
         write_heartbeat(path, ThreeTicks(), 0)
         assert len(path.read_text(encoding='ascii').splitlines()) == 3
         assert max_heartbeat_gap_ms(path) >= 0
+    # Reproduce the former unread-PIPE failure without touching Bluetooth.
+    payload = b'W' * (1024 * 1024)
+    process, output = start_observer(
+        [sys.executable, '-c',
+         'import sys; sys.stdout.buffer.write(b"W" * (1024 * 1024)); sys.stdout.flush()'])
+    try:
+        time.sleep(0.1)  # parent deliberately does not read while child writes
+        assert process.wait(timeout=5) == 0
+        output.seek(0)
+        assert output.read() == payload
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=5)
+        output.close()
+    assert max_sample_gap_ms(rows) == 0
+    assert max_sample_gap_ms([rows[0], {**rows[0], 'utcFiletime': rows[0]['utcFiletime'] + 25_000_000}]) == 2500
+    with tempfile.TemporaryDirectory() as folder:
+        out = Path(folder)
+        (out / 'timeline.json').write_text('stale', encoding='ascii')
+        begin_timeline_run(out, 'offline-test')
+        assert not (out / 'timeline.json').exists()
+        assert json.loads((out / 'timeline-quality.json').read_text(encoding='utf-8')) == {
+            'runId': 'offline-test', 'quality': 'incomplete', 'reason': 'in-progress'}
+        write_timeline_quality(out, 'offline-test', 'complete', samples=1, maxGapMs=0)
+        assert json.loads((out / 'timeline-quality.json').read_text(encoding='utf-8')) == {
+            'runId': 'offline-test', 'quality': 'complete', 'samples': 1, 'maxGapMs': 0}
     print('PASS timeline_parser_and_read_only_sampler')
-    print('RESULT failures=0 tests=1')
+    print('PASS observer_output_spool_and_cadence_detection')
+    print('RESULT failures=0 tests=2')
 
 
 def powershell_json(script):
@@ -162,30 +224,36 @@ def main():
     if args.single_request and not settings:
         parser.error('single-request requires an isolated settings fixture')
     OUT.mkdir(parents=True, exist_ok=True)
-    probe = powershell_json("Import-Module './scripts/KsBluetooth.psm1' -Force; "
-                            f"Get-KsBluetoothProbe '{address}' | ConvertTo-Json -Depth 8 -Compress")
-    render = [e for e in probe['endpoints'] if e['Flow'] == 0 and e['State'] in (1, 8)
-              and 'BTHHFENUM' not in (e.get('FilterId') or '').upper()]
-    if len(render) != 1 or not ENDPOINT.fullmatch(render[0]['Id']):
-        raise RuntimeError('exact target render endpoint not unique')
-    target = render[0]['Id']
-    (OUT / 'probe.json').write_text(json.dumps(probe, ensure_ascii=False, indent=2), encoding='utf-8')
-    samples = args.seconds * 2
-    script = BODY + source_function('GetLinkState') + '\n'
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.ahk', prefix='apb_timeline_',
-                                     dir=ROOT, encoding='utf-8-sig', delete=False) as f:
-        f.write(script)
-        temp = Path(f.name)
+    run_id = str(time.time_ns())
+    begin_timeline_run(OUT, run_id)
+    try:
+        probe = powershell_json("Import-Module './scripts/KsBluetooth.psm1' -Force; "
+                                f"Get-KsBluetoothProbe '{address}' | ConvertTo-Json -Depth 8 -Compress")
+        render = [e for e in probe['endpoints'] if e['Flow'] == 0 and e['State'] in (1, 8)
+                  and 'BTHHFENUM' not in (e.get('FilterId') or '').upper()]
+        if len(render) != 1 or not ENDPOINT.fullmatch(render[0]['Id']):
+            raise RuntimeError('exact target render endpoint not unique')
+        target = render[0]['Id']
+        (OUT / 'probe.json').write_text(json.dumps(probe, ensure_ascii=False, indent=2), encoding='utf-8')
+        samples = args.seconds * 2
+        script = BODY + source_function('GetLinkState') + '\n'
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.ahk', prefix='apb_timeline_',
+                                         dir=ROOT, encoding='utf-8-sig', delete=False) as f:
+            f.write(script)
+            temp = Path(f.name)
+    except Exception as error:
+        write_timeline_quality(OUT, run_id, 'incomplete', reason=str(error))
+        raise
     observer = None
+    observer_output = None
     actions = []
     heartbeat_stop = threading.Event()
     heartbeat_path = OUT / 'heartbeat.tsv'
     heartbeat = threading.Thread(target=write_heartbeat, args=(heartbeat_path, heartbeat_stop), daemon=True)
     try:
         heartbeat.start()
-        observer = subprocess.Popen([str(AHK), '/ErrorStdOut=UTF-8', str(temp), address,
-                                     target, str(samples)], cwd=ROOT,
-                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        observer, observer_output = start_observer(
+            [str(AHK), '/ErrorStdOut=UTF-8', str(temp), address, target, str(samples)])
         if args.action != 'none':
             time.sleep(1)
             modes = ['disconnect', 'connect'] if args.action == 'cycle' else ['connect']
@@ -201,16 +269,20 @@ def main():
                 actions.append((mode, action))
                 if action.returncode:
                     break
-        raw, _ = observer.communicate(timeout=args.seconds + 15)
+        observer.wait(timeout=args.seconds + 15)
         heartbeat_stop.set()
         heartbeat.join(timeout=2)
+        observer_output.seek(0)
+        raw = observer_output.read()
         output = raw.decode('utf-8-sig', errors='replace')
         (OUT / 'timeline-raw.txt').write_text(output, encoding='utf-8')
         rows = parse_samples(output)
         if observer.returncode or len(rows) != samples:
             raise RuntimeError('sampler failed: exit=' + str(observer.returncode) + ' samples=' +
                                str(len(rows)) + '/' + str(samples) + '\n' + output[-1200:])
-        (OUT / 'timeline.json').write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding='utf-8')
+        gap_ms = max_sample_gap_ms(rows)
+        if gap_ms > 1500:
+            raise RuntimeError(f'incomplete timeline: maxGapMs={gap_ms} exceeds 1500 ms')
         # Snapshot exact target PnP node and native events; disabled channels remain untouched.
         events = powershell_json("$ErrorActionPreference='Stop'; $addr='"+address+"'; "
             "$node=@(Get-PnpDevice -Class Bluetooth | Where-Object {$_.InstanceId.StartsWith(('BTHENUM\\DEV_'+$addr+'\\'),[StringComparison]::OrdinalIgnoreCase)}); "
@@ -221,11 +293,13 @@ def main():
             "@{nodes=@($node | Select-Object InstanceId,Status,Class);events=$ev;"
             "eventCount=$ev.Count} | ConvertTo-Json -Depth 5 -Compress")
         (OUT / 'pnp-events.json').write_text(json.dumps(events, ensure_ascii=False, indent=2), encoding='utf-8')
+        (OUT / 'timeline.json').write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding='utf-8')
+        write_timeline_quality(OUT, run_id, 'complete', samples=len(rows), maxGapMs=gap_ms)
         print(f'RESULT samples={len(rows)} target={target} action={args.action} '
               f'actionExit={actions[-1][1].returncode if actions else "NA"} '
               f'lastLink={rows[-1]["link"]} lastEndpointState={rows[-1]["endpointState"]} '
               f'events={events["eventCount"]} '
-              f'maxGapMs={max((rows[i]["utcFiletime"]-rows[i-1]["utcFiletime"])//10000 for i in range(1,len(rows))) if len(rows)>1 else 0} '
+              f'maxGapMs={gap_ms} '
               f'maxLinkMs={max(r["linkMs"] for r in rows)} '
               f'maxEndpointMs={max(r["endpointMs"] for r in rows)} '
               f'maxDefaultMs={max(r["defaultMs"] for r in rows)} '
@@ -235,13 +309,19 @@ def main():
                                            if line.startswith('RESULT state=')), sep=' ')
         if actions and actions[-1][1].returncode:
             raise SystemExit(actions[-1][1].returncode)
+    except Exception as error:
+        (OUT / 'timeline.json').unlink(missing_ok=True)
+        write_timeline_quality(OUT, run_id, 'incomplete', reason=str(error))
+        raise
     finally:
         heartbeat_stop.set()
         if heartbeat.is_alive():
             heartbeat.join(timeout=2)
         if observer is not None and observer.poll() is None:
             observer.kill()
-            observer.communicate(timeout=5)
+            observer.wait(timeout=5)
+        if observer_output is not None:
+            observer_output.close()
         temp.unlink(missing_ok=True)
 
 
