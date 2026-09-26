@@ -16,6 +16,10 @@
 
 离线 211 项/14 套通过；用户授权的一次迁移使 AirPods 麦克风可打开，发声测得峰值 -17.887286 dB；随后默认播放测试音用户确认从 AirPods 发声。Windows 默认输入三角色和常驻设置已恢复，HFP 驱动保留。严格五轮第 1 轮断开超时，之后链路才断；用户随后说明先前没戴、现已戴好，因此该断开不可单独归因。戴好后的连接两次 KS 接受仍 link=0、render/capture=UNPLUGGED；KS 接受只代表驱动尝试，不代表已连接，见[微软 KS reconnect 文档](https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/ksproperty-oneshot-reconnect)。已请求 Windows 设置原生连接对照也失败；根因仍未定位，P0 不归因、不发 Release。完整证据见 `verification/2026-09-26-final/VERIFICATION.txt`。
 
+## 2026-09-27 原生蓝牙开关恢复后的对照
+
+用户同意重建目标配对后，Windows 添加仍报设备无响应；用户手动关开电脑蓝牙再添加成功。该恢复动作由用户在 Windows 执行，不属于应用 KS 日常连接流程，也不应在应用内自动化。当前 ASUS/Realtek 适配器驱动与 ASUS 官方推荐的 18.4017.2411.1801 相同，不能把同版重装当作已验证修复。配对恢复后严格五轮前两轮全过，第3轮重连 KS 请求被驱动接受、链路已连，但播放端点/路由到核实期限仍未就绪，`audio_failed`/exit5；稍后只读状态为ACTIVE与三个默认输出角色一致。默认路径提示音用户确认从 AirPods 听到，证明目前可播放，不证明五轮稳定。P0仍待解释蓝牙栈与音频端点迟到就绪的关系，Release 门槛未过。
+
 ## 1. 关键事实：现在操作的不是单纯连接开关
 
 微软明确说明 `BluetoothSetServiceState` 启用服务会安装对应驱动，禁用服务会移除对应驱动；`E_INVALIDARG` 可以表示目标服务已经处于请求状态，而 `ERROR_INVALID_PARAMETER` 表示标志参数无效，两者文档语义不同。
