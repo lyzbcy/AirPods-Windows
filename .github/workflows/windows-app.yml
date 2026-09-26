@@ -31,31 +31,10 @@ jobs:
           Invoke-WebRequest 'https://github.com/AutoHotkey/Ahk2Exe/releases/download/Ahk2Exe1.1.36.02f2/Ahk2Exe1.1.36.02f.zip' -OutFile compiler.zip
           if ((Get-FileHash compiler.zip).Hash -ne '46D335C6EBDA027AEA00F5A8261B4D1A1763E17B858FE512BBE541F9BB66D464') { throw 'Compiler checksum mismatch' }
           Expand-Archive compiler.zip tools/ahk2exe_stable
-      - name: AHK state and fault injection
+      - name: Complete offline regression (never touches hardware)
         shell: pwsh
         run: |
-          python tests/run_behavior.py airpods_buddy.ahk
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          python tests/ks_retry_behavior.py
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          python tests/run_state_tests.py
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          python tests/resource_identity_test.py
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          python tests/run_ahk.py tests/audio_routing_test.ahk
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          python tests/run_ahk.py tests/background_job_test.ahk
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
-      - name: Update rollback, repair, HTTP receipts, and RPC
-        shell: pwsh
-        run: |
-          powershell -NoProfile -ExecutionPolicy Bypass -File tests/windows_regression.ps1
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          powershell -NoProfile -ExecutionPolicy Bypass -File tests/update_health_test.ps1
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          powershell -NoProfile -ExecutionPolicy Bypass -File tests/ks_backend_test.ps1
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          node tests/rpc_test.cjs
+          python tests/run_suite.py
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Build embedded frontend
         shell: pwsh
