@@ -10,7 +10,9 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
 import time
+from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUT = ROOT / 'verification/2026-09-26-final/strict-gate'
@@ -54,6 +56,34 @@ def parse_connect_requests(output):
         r'^INFO bluetooth worker connect\b.*?\brequested=(\d+)\s', output, re.MULTILINE)]
 
 
+def capture_failure_snapshot(out, stem, address, settings, render, endpoints, runner=subprocess.run):
+    """Read-only evidence after a failed action; never replace its original failure."""
+    commands = {
+        'inspect': ['python', 'tests/live_audio.py', 'inspect', address, str(settings)],
+        'sessions': ['python', 'tests/audio_sessions.py', *
+                     [item for endpoint in endpoints for item in ('--endpoint', endpoint)]],
+    }
+    evidence = {}
+    for kind, command in commands.items():
+        filename = f'{stem}-failure-{kind}.txt'
+        try:
+            proc = runner(command, cwd=ROOT, capture_output=True, timeout=20)
+            raw = (proc.stdout + proc.stderr).decode('utf-8-sig', errors='replace')
+            (out / filename).write_text(raw, encoding='utf-8')
+            item = {'command': command, 'exit': proc.returncode, 'file': filename,
+                    'sha256': sha256(out / filename)}
+            if proc.returncode == 0:
+                try:
+                    item['state'] = (parse_inspect(raw, address, render) if kind == 'inspect'
+                                     else json.loads(proc.stdout.decode('utf-8-sig')))
+                except (ValueError, KeyError) as exc:
+                    item['parseError'] = str(exc)
+            evidence[kind] = item
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            evidence[kind] = {'command': command, 'error': str(exc)}
+    return evidence
+
+
 def self_test():
     example = ('BLUETOOTH X connected=1 address=AABBCCDDEEFF\n'
                'BEFORE 0 state=1 X {0.0.0.00000000}.{11111111-1111-1111-1111-111111111111}\n'
@@ -65,8 +95,24 @@ def self_test():
     assert parse_connect_requests('INFO bluetooth worker connect address=X requested=1 ksTrace=...\n') == [1]
     assert parse_connect_requests('INFO bluetooth worker connect requested=1 \n'
                                   'INFO bluetooth worker connect requested=1 \n') == [1, 1]
+    with tempfile.TemporaryDirectory() as folder:
+        calls = []
+        def fake_runner(command, **_):
+            calls.append(command)
+            output = (example if any('live_audio.py' in part for part in command) else
+                      '{"utc":"synthetic","endpoints":[{"endpointState":8}]}')
+            return SimpleNamespace(returncode=0, stdout=output.encode(), stderr=b'')
+        snapshot = capture_failure_snapshot(
+            Path(folder), '1-disconnect', 'AABBCCDDEEFF', Path('fixture.ini'),
+            '{0.0.0.00000000}.{11111111-1111-1111-1111-111111111111}',
+            ['{0.0.0.00000000}.{11111111-1111-1111-1111-111111111111}'], fake_runner)
+        assert snapshot['inspect']['state']['link'] == 1
+        assert snapshot['sessions']['state']['endpoints'][0]['endpointState'] == 8
+        assert all((Path(folder) / item['file']).is_file() for item in snapshot.values())
+        assert len(calls) == 2 and all(command[0] == 'python' for command in calls)
     print('PASS strict_gate_parser_exact_target_and_roles')
-    print('RESULT failures=0 tests=1')
+    print('PASS failed_action_read_only_snapshot')
+    print('RESULT failures=0 tests=2')
 
 
 def main():
@@ -117,6 +163,8 @@ def main():
     if len(render) != 1:
         raise RuntimeError('target stereo render not unique')
     render = render[0]
+    captures = [row['Id'] for row in data['endpoints'] if row['Flow'] == 1 and row['State'] in (1, 8)]
+    session_endpoints = [render] + (captures if len(captures) == 1 else [])
     records = []
 
     def run(cycle, phase, mode):
@@ -139,6 +187,14 @@ def main():
         print(f'{cycle}-{phase} exit={p.returncode} seconds={record["seconds"]}'
               + (f' link={record["link"]} render={record["renderState"]}' if mode == 'inspect' and p.returncode == 0 else ''), flush=True)
         if p.returncode:
+            if mode != 'inspect':
+                try:
+                    record['failureSnapshot'] = capture_failure_snapshot(
+                        out, f'{cycle}-{phase}', address, settings, render, session_endpoints)
+                except Exception as exc:
+                    record['failureSnapshotError'] = repr(exc)
+                (out / 'results.json').write_text(
+                    json.dumps(records, ensure_ascii=False, indent=2), encoding='utf-8')
             raise RuntimeError(f'{cycle}-{phase} source action failed with exit {p.returncode}')
         if args.single_request and mode == 'connect' and record['ksRequests'] != [1]:
             raise RuntimeError(f'{cycle}-{phase} expected exactly one target KS request')
