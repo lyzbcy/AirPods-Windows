@@ -1003,18 +1003,24 @@ async function doUpdate(){
 function showStarAsk(){openModal('mStar')}
 function starGo(){rpc('openrepo');rpc('stardone');closeModal('mStar');toast('谢谢你！💕')}
 function starLater(){rpc('stardone');closeModal('mStar')}
+/* ---------- poll reconciliation ---------- */
+function sameDeviceState(a,b){
+  return a.length===b.length && a.every((x,i)=>['id','name','connected','audioState','apple'].every(k=>x[k]===b[i][k]));
+}
+function applyPolledDevices(d){
+  if(d===null || sameDeviceState(d,devices))return;
+  // Only an actual press or in-flight action defers rebuilding. Hover is not a lock.
+  if(document.querySelector('.card:active')||document.querySelector('.busy'))return;
+  devices=d;render();
+}
 /* ---------- boot ---------- */
 (async()=>{
   try { rpc('bootok','vp='+innerWidth+'x'+innerHeight+' dpr='+devicePixelRatio); } catch(e) {}
   const v=await rpc('getversion');
   document.getElementById('ver').textContent='v'+v;
   refreshList();
-  setInterval(()=>rpc('statuspoll').then(r=>{const d=parseList(r);if(d===null)return;
-    if(d.length===devices.length && d.every((x,i)=>x.connected===devices[i].connected)){
-      return}
-    // 用户正悬停/操作时推迟重建，避免按钮被连根拔掉（评审 #7 最小防护）
-    if(document.querySelector('.card:hover')||document.querySelector('.busy')){return}
-    devices=d;render()}),4000);
+  setInterval(()=>rpc('statuspoll').then(r=>applyPolledDevices(parseList(r)))
+    .catch(()=>{document.getElementById('badge').textContent='状态待刷新'}),4000);
 })();
 </script>
 </body>
