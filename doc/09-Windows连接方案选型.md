@@ -24,6 +24,14 @@
 
 一轮有界复现再次出现 KS 被接受、短暂 link=1 但播放未就绪、最终 `audio_failed`，稍后 link=0。采样器有64.425秒空窗，现有单线程观测不能说明空窗内顺序；尝试的HCI ETW未产生可用链路事件。新增独立进程心跳供下轮区分观测器暂停与整机停顿。用户体验上，隐藏窗口的状态监测现在可在 Windows 自行恢复**当前操作**的精确ACTIVE播放端点且三个默认输出角色均指向目标时，将 `audio_failed` 收敛到 `ready`，而不补发KS、不覆盖用户后来选择的输出。此项只是避免陈旧失败状态，未提高物理连接稳定性；五轮与Release门槛不变。
 
+## 2026-09-27 单请求五轮对照：首轮断开失败
+
+用户确认耳机戴好、附近其他设备蓝牙关闭后，隔离诊断 `--single-request --cycles 5 --dwell 15` 先读到目标链路 1、播放端点 ACTIVE、三个默认输出角色均指向耳机。第 1 轮**断开**向同一目标 render/capture 提交两条 KS 请求，两个 HRESULT 均为 `0x00000000`；约 39.48 秒后应用读到链路仍为 1，操作 exit5。`RESULT render=` 是清空的操作字段，不是端点状态；失败点没有同步端点快照。脚本按首错停止，未执行任何重连。因此这次不能验证“取消第二次连接请求”的稳定性，更不能凭前一次单轮成功发布。原始输出：`verification/2026-09-27-single5-console.txt` 与 `verification/2026-09-27-single5/`。延长等待期限不会把这次已观测到的断开失败改写为用户可接受的成功；应把请求耗时、后续链路、端点与音频会话一并取证，再考虑新的有界方案。
+
+后续常驻旧安装版日志从 01:49 起另有链路反复变化，01:53 收到两条 `disconnect` RPC 并执行旧服务后端；01:54 的链路 0、端点非 ACTIVE 不能反算为 01:39 单请求测试通过，也不能把这些 RPC 的发起者归给测试。发布前的五轮必须走未改写的生产候选路径；`--single-request` 只能验证重试假设，不能充当 Release 回执。
+
+微软说明 KS 断开请求成功只代表驱动尝试，且 HFP 的底层 REQUESTDISCONNECT 是异步完成；本机请求成功不能替代链路读回。[KS 断开属性](https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/ksproperty-oneshot-disconnect)、[HFP 连接机制](https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/hfp-device-connection)。按设备的 `IOCTL_BTH_DISCONNECT_DEVICE` 面向 profile driver，可能切断该设备全部 profile，且没有对应的公开用户态音频重连保证；不把它偷换为日常自动补救。[蓝牙驱动栈](https://learn.microsoft.com/en-us/windows-hardware/drivers/bluetooth/using-the-bluetooth-driver-stack)。
+
 ## 1. 关键事实：现在操作的不是单纯连接开关
 
 微软明确说明 `BluetoothSetServiceState` 启用服务会安装对应驱动，禁用服务会移除对应驱动；`E_INVALIDARG` 可以表示目标服务已经处于请求状态，而 `ERROR_INVALID_PARAMETER` 表示标志参数无效，两者文档语义不同。
