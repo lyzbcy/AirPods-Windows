@@ -197,13 +197,9 @@
   footer{flex:none;display:flex;align-items:center;padding:9px 22px 12px;font-size:11px;color:var(--sub);
     border-top:1px solid rgba(0,0,0,.045)}
   .about-link{margin-left:auto;color:var(--honey);cursor:pointer;display:flex;align-items:center;gap:4px;
-    font-family:inherit;font-size:inherit;font-weight:500;line-height:1;border:0;background:none;padding:0;
-    transition:color .2s var(--ease)}
+    font-weight:500;transition:color .2s var(--ease)}
   .about-link:hover{color:var(--honey-d)}
   .about-link u{text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(200,155,90,.5)}
-  .issue-link{color:#765600;font-weight:700;background:var(--yellow-tint);border:1px solid rgba(224,168,0,.28);
-    border-radius:999px;padding:6px 10px;text-decoration:none}
-  .issue-link:hover{color:#4D3900;background:#FFE8A0}
 
   #toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(12px);
     background:rgba(56,52,45,.93);color:#FFF9EF;font-size:12.5px;padding:10px 20px;border-radius:999px;
@@ -230,14 +226,14 @@
   .dlg h3{font-size:16px;font-weight:600;display:flex;align-items:center;gap:10px;color:var(--ink)}
   .dlg h3 img{width:38px;height:38px;border-radius:10px;border:1px solid rgba(0,0,0,.06);
     box-shadow:0 1px 3px rgba(0,0,0,.05)}
-  .dlg .desc{font-size:12.5px;color:#6F6554;margin-top:5px;line-height:1.6}
+  .dlg .desc{font-size:12px;color:var(--sub);margin-top:5px;line-height:1.6}
   .steps{margin:16px 0 2px}
   .step{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid rgba(0,0,0,.05)}
   .step:last-child{border-bottom:none}
   .step .n{width:22px;height:22px;border-radius:50%;background:var(--honey-tint);color:var(--honey-d);
     font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none;margin-top:1px}
   .step div b{font-size:12.5px;display:block;font-weight:600;color:var(--ink)}
-  .step div span{font-size:12px;color:#6F6554;line-height:1.6;display:block;margin-top:2px}
+  .step div span{font-size:11.5px;color:var(--sub);line-height:1.6;display:block;margin-top:2px}
   .dlg .row{display:flex;gap:10px;margin-top:18px}
   .dlg .row .btn{flex:1;padding:11px 0}
   .qrs{display:flex;gap:12px;margin-top:16px}
@@ -246,7 +242,7 @@
   .qr{min-width:0}
   .qr img{width:100%;max-width:100px;height:auto;aspect-ratio:1/1;border-radius:8px}
   .qr b{font-size:12px;display:block;margin-top:8px;font-weight:600}
-  .qr span{font-size:11px;color:#6F6554}
+  .qr span{font-size:10.5px;color:var(--sub)}
   /* 二维码灯箱：点击小图放大，方便扫码（复用 mask/modal 体系） */
   .qr{cursor:pointer;user-select:none}
   .qr:active{transform:scale(.97)}
@@ -284,8 +280,6 @@
   .set-row .set-info{flex:1;min-width:0}
   .set-row b{font-size:13px}
   .set-row p{font-size:11.5px;color:var(--sub);margin-top:2px}
-  .set-more{font-size:11.5px;color:#6F6554;margin-top:7px;line-height:1.55}
-  .set-more summary{cursor:pointer;color:var(--yellow-deep);font-weight:600}
   .switch{position:relative;width:44px;height:24px;flex:none;cursor:pointer}
   .switch input{opacity:0;width:0;height:0;position:absolute}
   .switch .slider{position:absolute;inset:0;background:#D8D2C6;border-radius:999px;
@@ -332,12 +326,12 @@
   .fb-body textarea:focus{border-color:rgba(255,181,0,.55)}
   .fb-foot{display:flex;align-items:center;justify-content:space-between}
   .fb-count{font-size:10.5px;color:var(--sub)}
-  .fb-card .star-txt i{opacity:1;color:#6F6554}
+  .fb-card .star-txt i{opacity:.75}
   .fb-fine{font-size:10.5px;color:var(--faint)}
   .fb-fine u{cursor:pointer;color:var(--honey-d)}
   /* ===== 问题反馈弹窗：类型 chips + 补充说明 + 完整日志文件 ===== */
-  .iss-sub{font-size:12px;color:#6F6554;margin:2px 0 4px;line-height:1.55}
-  .iss-sec{font-size:11.5px;color:#75674F;font-weight:600;margin:12px 0 6px;letter-spacing:.4px}
+  .iss-sub{font-size:11.5px;color:var(--sub);margin:2px 0 4px;line-height:1.55}
+  .iss-sec{font-size:10.5px;color:var(--faint);font-weight:600;margin:12px 0 6px;letter-spacing:.4px}
   .tchips{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 4px}
   .tchip{border:1px solid var(--line);background:#FCFAF5;border-radius:999px;
     padding:7px 12px;font-size:12px;color:var(--ink);cursor:pointer;user-select:none;
@@ -360,10 +354,7 @@
   .iss-file:hover{background:#fff}
   .iss-file input{accent-color:#F0B429;margin-top:2px;flex:none}
   .iss-file b{font-size:12px;display:block;color:var(--ink)}
-  .iss-file i{font-style:normal;font-size:11px;color:#6F6554;display:block;margin-top:2px}
-  .iss-recovery{font-size:11px;color:var(--sub);line-height:1.55;margin:9px 0 2px}
-  .iss-recovery summary{cursor:pointer;color:var(--yellow-deep);font-weight:600}
-  .iss-recovery p{margin-top:5px}
+  .iss-file i{font-style:normal;font-size:10.5px;color:var(--sub);display:block;margin-top:2px}
   .fb-done{display:none;padding:16px 15px;text-align:center;font-size:13px;font-weight:600;
     color:var(--sage-d);background:var(--sage-tint);border-radius:12px;margin:10px 15px 13px}
   .fb-fail{display:none;margin:10px 15px 13px;padding:11px 12px;background:#FDF0ED;
@@ -374,7 +365,6 @@
 .dlg{display:flex;flex-direction:column;overflow:hidden}
 .dlg>h3,.dlg>.row{flex-shrink:0}
 .dlg-body{min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-right:4px}
-#mIssue .iss-file{flex-shrink:0;margin-top:10px}
 </style>
 </head>
 <body>
@@ -421,9 +411,10 @@
   </div>
 
   <footer>
-    <button class="about-link" style="margin-left:0;margin-right:auto" onclick="openSettings()">&#9881;&#65038; 设置</button>
-    <button class="about-link issue-link" onclick="openIssue()">&#128027; 问题反馈（可附日志）</button>
-    <button class="about-link" onclick="openAbout()"><u>关于捞鱼</u> 🐟</button>
+    <span class="about-link" style="margin-left:0;margin-right:auto" onclick="openSettings()">&#9881;&#65038; 设置</span>
+    <span class="about-link" onclick="openAbout(true)">&#128172; 提意见</span>
+    <span class="about-link" onclick="openIssue()">&#128027; 问题反馈</span>
+    <span class="about-link" onclick="openAbout()"><u>关于捞鱼</u> 🐟</span>
   </footer>
 </div>
 
@@ -446,7 +437,7 @@
     <div class="desc">已为你打开系统蓝牙设置，跟着做两分钟搞定</div>
     <div class="steps">
       <div class="step"><div class="n">1</div><div><b>断开旧连接</b><span>把之前连着这副耳机的设备（iPhone / iPad / Mac）蓝牙关掉</span></div></div>
-      <div class="step"><div class="n">2</div><div><b>进入待连接模式</b><span>AirPods 1/2/3 代、Pro/Pro 2：开盖长按盒背按钮至白灯闪烁<br>AirPods 4/5、Pro 3：开盖、耳机留在盒内，轻敲盒正面两下至白灯闪烁<br>AirPods Max：按住降噪按钮至白灯闪</span></div></div>
+      <div class="step"><div class="n">2</div><div><b>进入待连接模式</b><span>AirPods 1/2/3 代、Pro：开盖长按盒背按钮至白灯闪烁<br>AirPods 4 代：开盖敲两下盒身<br>AirPods Max：按住降噪按钮至白灯闪</span></div></div>
       <div class="step"><div class="n">3</div><div><b>在系统设置里配对</b><span>点「添加设备」→ 选择你的耳机</span></div></div>
       <div class="step"><div class="n">4</div><div><b>回来刷新</b><span>配对完成后点下方按钮就能看到它啦</span></div></div>
     </div>
@@ -472,11 +463,11 @@
     <div class="fb-card">
       <button class="fb-open" onclick="fbToggle()">
         <span class="star-ico fb-ico"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.3c-1.5 0-2.9-.3-4.1-1L3 20l1.3-4.1A8.3 8.3 0 0 1 3.5 11.5 8.4 8.4 0 0 1 12 3.2a8.4 8.4 0 0 1 9 8.3z"/></svg></span>
-        <span class="star-txt"><b>提意见</b><i>产品想法直达开发者 · 纯文字、不附日志</i></span>
+        <span class="star-txt"><b>提意见 / 反馈问题</b><i>一句话直达开发者，不用注册不用跳转</i></span>
         <span class="star-go fb-arrow" id="fbArrow"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
       </button>
       <div class="fb-body" id="fbBody">
-        <textarea id="fbText" maxlength="1000" rows="3" placeholder="产品建议、想法，一句话也行；遇到故障请用首页「问题反馈」…"></textarea>
+        <textarea id="fbText" maxlength="1000" rows="3" placeholder="bug、建议、想说的都可以，一句话也行…"></textarea>
         <div class="fb-foot">
           <span class="fb-count" id="fbCount">0 / 1000</span>
           <button class="btn primary" id="fbSend" onclick="fbSend()">发送</button>
@@ -519,7 +510,7 @@
 <div class="mask" id="mIssue">
   <div class="dlg">
     <h3><img src="assets/face_heart.png">问题反馈 🐞</h3>
-    <div class="iss-sub">选一下遇到的情况，再说两句；发送前可确认是否附上日志，方便定位。</div>
+    <div class="iss-sub">选一下遇到的情况，再说两句——日志会自动带上，捞鱼拿到就能定位。</div>
     <div class="iss-sec">① 什么问题？（可多选，也可以不选）</div>
     <div class="tchips" id="issChips">
       <button class="tchip" data-t="手机来回抢耳机">📱 手机来回抢</button>
@@ -527,14 +518,13 @@
       <button class="tchip" data-t="连接失败或很慢">❌ 连不上/很慢</button>
       <button class="tchip" data-t="断开失败">💤 断不开</button>
       <button class="tchip" data-t="列表里找不到耳机">🎧 找不到耳机</button>
-      <button class="tchip" data-t="新款型号连接问题">🆕 新款型号连接问题</button>
+      <button class="tchip" data-t="新耳机连不上（AirPods 5 等新款）">🆕 新耳机连不上</button>
       <button class="tchip" data-t="界面或托盘显示异常">🖥 界面/托盘</button>
     </div>
-    <details class="iss-recovery"><summary>蓝牙已连接但没声音？手动排查顺序</summary><p>先确认 Windows 声音输出设备选中了耳机；仍无声再关开蓝牙；再不行就忘记设备并重新配对；最后重启电脑。</p></details>
     <div class="iss-sec">② 补充说明（可选）：什么时候开始、做了什么操作</div>
-    <textarea id="issText" maxlength="500" rows="3" placeholder="不选类型、直接写也行；新款耳机请写准确型号…"></textarea>
+    <textarea id="issText" maxlength="500" rows="3" placeholder="不选类型、直接写也行，比如：升级系统后突然连不上了…"></textarea>
     <input id="issContact" maxlength="60" placeholder="📞 联系方式（选填）：留个邮箱/QQ，排查好了回你">
-    <label class="iss-file"><input type="checkbox" id="issFile" checked><span><b>📎 附上完整日志（推荐，请确认）</b><i>勾选后发送今天+昨天的运行日志，仅用于定位问题</i></span></label>
+    <label class="iss-file"><input type="checkbox" id="issFile" checked><span><b>📎 自动附上完整日志（推荐）</b><i>今天+昨天的运行日志打包发到群里，仅用于定位这个问题</i></span></label>
     <div class="row" id="issOps">
       <button class="btn ghost" onclick="closeModal('mIssue')">取消</button>
       <button class="btn primary" id="issSend" onclick="issueSend()">发送反馈</button>
@@ -564,8 +554,7 @@
     <div class="set-row">
       <div class="set-info">
         <b>使用耳机麦克风</b>
-        <p>开：连接时尝试将耳机设为默认麦克风。关：小助手不请求或切换耳机麦克风，不影响其他应用。下次连接生效。</p>
-        <details class="set-more"><summary>了解恢复方式</summary><p>若从关改为开、且这副耳机的录音设备缺失，下次连接仅尝试一次恢复耳机的 HFP 服务；Windows 可能安装相应驱动。不会重置整机蓝牙或影响其他设备。</p></details>
+        <p>开：连接时请求耳机麦克风，并在端点就绪后切换默认麦克风。若明确从关改为开、且目标录音端点缺失，下次连接仅尝试一次恢复这副耳机的 HFP 服务（Windows 会安装相应驱动）。关：本应用不请求或切换耳机麦克风；不阻止 Windows 或其他应用使用 HFP。其他蓝牙设备与整机无线电不受此开关操作。改动在下次连接生效。</p>
       </div>
       <label class="switch"><input type="checkbox" id="swMic"><span class="slider"></span></label>
     </div>
@@ -614,10 +603,9 @@
 <script>
 document.querySelectorAll('.dlg').forEach(dlg=>{
   const body=document.createElement('div');body.className='dlg-body';
-  const sticky=[...dlg.children].filter(n=>n.classList.contains('iss-file'));
-  const content=[...dlg.children].filter(n=>n.tagName!=='H3'&&!n.classList.contains('row')&&!n.classList.contains('iss-file'));
+  const content=[...dlg.children].filter(n=>n.tagName!=='H3'&&!n.classList.contains('row'));
   const footer=[...dlg.children].find(n=>n.classList.contains('row'));
-  content.forEach(n=>body.appendChild(n));dlg.insertBefore(body,sticky[0]||footer||null);
+  content.forEach(n=>body.appendChild(n));dlg.insertBefore(body,footer||null);
 });
 const SEP='\x1F'; let seq=0; const pending={};
 function rpc(cmd,...args){
@@ -725,7 +713,7 @@ function render(){
   document.getElementById('cnt').textContent=devices.length?('· '+devices.length):'';
   if(!devices.length){
     box.innerHTML=`<div class="empty"><img src="assets/face_cheer.png">
-      <p>还没有耳机<br>先在 Windows 配对，或点「添加新耳机」</p></div>`;
+      <p>还没有配对过的耳机<br>点下方「添加新耳机」吧</p></div>`;
     const b=document.getElementById('badge');b.textContent='未连接';b.classList.remove('on');
     return;
   }
@@ -941,7 +929,7 @@ async function issueSend(){
     if(r==='ok'){
       document.getElementById('issOps').style.display='none';
       document.getElementById('issFail').style.display='none';
-      document.getElementById('issDone').textContent=wantFile?'✓ 反馈和日志都送达了，捞鱼马上看！💕':'✓ 反馈已送达（未附日志），捞鱼马上看！💕';
+      document.getElementById('issDone').textContent='✓ 反馈和日志都送达了，捞鱼马上看！💕';
       document.getElementById('issDone').style.display='block';
       setTimeout(()=>{closeModal('mIssue');document.getElementById('issDone').style.display='none';
         document.getElementById('issOps').style.display='flex'},2600);

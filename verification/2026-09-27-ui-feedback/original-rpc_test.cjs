@@ -1,26 +1,5 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const html=fs.readFileSync(process.argv[2]||'webui/index.html','utf8');
-const footer=html.match(/<footer>([\s\S]*?)<\/footer>/)?.[1]||'';
-const about=html.match(/<!-- about modal -->([\s\S]*?)<!-- QR lightbox/)?.[1]||'';
-const issue=html.match(/<!-- 问题反馈：常见类型[\s\S]*?<div class="mask" id="mIssue">([\s\S]*?)<!-- settings -->/)?.[1]||'';
-assert.equal((footer.match(/<button\b/g)||[]).length,3);
-assert.doesNotMatch(footer,/<span\b/);
-assert.equal((footer.match(/onclick="openIssue\(\)"/g)||[]).length,1);
-assert.match(footer,/问题反馈（可附日志）/);
-assert.doesNotMatch(footer,/openAbout\(true\)|提意见/);
-assert.match(about,/<b>提意见<\/b>/);
-assert.match(about,/纯文字、不附日志/);
-assert.doesNotMatch(about,/<b>提意见 \/ 反馈问题<\/b>/);
-assert.match(issue,/id="issFile" checked/);
-assert.match(issue,/请确认/);
-assert.match(issue,/先确认 Windows 声音输出设备[\s\S]*关开蓝牙[\s\S]*忘记设备并重新配对[\s\S]*重启电脑/);
-assert.match(issue,/新款型号连接问题/);
-assert.doesNotMatch(issue,/AirPods 5 等新款/);
-assert.match(html,/AirPods 4\/5、Pro 3：开盖、耳机留在盒内，轻敲盒正面两下至白灯闪烁/);
-assert.match(html,/<summary>了解恢复方式<\/summary>/);
-assert.match(html,/关：小助手不请求或切换耳机麦克风，不影响其他应用。下次连接生效。/);
-assert.match(html,/还没有耳机<br>先在 Windows 配对，或点「添加新耳机」/);
-console.log('PASS feedback_routes_distinct_and_log_choice_visible');
 const rpcCode=html.slice(html.indexOf("const SEP="),html.indexOf('window.__event='));
 let timers=new Map(),counter=0,post;
 const context=vm.createContext({window:{},chrome:{webview:{postMessage:m=>post(m)}},

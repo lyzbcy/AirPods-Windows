@@ -1,0 +1,95 @@
+Windows UI feedback separation — 2026-09-27
+
+Changed branch/field
+- footer: removed independent “提意见”; retained “关于捞鱼” > “提意见” as text-only/no-log path; made one emphasized “问题反馈（可附日志）” entry.
+- mIssue: checkbox retains its prior checked default and sendissue flags; log choice is visible above the fixed send row, text now explains the choice; no-log success receipt says “未附日志”.
+- mIssue: collapsible manual no-sound sequence is Windows output device → Bluetooth off/on → forget and re-pair → restart; no automatic reset or unpairing.
+- mHelp: AirPods 4/5 and Pro 3 front-of-case double-tap; new-model issue chip is generic and asks for exact model.
+
+Four artifacts (absolute paths)
+MODIFIED_FILE = E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-ui-feedback\MODIFIED_FILE.html
+DIFF_FILE = E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-ui-feedback\DIFF_FILE.patch
+VERIFICATION.txt = E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-ui-feedback\VERIFICATION.txt
+ROLLBACK.sh = E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-ui-feedback\ROLLBACK.sh
+
+SHA-256 original → modified
+webui/index.html: F3B47F8160D9FE15FC38BAD814056A373B92BF248A17E11C86023312FEF97AE9 → B42C78A16B29EAD2E5B90324C06E051D9A2A51B2DBDDD776DEE869E57F23D542
+webui/index_built.html: 4B7933E6B0227937B60118CC302D591904D272FA2BECAB9752842F9ABF495CEF → 8C0C0E4FE76C6B7669CEA62F1103E1052CFC3793B353ED0E31F2566EDC62B1F3
+tests/rpc_test.cjs: 025ADEDDEFC0DADE60C0E6B32DBF144A2D5739F72A8AD54B8E6D5562A7B9B8AC → CE25FB9569742EB78EBD2CC803CDCAE1AAFF67248250D361C4126FFFED38C222
+
+BASELINE
+Command: node verification/2026-09-27-ui-feedback/original-rpc_test.cjs verification/2026-09-27-ui-feedback/original-index.html
+Input: original-index.html (original SHA-256 above), original-rpc_test.cjs
+Literal output:
+PASS synchronous_reply_not_lost
+PASS timeout_cleanup_and_late_reply
+PASS send_exception_cleanup
+PASS delimiter_injection_rejected
+PASS priority_preserves_all_devices
+PASS action_exception_restores_ui
+PASS same_link_audio_state_change_refreshes
+PASS hover_does_not_freeze_disconnection
+PASS press_defers_then_refreshes_rename
+PASS retry_wait_and_running_show_cancellable_status
+PASS exhausted_retry_restores_manual_connect
+PASS verified_ready_keeps_existing_status
+RESULT failures=0
+Exit status: 0. Baseline footer visibly had separate “提意见” and “问题反馈” links; about card also mixed the two labels.
+
+MODIFIED
+Command: powershell -NoProfile -ExecutionPolicy Bypass -File webui/build_ui.ps1
+Input: modified webui/index.html, webui/assets, airpods_buddy.ahk version field
+Literal output: built: E:\共享\创业\BluetoothDeviceConnector\webui\index_built.html (848442 bytes, 8 images inlined)
+Exit status: 0.
+Command: node tests/rpc_test.cjs webui/index.html; node tests/rpc_test.cjs webui/index_built.html
+Input: modified source and modified built page, respectively
+Literal result for each: PASS feedback_routes_distinct_and_log_choice_visible; 12 pre-existing PASS assertions; RESULT failures=0
+Exit status: 0 for each.
+Command: python tests/run_suite.py --output verification/2026-09-27-ui-feedback/modified-suite-final2
+Input: current offline source and built resources; no Bluetooth hardware action
+Literal output:
+behavior PASS=9 EXIT=0
+device_classifier PASS=9 EXIT=0
+feedback_consent PASS=8 EXIT=0
+state PASS=50 EXIT=0
+resource_identity PASS=9 EXIT=0
+ks_retry PASS=34 EXIT=0
+p0_timeline PASS=2 EXIT=0
+strict_gate PASS=2 EXIT=0
+release_precheck PASS=38 EXIT=0
+package_windows_release PASS=18 EXIT=0
+audio_sessions PASS=2 EXIT=0
+target_endpoint PASS=6 EXIT=0
+audio PASS=25 EXIT=0
+background PASS=5 EXIT=0
+rpc PASS=13 EXIT=0
+windows PASS=20 EXIT=0
+update_health PASS=3 EXIT=0
+ks_backend PASS=33 EXIT=0
+mic_migration PASS=13 EXIT=0
+OFFLINE_PASS assertions=299 suites=19
+Exit status: 0.
+Command: python verification/2026-09-27-ui-feedback/render_check.py modified
+Input: built index_built.html in local Edge Chromium, 460×600 viewport
+Literal result: viewport=460x600 stage=modified; created modified-main.png (empty list), modified-device.png (one device), modified-issue.png, modified-about.png, modified-recovery.png, modified-issue-scroll.png, modified-help.png, modified-settings.png, modified-settings-details.png, modified-no-log-receipt.png; asserted empty state absent with a device, checkbox visible+checked, and no-log receipt says 未附日志.
+Exit status: 0. All ten PNG files are 460×600. Main footer fits three semantic buttons; empty state appears only when the list is empty; issue checkbox and send row remain visible while content scrolls; about, add-help, and settings layouts fit.
+
+ROLLBACK
+Command: D:\Program Files\Git\bin\bash.exe verification/2026-09-27-ui-feedback/ROLLBACK.sh verification/2026-09-27-ui-feedback/rollback-copy
+Input: separate rollback-copy populated with the three modified files; originals stored alongside ROLLBACK.sh
+Literal output:
+RESTORED webui/index.html SHA256=f3b47f8160d9fe15fc38bad814056a373b92bf248a17e11c86023312fef97ae9
+RESTORED webui/index_built.html SHA256=4b7933e6b0227937b60118cc302d591904d272fa2becab9752842f9abf495cef
+RESTORED tests/rpc_test.cjs SHA256=025adeddefc0dade60c0e6b32dbf144a2d5739f72a8ad54b8e6d5562a7b9b8ac
+ROLLBACK_OK
+Exit status: 0.
+Command: node verification/2026-09-27-ui-feedback/rollback-copy/tests/rpc_test.cjs verification/2026-09-27-ui-feedback/rollback-copy/webui/index.html
+Input: rolled-back copy
+Literal result: PASS verified_ready_keeps_existing_status; RESULT failures=0
+Exit status: 0. Restored UI check: RESTORED_UI=true/true, meaning the old separate “提意见” and “问题反馈” footer behavior is back in the copy; working webui/index.html stays modified.
+
+Remaining UX review, intentionally not expanded into this patch
+Resolved in this patch: secondary help/issue text contrast and type size increased; microphone setting now has plain-language summary plus expandable technical detail; settings/about footer spans became keyboard-focusable buttons; empty-device copy now gives a concrete first step.
+Remaining P3: device priority/delete affordances are subdued until pointer hover or card focus. Keep for a dedicated touch/keyboard pass.
+
+No deployment, physical Bluetooth test, push, or release was performed.
