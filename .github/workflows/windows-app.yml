@@ -1,0 +1,56 @@
+name: Windows app regression
+on:
+  push:
+    paths:
+      - 'airpods_buddy.ahk'
+      - 'lib/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'webui/**'
+      - '.github/workflows/windows-app.yml'
+  pull_request:
+jobs:
+  regression:
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned AutoHotkey interpreter
+        shell: pwsh
+        run: |
+          Invoke-WebRequest 'https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.26/AutoHotkey_2.0.26.zip' -OutFile ahk.zip
+          if ((Get-FileHash ahk.zip).Hash -ne '43522AA3122A57784AC5DB30ABF85C2244475C36ACD7796E2C993355F9E926AE') { throw 'AHK checksum mismatch' }
+          Expand-Archive ahk.zip tools/ahk_v2_portable
+          Invoke-WebRequest 'https://github.com/AutoHotkey/Ahk2Exe/releases/download/Ahk2Exe1.1.36.02f2/Ahk2Exe1.1.36.02f.zip' -OutFile compiler.zip
+          if ((Get-FileHash compiler.zip).Hash -ne '46D335C6EBDA027AEA00F5A8261B4D1A1763E17B858FE512BBE541F9BB66D464') { throw 'Compiler checksum mismatch' }
+          Expand-Archive compiler.zip tools/ahk2exe_stable
+      - name: AHK state and fault injection
+        shell: pwsh
+        run: |
+          python tests/run_behavior.py airpods_buddy.ahk
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python tests/run_state_tests.py
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python tests/run_ahk.py tests/audio_routing_test.ahk
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python tests/run_ahk.py tests/background_job_test.ahk
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Update rollback, repair, HTTP receipts, and RPC
+        shell: pwsh
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File tests/windows_regression.ps1
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          node tests/rpc_test.cjs
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Build embedded frontend
+        shell: pwsh
+        run: ./webui/build_ui.ps1
+      - name: Compile packaged Windows app without deployment
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-deploy.ps1

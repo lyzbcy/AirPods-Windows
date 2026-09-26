@@ -1,0 +1,34 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const html=fs.readFileSync(process.argv[2]||'webui/index.html','utf8');
+const rpcCode=html.slice(html.indexOf("const SEP="),html.indexOf('window.__event='));
+let timers=new Map(),counter=0,post;
+const context=vm.createContext({window:{},chrome:{webview:{postMessage:m=>post(m)}},
+  setTimeout:f=>{timers.set(++counter,f);return counter},clearTimeout:id=>timers.delete(id)});
+vm.runInContext(rpcCode,context);
+const rpc=(...args)=>context.rpc(...args),pending=()=>vm.runInContext('Object.keys(pending).length',context);
+(async()=>{
+  post=m=>context.window.__rpc(+m.split('\x1f')[1],'ok');
+  assert.equal(await rpc('list'),'ok');assert.equal(pending(),0);assert.equal(timers.size,0);
+  console.log('PASS synchronous_reply_not_lost');
+  post=()=>{};
+  const timeout=rpc('list');timers.values().next().value();timers.clear();
+  await assert.rejects(timeout,/超时/);assert.equal(pending(),0);
+  context.window.__rpc(2,'late');assert.equal(pending(),0);
+  console.log('PASS timeout_cleanup_and_late_reply');
+  post=()=>{throw Error('bridge unavailable')};
+  await assert.rejects(rpc('connect','name'),/bridge unavailable/);assert.equal(pending(),0);assert.equal(timers.size,0);
+  console.log('PASS send_exception_cleanup');
+  await assert.rejects(rpc('connect','bad\x1fname'),/分隔符/);assert.equal(pending(),0);
+  console.log('PASS delimiter_injection_rejected');
+  let message='';post=m=>{message=m;context.window.__rpc(+m.split('\x1f')[1],true)};
+  await rpc('setprio','A','B','C');assert.deepEqual(message.split('\x1f').slice(2),['A','B','C']);
+  console.log('PASS priority_preserves_all_devices');
+  const actionCode=html.slice(html.indexOf('async function doAction('),html.indexOf('/* Link state'));
+  const button={innerHTML:'original',className:'act',classList:{add(){},remove(){}}};
+  const badge={textContent:''},toasts=[];
+  Object.assign(context,{document:{getElementById:id=>id==='badge'?badge:button},toast:m=>toasts.push(m),refreshList:async()=>{throw Error('refresh failed')}});
+  vm.runInContext(actionCode,context);post=()=>{throw Error('disconnected bridge')};
+  await context.doAction(null,'A','connect');assert.equal(button.innerHTML,'original');assert.equal(button.className,'act');assert.equal(badge.textContent,'状态待刷新');
+  console.log('PASS action_exception_restores_ui');
+  console.log('RESULT failures=0');
+})().catch(e=>{console.error(e);process.exitCode=1});

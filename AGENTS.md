@@ -6,14 +6,14 @@
 ## 30 秒了解项目
 
 - **是什么**：AirPods 小助手（AirPodsBuddy）——Windows/Mac 桌面小工具，
-  一键连接 AirPods、常驻托盘/菜单栏、纯本地零上传
+  一键连接 AirPods、常驻托盘/菜单栏、无遥测，用户主动反馈可附日志
 - **仓库布局**：
   - `airpods_buddy.ahk` — Windows 主程序（AHK v2 + WebView2）
   - `webui/` — 共享前端（index.html 源码 / index_built.html 构建产物）
-  - `mac/AirPodsBuddyMac/` — Mac 版（Swift 菜单栏应用，**待首次编译**）
+  - `mac/AirPodsBuddyMac/` — Mac 版（Swift 菜单栏应用，macOS CI 编译和单测已通过，真机验收另记）
   - `doc/` — 知识库（**必读**，见下）
   - `tools/` — 构建工具（gitignore，下载方式见 doc/02 §7）
-- **当前版本**：Windows v1.9.14（已部署用户机，未发 Release）；Mac v0.1 脚手架（未编译）
+- **当前版本**：Windows v1.9.19（已部署、未发 Release；完整审计代码修复）；Mac 状态以 doc/06 与真实构建记录为准
 
 ## 必读文档（按角色）
 
@@ -25,7 +25,7 @@
 | 调试任何问题 | `doc/05-已知问题与踩坑记录.md`（**先读再动手**，能省你两小时） |
 | 了解进度/待办 | `doc/04-项目进度.md`（改完代码请更新它） |
 
-## Mac 端 Agent 的第一步（当前最优先任务）
+## Mac 端验收入口（CI 已通过，硬件项仍需真机）
 
 ```bash
 cd mac/AirPodsBuddyMac
@@ -81,4 +81,10 @@ swift build -c release        # 需要 macOS 13+ 和 Xcode CLT
 - **在 Mac 上开工前**：`git pull --rebase origin main`（拿远端最新）
 - **在 Mac 上提交后**：`git push origin main`；提醒用户回 Windows 时也 `git pull`
 - 两台机器**不要同时改同一文件后各自提交**——会冲突
-- Windows 侧的正主仓库在 `E:\github\BluetoothDeviceConnector`（构建/发版在这边做）
+- Windows 和 Mac 的唯一开发仓库均为本目录；`E:\github\BluetoothDeviceConnector` 为历史副本。
+
+## 2026-09-26 审计修复入口
+先读 `doc/07-审计修复清单.md`；严格区分代码测试、真实路由和用户听音。第一段测试音用户答“没听到”；第二段显式 WASAPI 测试用户确认“第二段测试我听到了”。P0-02 为单次显式端点听音通过，普通应用、五轮重连与重启验收仍待完成。源码改动不等于已部署。
+
+## 当前维护路径
+代码问题按 `doc/07-审计修复清单.md` 核对，当前架构以 `doc/02-架构与原理.md` 为准，更新器变更必须读 `doc/08-更新与后台任务.md`。第一批历史听音与本轮稳定性记录分开，不将测试脚本路由成功冒充安装版全场景成功。

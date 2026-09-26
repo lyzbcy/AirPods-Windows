@@ -61,12 +61,18 @@ enum AudioRouter {
 
     private static func stringProperty(_ id: AudioDeviceID,
                                        _ selector: AudioObjectPropertySelector) -> String? {
-        var value: CFString = "" as CFString
-        var size = UInt32(MemoryLayout<CFString>.size)
+        // CoreAudio's CFString properties return an owned (+1) CFObject. Keep
+        // the C out-parameter as raw unmanaged storage, then transfer exactly
+        // that ownership to ARC with takeRetainedValue().
+        var value: Unmanaged<CFString>?
+        var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
         var address = AudioObjectPropertyAddress(mSelector: selector,
             mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
-        guard AudioObjectGetPropertyData(id, &address, 0, nil, &size, &value) == noErr else { return nil }
-        return value as String
+        let status = withUnsafeMutablePointer(to: &value) { pointer in
+            AudioObjectGetPropertyData(id, &address, 0, nil, &size, UnsafeMutableRawPointer(pointer))
+        }
+        guard status == noErr, let owned = value else { return nil }
+        return owned.takeRetainedValue() as String
     }
 
     private static func transportType(_ id: AudioDeviceID) -> UInt32? {

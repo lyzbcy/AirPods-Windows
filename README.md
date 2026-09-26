@@ -7,15 +7,15 @@
 <div align="center">
   <img src="https://img.shields.io/badge/Platform-Windows-blue?style=for-the-badge" alt="Platform">
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="MIT License">
-  <img src="https://img.shields.io/badge/Version-1.8.3-brightgreen?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/badge/Version-1.9.19-brightgreen?style=for-the-badge" alt="Version">
   <img src="https://img.shields.io/badge/%E5%8D%95%E6%96%87%E4%BB%B6-3.4MB-orange?style=for-the-badge" alt="Single exe 3.4MB">
 </div>
 
 <p align="center">
 <strong>给 Windows 的一口甜：点一下，AirPods 就连上。</strong><br>
 <sub>🏠 <a href=https://lyzbcy.github.io/airpods-buddy.html>产品介绍页</a> · 📦 <a href=https://github.com/lyzbcy/AirPods-Windows/releases/latest>下载</a></sub><br>
-奶油黄白 Apple 风 · 常驻托盘 · 优先级连接 · 纯本地零上传<br>
-<sub>Mac 版开发中（核心：防自动跳走看门狗）→ <a href="mac/README.md">mac/README.md</a></sub>
+奶油黄白 Apple 风 · 常驻托盘 · 优先级连接 · 无遥测 · 主动反馈可附日志<br>
+<sub>Mac 版开发中（核心：防自动跳走看门狗）→ <a href="mac/AirPodsBuddyMac/README.md">mac/AirPodsBuddyMac/README.md</a></sub>
 </p>
 
 ---
@@ -56,7 +56,7 @@
   [MagicPods](https://github.com/steam3d/MagicPods-Windows) 路线），菜单内已
   诚实说明并指路；Mac 版不存在此限制
 - 🖥️ **托盘常驻**：关窗=缩托盘，开机自启，随时唤出
-- 🔒 **纯本地**：不联网上传任何数据（唯一网络行为=检查 GitHub 新版本）
+- 🔒 **纯本地**：连接诊断主要在本地完成；网络仅用于更新及用户主动提交的反馈（可勾选日志）
 - 🔄 **自动更新**：有新版弹窗一键升级
 - 📋 **日志排查**：出错不弹窗吓人，全记在本地日志里
 
@@ -106,3 +106,7 @@
 ## 📄 License
 
 MIT
+
+## 维护与验收
+
+当前开发版 v1.9.19，尚未发布 GitHub Release；公开下载页仍按其已发布版本提供安装包。开发入口 [SKILL.md](SKILL.md)，审计清单 [doc/07-审计修复清单.md](doc/07-审计修复清单.md)。Windows 与 Mac 应用各有独立 CI，不把 Stream Deck helper 的构建当主应用验收。

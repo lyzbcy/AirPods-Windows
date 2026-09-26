@@ -362,6 +362,9 @@
   .fb-fail-why{font-size:12px;color:#B34435;margin-bottom:9px;line-height:1.5}
   .fb-fail-ops{display:flex;gap:8px;flex-wrap:wrap}
   .fb-fail-ops .btn{padding:7px 12px;font-size:11.5px}
+.dlg{display:flex;flex-direction:column;overflow:hidden}
+.dlg>h3,.dlg>.row{flex-shrink:0}
+.dlg-body{min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-right:4px}
 </style>
 </head>
 <body>
@@ -471,7 +474,7 @@
         </div>
         <div class="fb-fine">直发开发者微信，仅用于产品改进 · 也可以 <u onclick="fbIssue()">去 GitHub 提 issue</u></div>
       </div>
-      <div class="fb-done" id="fbDone">✓ 已送达，捞鱼收到了，谢谢你！💕</div>
+      <div class="fb-done" id="fbDone">✓ 服务端已确认接收，谢谢你的反馈！</div>
       <div class="fb-fail" id="fbFail">
         <div class="fb-fail-why" id="fbFailWhy"></div>
         <div class="fb-fail-ops">
@@ -557,10 +560,10 @@
     </div>
     <div class="set-row">
       <div class="set-info">
-        <b>连不上时蓝牙自救</b>
-        <p>连续两次连不上时，自动开关一次电脑蓝牙再重试（默认开启）</p>
+        <b>自动重置蓝牙（已停用）</b>
+        <p>音频失败不等于无线电故障；此版本不再自动重置全部蓝牙设备。</p>
       </div>
-      <label class="switch"><input type="checkbox" id="swRescue"><span class="slider"></span></label>
+      <label class="switch"><input type="checkbox" id="swRescue" disabled><span class="slider"></span></label>
     </div>
     <div class="auto-hint" id="autoHint"></div>
     <div class="row" style="margin-top:14px">
@@ -598,13 +601,32 @@
 </div>
 
 <script>
+document.querySelectorAll('.dlg').forEach(dlg=>{
+  const body=document.createElement('div');body.className='dlg-body';
+  const content=[...dlg.children].filter(n=>n.tagName!=='H3'&&!n.classList.contains('row'));
+  const footer=[...dlg.children].find(n=>n.classList.contains('row'));
+  content.forEach(n=>body.appendChild(n));dlg.insertBefore(body,footer||null);
+});
 const SEP='\x1F'; let seq=0; const pending={};
-function rpc(cmd,...args){const id=++seq;chrome.webview.postMessage(cmd+SEP+id+SEP+args.join(SEP));return new Promise(r=>pending[id]=r)}
-window.__rpc=(id,data)=>{const f=pending[id];if(f){f(data);delete pending[id]}};
+function rpc(cmd,...args){
+  const id=++seq;
+  return new Promise((resolve,reject)=>{
+    const timer=setTimeout(()=>{delete pending[id];reject(new Error('请求超时：'+cmd))},cmd==='doupdate'?150000:((cmd==='sendissue'||cmd==='sendfeedback')?65000:45000));
+    pending[id]={resolve,reject,timer};
+    try{
+      if(args.some(a=>String(a).includes(SEP)))throw new Error('参数包含协议分隔符');
+      chrome.webview.postMessage(cmd+SEP+id+SEP+args.join(SEP));
+    }catch(e){clearTimeout(timer);delete pending[id];reject(e)}
+  });
+}
+window.__rpc=(id,data)=>{const p=pending[id];if(p){clearTimeout(p.timer);delete pending[id];p.resolve(data)}};
 window.__event=(name,data)=>{if(name==='update')showUpdate(data);if(name==='starask')showStarAsk();
   if(name==='toast')toast(data);if(name==='audioheld')onAudioHeld(data);
-  if(name==='linkok'){toast('已连接 💕');refreshList()}
-  if(name==='linkfail'){toast('没能连上：耳机可能不在附近、没电，或正被手机占用');refreshList()}};
+  if(name==='linkok'){toast('蓝牙链路已连接，正在确认音频…');refreshList()}
+  if(name==='audiook'){toast('耳机播放端点及三个默认输出角色已确认');refreshList()}
+  if(name==='linkdown'){toast('已核实断开：'+deviceName(data));refreshList()}
+  if(name==='downfail'){toast('尚未断开：'+deviceName(data));refreshList()}
+  if(name==='linkfail'){toast('未确认连接成功，请检查耳机状态或查看日志');refreshList()}};
 /* forward JS errors to the AHK-side log */
 window.addEventListener('error',e=>{try{chrome.webview.postMessage('jserror'+SEP+'0'+SEP+((e.message||'unknown')+' @ '+(e.filename||'inline')+':'+(e.linno||e.lineno||0)))}catch(_){}});
 window.addEventListener('unhandledrejection',e=>{try{chrome.webview.postMessage('jserror'+SEP+'0'+SEP+('promise: '+((e.reason&&e.reason.message)||String(e.reason))))}catch(_){}});
@@ -654,6 +676,7 @@ const stopSvg='<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColo
 
 /* ---------- rendering ---------- */
 let devices=[];
+function deviceName(id){return devices.find(d=>d.id===id)?.name||id}
 function orbTarget(){for(const d of devices)if(!d.connected)return d;return devices[0]||null}
 function parseList(r){
   try{return JSON.parse(r||'[]')}
@@ -686,7 +709,7 @@ function render(){
   }
   const on=devices.filter(d=>d.connected).length;
   const bd=document.getElementById('badge');
-  bd.textContent=on?('已连 '+on+' 台'):'未连接';
+  bd.textContent=on?('蓝牙已连 '+on+' 台'):'未连接';
   bd.classList.toggle('on',on>0);
   box.innerHTML=devices.map((d,i)=>`
     <div class="card" style="animation-delay:${i*60}ms">
@@ -694,15 +717,15 @@ function render(){
       <div class="info">
         <div class="name" title="${esc(d.name)}"><span class="txt">${esc(d.name)}</span>
           <span class="prio-mark">优先 ${i+1}</span></div>
-        <div class="st ${d.connected?'ok':''}" data-st="${esc(d.name)}"><span class="dot ${d.connected?'on':''}"></span>${d.connected?'已连接':'未连接'}</div>
+        <div class="st ${d.connected?'ok':''}" data-st="${esc(d.id)}"><span class="dot ${d.connected?'on':''}"></span>${d.connected?(d.audioState==='ready'?'默认音频已确认':'蓝牙已连接 · 音频未确认'):'未连接'}</div>
       </div>
       <div class="prio">
         <button class="pbtn" data-up="${i}" ${i===0?'disabled':''} title="提高优先级">▲</button>
         <button class="pbtn" data-down="${i}" ${i===devices.length-1?'disabled':''} title="降低优先级">▼</button>
       </div>
-      <button class="act ${d.connected?'on':''}" data-act="${d.connected?'disconnect':'connect'}" data-name="${esc(d.name)}" title="${d.connected?'断开':'连接'}">
+      <button class="act ${d.connected?'on':''}" data-act="${d.connected?'disconnect':'connect'}" data-name="${esc(d.id)}" title="${d.connected?'断开':'连接'}">
         ${d.connected?stopSvg:playSvg}</button>
-      <button class="del" data-del="${esc(d.name)}" title="删除">
+      <button class="del" data-del="${esc(d.id)}" title="删除">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
           <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
       </button>
@@ -723,16 +746,18 @@ function renderOrb(){
   const t=orbTarget();
   orb.className='orb'+(t.connected?' on':'');
   orb.innerHTML=`${art(kindOf(t.name))}<span class="oname">${esc(t.name)}</span>
-    <span class="ost">${t.connected?'已连接 · 点按断开':'未连接 · 点按连接'}</span>`;
-  orb.onclick=()=>doAction(null,t.name,t.connected?'disconnect':'connect');
-  hint.textContent=t.connected?('「'+t.name+'」已连接 ♥'):('下一步将连接「'+t.name+'」');
+    <span class="ost">${t.connected?'蓝牙已连接 · 点按断开':'未连接 · 点按连接'}</span>`;
+  orb.onclick=()=>doAction(null,t.id,t.connected?'disconnect':'connect');
+  hint.textContent=t.connected?('「'+t.name+'」蓝牙已连接'):('下一步将连接「'+t.name+'」');
 }
 async function movePrio(i,dir){
   const j=i+dir;
   if(j<0||j>=devices.length)return;
   [devices[i],devices[j]]=[devices[j],devices[i]];
-  await rpc('setprio',devices.map(d=>d.name).join(SEP));
-  render();
+  try{
+    if(await rpc('setprio',...devices.map(d=>d.id))!==true)throw new Error('优先级保存失败');
+    render();
+  }catch(e){[devices[i],devices[j]]=[devices[j],devices[i]];render();toast(e.message)}
 }
 function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
 
@@ -742,22 +767,24 @@ async function doAction(btn,name,act){
   const restore=b.innerHTML,cls=b.className;
   b.classList.add('busy');b.innerHTML='<span class="spin"></span>';
   document.getElementById('badge').textContent=(act==='connect'?'连接中…':'断开中…');
-  const r=await rpc(act,name);
-  b.classList.remove('busy');b.className=cls;b.innerHTML=restore;
-  if(r==='ok') toast((act==='connect')?'正在连接，稍候确认…':'已断开 💤');
-  else toast('操作失败，请重试');
-  refreshList();
+  try{
+    const r=await rpc(act,name);
+    if(r==='ok')toast(act==='connect'?'连接请求已提交，等待音频确认…':'断开请求已提交，等待链路确认…');
+    else toast(r==='busy'?'上一个操作仍在进行中':'操作未完成，请查看日志');
+  }catch(e){toast(e.message||'请求失败')}
+  finally{b.classList.remove('busy');b.className=cls;b.innerHTML=restore;}
+  try{await refreshList()}catch(e){document.getElementById('badge').textContent='状态待刷新';toast(e.message)}
 }
 
-/* 蓝牙已连上、但音频被手机占用（AHK 侧 AudioEndpoint 验证 ~9s 未通过） */
+/* Link state and verified audio route are distinct. */
 function onAudioHeld(name){
-  toast('⚠️ 已连上，但声音还被手机占着：暂停手机音乐后，再点一次连接即可抢过来');
+  toast('蓝牙已连接，但播放端点或默认输出尚未就绪；原因尚未确认，请查看 Windows 声音设置。');
   const st=document.querySelector('[data-st="'+CSS.escape(name)+'"]');
-  if(st) st.innerHTML='<span class="dot on"></span>已连接 · 音频被手机占用';
+  if(st) st.innerHTML='<span class="dot on"></span>蓝牙已连接 · 音频未就绪';
 }
 
 let delTarget='';
-function askDel(name){delTarget=name;document.getElementById('delName').textContent='「'+name+'」';
+function askDel(name){delTarget=name;document.getElementById('delName').textContent='「'+(devices.find(d=>d.id===name)?.name||name)+'」';
   openModal('mDel')}
 async function confirmDel(){closeModal('mDel');
   const r=await rpc('remove',delTarget);
@@ -831,23 +858,8 @@ async function fbSend(){
   fbSending=true;
   btn.classList.add('busy');btn.innerHTML='<span class="spin"></span>';
   try{
-    let sent=false;
-    /* 主通道：WebView2(Edge 引擎) fetch no-cors 直发 —— 安全软件拦应用派生
-       子进程联网但不拦浏览器引擎。no-cors 响应 opaque：网络层未抛错即视为送达 */
-    try{
-      const hook=await rpcTimeout(rpc('getfbwebhook'),3000);
-      if(hook){
-        const content='📮 **AirPods 小助手 意见反馈**\n> '+t+'\n\n— '+document.getElementById('ver').textContent+' · Windows';
-        await fetch(hook,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify({msgtype:'markdown',markdown:{content}})});
-        sent=true;
-      }
-    }catch(e){sent=false}
-    /* 兜底通道：后端 powershell（不同失败域） */
-    if(!sent){
-      const r=await Promise.race([
-        rpc('sendfeedback',t),
-        new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),25000))
-      ]);
+    {
+      const r=await rpc('sendfeedback',t);
       if(r!=='ok'){
         const why={
           'net':'网络不通，或被安全软件/防火墙拦截了联网',
@@ -866,7 +878,7 @@ async function fbSend(){
     document.getElementById('fbCount').textContent='0 / 1000';
     document.getElementById('fbBody').style.display='none';
     document.getElementById('fbFail').style.display='none';
-    document.getElementById('fbDone').textContent='✓ 已送达，捞鱼收到了，谢谢你！💕';
+    document.getElementById('fbDone').textContent='✓ 服务端已确认接收，谢谢你的反馈！';
     document.getElementById('fbDone').style.display='block';
   }catch(e){
     btn.classList.remove('busy');btn.textContent='发送';fbSending=false;
@@ -900,23 +912,9 @@ async function issueSend(){
   issSending=true;
   btn.classList.add('busy');btn.innerHTML='<span class="spin"></span>';
   try{
-    /* ① 文本主通道：类型+说明+最近日志摘要，fetch no-cors 直发 */
-    let logs='';
-    try{logs=await rpcTimeout(rpc('getfblogs'),3000)||'';}catch(e){}
-    let fetchok=false;
-    try{
-      const hook=await rpcTimeout(rpc('getfbwebhook'),3000);
-      if(hook){
-        await fetch(hook,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify({msgtype:'markdown',markdown:{content:fbBuildIssue(types,note,logs,contact).content}})});
-        fetchok=true;
-      }
-    }catch(e){fetchok=false}
-    /* ② 后端：fetch 失败时补发文本 + 上传完整日志文件（今天+昨天）到群 */
-    const flags=(fetchok?'1':'0')+(wantFile?'1':'0');
-    const r=await Promise.race([
-      rpc('sendissue',types.join('、'),note,flags,contact),
-      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),40000))
-    ]);
+    // One host-owned transaction verifies text and optional attachment receipts.
+    const flags='0'+(wantFile?'1':'0');
+    const r=await rpc('sendissue',types.join('、'),note,flags,contact);
     btn.classList.remove('busy');btn.textContent='发送反馈';issSending=false;
     if(r==='ok'){
       document.getElementById('issOps').style.display='none';
@@ -933,7 +931,7 @@ async function issueSend(){
       setTimeout(()=>{closeModal('mIssue');document.getElementById('issDone').style.display='none';
         document.getElementById('issOps').style.display='flex'},3400);
     } else {
-      throw new Error('两条通道都没发出去（网络被拦）');
+      throw new Error('服务端未确认送达，请检查日志后重试');
     }
   }catch(e){
     btn.classList.remove('busy');btn.textContent='发送反馈';issSending=false;
@@ -976,26 +974,27 @@ async function openSettings(){
   document.getElementById('swMic').checked = (await rpc('getmicswitch'))==='1';
   document.getElementById('swRescue').checked = (await rpc('getrescue'))==='1';
 }
-document.getElementById('swAuto').addEventListener('change', async e=>{
-  const r = await rpc('setautostart', e.target.checked?'1':'0');
-  toast(r==='ok' ? (e.target.checked?'已开启开机自启动 ✅':'已关闭开机自启动') : '设置失败，请重试');
-});
-document.getElementById('swMic').addEventListener('change', async e=>{
-  const r = await rpc('setmicswitch', e.target.checked?'1':'0');
-  toast(r===true ? (e.target.checked?'已开启：连上后自动用耳机麦克风 ✅':'已开启稳定模式：不再启用耳机麦克风，下次连接生效 ✅') : '设置失败，请重试');
-});
+for(const [id,cmd,success] of [['swAuto','setautostart','ok'],['swMic','setmicswitch',true]]){
+  document.getElementById(id).addEventListener('change',async e=>{
+    const chosen=e.target.checked;e.target.disabled=true;
+    try{if(await rpc(cmd,chosen?'1':'0')!==success)throw new Error('设置保存失败');toast('设置已保存')}
+    catch(err){e.target.checked=!chosen;toast(err.message)}
+    finally{e.target.disabled=false}
+  });
+}
 document.getElementById('swRescue').addEventListener('change', async e=>{
   const r = await rpc('setrescue', e.target.checked?'1':'0');
-  toast(r===true ? (e.target.checked?'已开启连不上时蓝牙自救 ✅':'已关闭蓝牙自救') : '设置失败，请重试');
+  toast(r===true ? (e.target.checked?'已开启自动重置蓝牙（已停用） ✅':'已关闭蓝牙自救') : '设置失败，请重试');
 });
 
 async function doUpdate(){
-  const st=document.getElementById('updState'),go=document.getElementById('updGo');
-  go.classList.add('busy');go.innerHTML='<span class="spin"></span>更新中';
-  const r=await rpc('doupdate',updUrl);
-  go.classList.remove('busy');go.innerHTML='🚀 一键更新';
-  st.textContent = (r==='ok')?'✅ 更新包已就绪，正在重启完成替换…（若被安全软件拦截，重启后会如实提醒）':'更新失败：'+r;
-  if(r!=='ok'){const g2=document.createElement('button');g2.className='btn ghost';g2.style.cssText='margin-top:8px;padding:7px 16px;font-size:12px';g2.textContent='→ 去发布页手动下载';g2.onclick=()=>rpc('openrelease');st.appendChild(g2)}
+  const b=document.getElementById('updGo'),st=document.getElementById('updState');
+  b.disabled=true;st.textContent='正在下载并校验，原程序暂不退出…';
+  try{
+    const r=await rpc('doupdate');
+    st.textContent=r==='ok'?'校验通过，正在重启；启动失败将恢复旧版。':String(r);
+  }catch(e){st.textContent=e.message||'更新未完成'}
+  finally{b.disabled=false}
 }
 
 
