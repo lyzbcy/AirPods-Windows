@@ -1,0 +1,404 @@
+diff --git a/scripts/release-precheck.py b/scripts/release-precheck.py
+index 9611fdc..99f8b6d 100644
+--- a/scripts/release-precheck.py
++++ b/scripts/release-precheck.py
+@@ -1,10 +1,12 @@
+-"""Offline release guard: production gate, installed acceptance, packaged EXE parity.
++"""Offline release guard: strict gate or explicit known-issue acceptance, EXE parity.
+ 
+ This script reads evidence and artifacts. It never connects hardware, deploys, or publishes.
+ """
+ from pathlib import Path
+ import argparse
++from datetime import datetime
+ import hashlib
++import importlib.util
+ import json
+ import re
+ import sys
+@@ -12,6 +14,10 @@ import zipfile
+ 
+ 
+ ROOT = Path(__file__).resolve().parents[1]
++PACKAGER_SPEC = importlib.util.spec_from_file_location(
++    'package_windows_release', ROOT / 'scripts/package-windows-release.py')
++packager = importlib.util.module_from_spec(PACKAGER_SPEC)
++PACKAGER_SPEC.loader.exec_module(packager)
+ PHASES = ('disconnect', 'after-disconnect', 'delayed-disconnect',
+           'connect', 'after-connect', 'delayed-connect')
+ SHA256 = re.compile(r'^[0-9A-F]{64}$')
+@@ -105,20 +111,11 @@ def verify_gate(folder, package):
+ def verify_package(build_dir, archive_path, source):
+     build_dir, archive_path, source = Path(build_dir), Path(archive_path), Path(source)
+     require(archive_path.name == 'AirPodsBuddy-Windows.zip', 'release asset name is not updater-compatible')
+-    manifest = json.loads((build_dir / 'build-manifest.json').read_text(encoding='utf-8-sig'))
+-    source_hash = digest(source)
+-    require(verified_hash(manifest.get('source'), 'manifest source') == source_hash,
+-            'build source differs from current source')
+-    version = re.search(r'APP_VERSION\s*:=\s*"([^"]+)"', source.read_text(encoding='utf-8-sig'))
+-    require(version is not None and manifest.get('version') == version.group(1),
+-            'build version differs from current source')
+-    exe_hash = verified_hash(manifest.get('sha256'), 'manifest exe')
+-    require(digest(build_dir / 'AirPodsBuddy.exe') == exe_hash,
+-            'built EXE differs from build manifest')
+-    inputs = manifest.get('inputs')
+-    require(isinstance(inputs, dict), 'build manifest has no input hashes')
++    require(source.name == 'airpods_buddy.ahk', 'source must be airpods_buddy.ahk')
++    build = packager.verify_build(build_dir, source.parent)
++    source_hash, exe_hash = build['sourceSha256'], build['exeSha256']
+     runtime = {name: digest(source.parent / name) for name in RUNTIME_INPUTS}
+-    require(all(verified_hash(inputs.get(name), name) == runtime[name] for name in RUNTIME_INPUTS),
++    require(all(build['inputs'].get(name) == runtime[name] for name in RUNTIME_INPUTS),
+             'build manifest runtime inputs differ from current files')
+     with zipfile.ZipFile(archive_path) as archive:
+         require(archive.testzip() is None, 'release ZIP failed CRC verification')
+@@ -126,7 +123,7 @@ def verify_package(build_dir, archive_path, source):
+                 'release ZIP must contain only one root AirPodsBuddy.exe')
+         packaged_hash = hashlib.sha256(archive.read('AirPodsBuddy.exe')).hexdigest().upper()
+     require(packaged_hash == exe_hash, 'release ZIP EXE differs from final build EXE')
+-    return {'version': manifest['version'], 'sourceSha256': source_hash,
++    return {'version': build['version'], 'sourceSha256': source_hash,
+             'runtimeInputs': runtime,
+             'exeSha256': exe_hash, 'zipSha256': digest(archive_path)}
+ 
+@@ -161,25 +158,135 @@ def verify_acceptance(receipt_path, package, gate):
+     return receipt
+ 
+ 
++def verify_accepted_known_issue(receipt_path, failure_dir, known_issues_path, package):
++    """Check hash-bound records, not the truth of a human attestation."""
++    receipt_path = Path(receipt_path)
++    failure_dir = Path(failure_dir)
++    known_issues_path = Path(known_issues_path)
++    receipt = json.loads(receipt_path.read_text(encoding='utf-8'))
++    require(receipt.get('releaseProfile') == 'accepted-known-issue'
++            and receipt.get('hardwareGate') == 'failed'
++            and receipt.get('acceptedKnownIssue') is True
++            and receipt.get('failureEvidenceHistorical') is True,
++            'known-issue release decision fields missing')
++    require(receipt.get('decisionText') == '直接发正式 Release 并写明已知问题'
++            and receipt.get('acceptedBy') == 'projectOwner',
++            'explicit project-owner release decision missing')
++    try:
++        accepted_at = datetime.fromisoformat(receipt.get('acceptedAt', '').replace('Z', '+00:00'))
++    except (TypeError, ValueError) as exc:
++        raise ValueError('acceptedAt is not an ISO timestamp') from exc
++    require(accepted_at.tzinfo is not None, 'acceptedAt must include a timezone')
++    for name, expected in (('sourceSha256', package['sourceSha256']),
++                           ('exeSha256', package['exeSha256']),
++                           ('zipSha256', package['zipSha256'])):
++        require(verified_hash(receipt.get(name), name) == expected,
++                f'known-issue decision differs from final package: {name}')
++    verified_hash(receipt.get('failureSourceSha256'), 'historical failure source')
++
++    def check_receipt_file(name, folder, filename):
++        require(isinstance(filename, str) and filename == Path(filename).name
++                and filename not in ('.', '..'), f'invalid {name} evidence filename')
++        path = folder / filename
++        require(path.is_file() and verified_hash(receipt.get(name), name) == digest(path),
++                f'{name} evidence missing or changed')
++        return path
++
++    check_receipt_file('decisionEvidenceSha256', receipt_path.parent,
++                       receipt.get('decisionEvidence'))
++    require(not (failure_dir / 'gate-pass.json').exists(),
++            'failed hardware gate cannot contain gate-pass.json')
++    results_path = check_receipt_file('failureResultsSha256', failure_dir, 'results.json')
++    failure_text_path = check_receipt_file('failureTextSha256', failure_dir, 'failure.txt')
++    require(failure_text_path.read_text(encoding='utf-8').strip(), 'failure.txt is empty')
++    rows = json.loads(results_path.read_text(encoding='utf-8'))
++    require(isinstance(rows, list) and len(rows) >= 2
++            and all(isinstance(row, dict) for row in rows),
++            'failure results require baseline and action records')
++    baseline, failed = rows[0], rows[-1]
++    require(baseline.get('phase') == 'baseline' and baseline.get('exit') == 0,
++            'failure results have no successful baseline')
++    require(failed.get('phase') in ('connect', 'disconnect')
++            and type(failed.get('exit')) is int and failed['exit'] != 0
++            and all(type(row.get('exit')) is int and row['exit'] == 0 for row in rows[:-1]),
++            'failure results have no terminal nonzero action exit')
++    command = failed.get('command')
++    require(isinstance(command, list) and len(command) >= 5
++            and command[:3] == ['python', 'tests/live_audio.py', failed['phase']]
++            and isinstance(command[3], str) and ADDRESS.fullmatch(command[3]),
++            'failure action is not a recorded target source command')
++    log_path = check_receipt_file('failureLogSha256', failure_dir, failed.get('file'))
++    if 'logSha256' in failed:
++        require(verified_hash(failed['logSha256'], 'failure row log') == digest(log_path),
++                'failure row log hash differs from failure action log')
++    require(str(failed['exit']) in failure_text_path.read_text(encoding='utf-8'),
++            'failure.txt does not report terminal action exit')
++
++    known_text = known_issues_path.read_text(encoding='utf-8')
++    require(verified_hash(receipt.get('knownIssuesSha256'), 'known issues') == digest(known_issues_path)
++            and all(term in known_text for term in ('已知问题', 'Windows 蓝牙', '手动恢复', '反馈')),
++            'known-issues disclosure missing, changed or incomplete')
++    installed = Path(receipt.get('installedExePath', ''))
++    require(installed.is_absolute() and installed.is_file()
++            and verified_hash(receipt.get('installedExeSha256'), 'installed EXE') == package['exeSha256']
++            and digest(installed) == package['exeSha256'],
++            'installed EXE differs from final release build')
++    checks = receipt.get('checks')
++    require(isinstance(checks, dict), 'installed known-issue acceptance checks missing')
++    for name in ('launch', 'defaultOutputListening', 'feedbackEntry'):
++        row = checks.get(name)
++        require(isinstance(row, dict) and row.get('passed') is True,
++                f'installed known-issue acceptance missing: {name}')
++        filename = row.get('evidence')
++        require(isinstance(filename, str) and filename == Path(filename).name
++                and filename not in ('.', '..'), f'invalid {name} evidence filename')
++        evidence = receipt_path.parent / filename
++        require(evidence.is_file() and verified_hash(row.get('sha256'), name) == digest(evidence),
++                f'{name} evidence missing or changed')
++    require(checks['defaultOutputListening'].get('userConfirmed') is True,
++            'default-output listening lacks user confirmation')
++    return receipt
++
++
+ def main():
+     parser = argparse.ArgumentParser(description=__doc__)
+-    parser.add_argument('--gate-dir', type=Path, required=True)
++    parser.add_argument('--gate-dir', type=Path)
++    parser.add_argument('--accepted-known-issue', action='store_true')
++    parser.add_argument('--failure-dir', type=Path)
++    parser.add_argument('--known-issues', type=Path)
+     parser.add_argument('--build-dir', type=Path, required=True)
+     parser.add_argument('--zip', type=Path, required=True)
+     parser.add_argument('--acceptance', type=Path, required=True,
+                         help='manual installed-app restart/listening/mic-on receipt and hashed evidence')
+     parser.add_argument('--source', type=Path, default=ROOT / 'airpods_buddy.ahk')
+     args = parser.parse_args()
++    if args.accepted_known_issue:
++        if args.gate_dir or not args.failure_dir or not args.known_issues:
++            parser.error('known-issue path requires --failure-dir and --known-issues, not --gate-dir')
++    elif not args.gate_dir or args.failure_dir or args.known_issues:
++        parser.error('strict path requires --gate-dir and no known-issue inputs')
+     try:
+         package = verify_package(args.build_dir, args.zip, args.source)
+-        gate = verify_gate(args.gate_dir, package)
+-        verify_acceptance(args.acceptance, package, gate)
++        if args.accepted_known_issue:
++            verify_accepted_known_issue(args.acceptance, args.failure_dir, args.known_issues, package)
++        else:
++            gate = verify_gate(args.gate_dir, package)
++            verify_acceptance(args.acceptance, package, gate)
+     except (OSError, ValueError, KeyError, json.JSONDecodeError, zipfile.BadZipFile) as exc:
+         print(f'RELEASE_PRECHECK_FAIL {exc}')
+         return 1
+-    print('RELEASE_PRECHECK_PASS cycles=5 productionPath=true installedAcceptance=true '
+-          f'version={package["version"]} sourceSha256={package["sourceSha256"]} '
+-          f'exeSha256={package["exeSha256"]} zipSha256={package["zipSha256"]}')
++    if args.accepted_known_issue:
++        print('RELEASE_PRECHECK_PASS hardwareGate=failed acceptedKnownIssue=true '
++              'failureEvidenceHistorical=true historicalFailureNotFinalBuildRetest=true '
++              'installedAcceptance=true '
++              f'version={package["version"]} sourceSha256={package["sourceSha256"]} '
++              f'exeSha256={package["exeSha256"]} zipSha256={package["zipSha256"]}')
++        print('HUMAN_ATTESTATION_NOT_MACHINE_VERIFIED receipt and listening authenticity '
++              'must be checked by the human release approver')
++    else:
++        print('RELEASE_PRECHECK_PASS cycles=5 productionPath=true installedAcceptance=true '
++              f'version={package["version"]} sourceSha256={package["sourceSha256"]} '
++              f'exeSha256={package["exeSha256"]} zipSha256={package["zipSha256"]}')
+     return 0
+ 
+ 
+diff --git a/tests/release_precheck_test.py b/tests/release_precheck_test.py
+index 1109282..b7dabfc 100644
+--- a/tests/release_precheck_test.py
++++ b/tests/release_precheck_test.py
+@@ -37,22 +37,29 @@ def sha(data):
+ 
+ 
+ def fixture(folder):
++    for name in guard.packager.STATIC_INPUTS:
++        path = folder / name
++        path.parent.mkdir(parents=True, exist_ok=True)
++        path.write_bytes(b'build input fixture\n')
+     source = folder / 'airpods_buddy.ahk'
+     source.write_text('APP_VERSION := "1.9.20"\n', encoding='utf-8')
+-    runtime = {}
+     for name in guard.RUNTIME_INPUTS:
+         path = folder / name
+         path.parent.mkdir(parents=True, exist_ok=True)
+         if name != 'airpods_buddy.ahk':
+             path.write_text('runtime fixture\n', encoding='utf-8')
+-        runtime[name] = sha(path.read_bytes())
++    (folder / 'webui/assets').mkdir(parents=True, exist_ok=True)
++    (folder / 'assets').mkdir(parents=True, exist_ok=True)
++    runtime = {name: sha((folder / name).read_bytes()) for name in guard.RUNTIME_INPUTS}
++    inputs = {name: sha((folder / name).read_bytes())
++              for name in guard.packager.expected_inputs(folder)}
+     build = folder / 'build'
+     build.mkdir()
+     exe = b'MZ final candidate fixture'
+     (build / 'AirPodsBuddy.exe').write_bytes(exe)
+     (build / 'build-manifest.json').write_text(json.dumps({
+         'source': sha(source.read_bytes()), 'sha256': sha(exe),
+-        'version': '1.9.20', 'inputs': runtime}), encoding='utf-8')
++        'version': '1.9.20', 'inputs': inputs}), encoding='utf-8')
+     archive = folder / 'AirPodsBuddy-Windows.zip'
+     with zipfile.ZipFile(archive, 'w') as z:
+         z.writestr('AirPodsBuddy.exe', exe)
+@@ -183,6 +190,19 @@ with tempfile.TemporaryDirectory() as tmp:
+     rows_file.write_text(json.dumps(rows), encoding='utf-8')
+     check('changed_or_failed_results_rejected', fails(lambda: guard.verify_gate(gate, package)))
+ 
++    ui = source.parent / 'webui/index_built.html'
++    original_ui = ui.read_bytes()
++    ui.write_bytes(b'stale UI after build')
++    check('stale_ui_build_input_rejected', fails(lambda: guard.verify_package(build, archive, source)))
++    ui.write_bytes(original_ui)
++    manifest_path = build / 'build-manifest.json'
++    original_manifest = manifest_path.read_bytes()
++    incomplete_manifest = json.loads(original_manifest.decode('utf-8'))
++    incomplete_manifest['inputs'].pop('webui/index_built.html')
++    manifest_path.write_text(json.dumps(incomplete_manifest), encoding='utf-8')
++    check('missing_ui_build_inventory_rejected', fails(lambda: guard.verify_package(build, archive, source)))
++    manifest_path.write_bytes(original_manifest)
++
+     with zipfile.ZipFile(archive, 'w') as z:
+         z.writestr('AirPodsBuddy.exe', (build / 'AirPodsBuddy.exe').read_bytes())
+         z.writestr('extra.txt', b'not part of the updater asset')
+@@ -205,4 +225,141 @@ for args in [('--cycles', '1', '--release-gate'),
+                        cwd=ROOT, capture_output=True)
+     check('release_gate_rejects_invalid_cli_' + args[1], p.returncode == 2)
+ 
++
++def known_issue_fixture(folder):
++    source, build, archive, _gate, _strict_receipt = fixture(folder)
++    package = guard.verify_package(build, archive, source)
++    failure_dir = folder / 'historical-failure'
++    failure_dir.mkdir()
++    baseline = {'cycle': 0, 'phase': 'baseline', 'exit': 0,
++                'command': ['python', 'tests/live_audio.py', 'inspect', 'AABBCCDDEEFF', 'fixture.ini'],
++                'file': '0-baseline.txt'}
++    failed = {'cycle': 1, 'phase': 'disconnect', 'exit': 5,
++              'command': ['python', 'tests/live_audio.py', 'disconnect', 'AABBCCDDEEFF', 'fixture.ini'],
++              'file': '1-disconnect.txt'}
++    (failure_dir / '0-baseline.txt').write_text('RESULT baseline link=1 render=1\n', encoding='utf-8')
++    log = failure_dir / '1-disconnect.txt'
++    log.write_text('RESULT state=disconnect_failed link=1\n', encoding='utf-8')
++    failed['logSha256'] = sha(log.read_bytes())
++    (failure_dir / 'results.json').write_text(json.dumps([baseline, failed]), encoding='utf-8')
++    (failure_dir / 'failure.txt').write_text('1-disconnect source action failed with exit 5\n', encoding='utf-8')
++    known_issues = folder / 'known-issues.md'
++    known_issues.write_text('# 已知问题\nWindows 蓝牙可能偶发连接、断开或路由失败。'
++                            '用户可在设置中手动恢复 Windows 蓝牙；应用不自动全局重置。'
++                            '请通过反馈入口提交日志。\n', encoding='utf-8')
++    decision = folder / 'decision.txt'
++    decision.write_text('projectOwner: 直接发正式 Release 并写明已知问题\n', encoding='utf-8')
++    installed = folder / 'installed-AirPodsBuddy.exe'
++    checks = {}
++    for name in ('launch', 'defaultOutputListening', 'feedbackEntry'):
++        evidence = f'known-{name}.txt'
++        data = f'{name} manually recorded fixture\n'.encode()
++        (folder / evidence).write_bytes(data)
++        checks[name] = {'passed': True, 'evidence': evidence, 'sha256': sha(data)}
++    checks['defaultOutputListening']['userConfirmed'] = True
++    receipt = folder / 'accepted-known-issue.json'
++    receipt.write_text(json.dumps({
++        'releaseProfile': 'accepted-known-issue', 'hardwareGate': 'failed',
++        'acceptedKnownIssue': True, 'failureEvidenceHistorical': True,
++        'decisionText': '直接发正式 Release 并写明已知问题',
++        'acceptedBy': 'projectOwner', 'acceptedAt': '2026-09-27T02:00:00+08:00',
++        'decisionEvidence': decision.name, 'decisionEvidenceSha256': sha(decision.read_bytes()),
++        'sourceSha256': package['sourceSha256'], 'exeSha256': package['exeSha256'],
++        'zipSha256': package['zipSha256'], 'failureSourceSha256': sha(b'historical source'),
++        'failureResultsSha256': sha((failure_dir / 'results.json').read_bytes()),
++        'failureTextSha256': sha((failure_dir / 'failure.txt').read_bytes()),
++        'failureLogSha256': sha(log.read_bytes()), 'knownIssuesSha256': sha(known_issues.read_bytes()),
++        'installedExePath': str(installed), 'installedExeSha256': sha(installed.read_bytes()),
++        'checks': checks}, ensure_ascii=False), encoding='utf-8')
++    return {'source': source, 'build': build, 'archive': archive, 'package': package,
++            'failure': failure_dir, 'known': known_issues, 'receipt': receipt, 'installed': installed}
++
++
++def edit_receipt(case, callback):
++    value = json.loads(case['receipt'].read_text(encoding='utf-8'))
++    callback(value)
++    case['receipt'].write_text(json.dumps(value, ensure_ascii=False), encoding='utf-8')
++
++
++with tempfile.TemporaryDirectory() as tmp:
++    base = Path(tmp)
++    def fresh(name):
++        folder = base / name
++        folder.mkdir()
++        return known_issue_fixture(folder)
++
++    case = fresh('valid')
++    check('accepted_known_issue_valid_historical_failure',
++          guard.verify_accepted_known_issue(case['receipt'], case['failure'], case['known'],
++                                            case['package'])['hardwareGate'] == 'failed')
++    cmd = ['python', 'scripts/release-precheck.py', '--accepted-known-issue',
++           '--failure-dir', str(case['failure']), '--known-issues', str(case['known']),
++           '--build-dir', str(case['build']), '--zip', str(case['archive']),
++           '--acceptance', str(case['receipt']), '--source', str(case['source'])]
++    p = subprocess.run(cmd, cwd=ROOT, capture_output=True)
++    cli_output = p.stdout.decode('utf-8-sig')
++    check('accepted_known_issue_cli_has_honest_status', p.returncode == 0
++          and 'hardwareGate=failed acceptedKnownIssue=true' in cli_output
++          and 'historicalFailureNotFinalBuildRetest=true' in cli_output
++          and 'HUMAN_ATTESTATION_NOT_MACHINE_VERIFIED' in cli_output
++          and 'GATE_PASS' not in cli_output)
++    strict_case = fresh('strict-cli')
++    strict_cmd = ['python', 'scripts/release-precheck.py',
++                  '--gate-dir', str(strict_case['receipt'].parent / 'gate'),
++                  '--build-dir', str(strict_case['build']), '--zip', str(strict_case['archive']),
++                  '--acceptance', str(strict_case['receipt'].parent / 'installed-acceptance.json'),
++                  '--source', str(strict_case['source'])]
++    strict_p = subprocess.run(strict_cmd, cwd=ROOT, capture_output=True)
++    check('strict_cli_still_requires_five_passed_cycles', strict_p.returncode == 0
++          and 'cycles=5 productionPath=true' in strict_p.stdout.decode('utf-8-sig')
++          and 'hardwareGate=failed' not in strict_p.stdout.decode('utf-8-sig'))
++
++    def rejected(name, change):
++        item = fresh(name)
++        change(item)
++        def verify():
++            current_package = guard.verify_package(item['build'], item['archive'], item['source'])
++            guard.verify_accepted_known_issue(item['receipt'], item['failure'],
++                                              item['known'], current_package)
++        check(name, fails(verify))
++
++    rejected('known_issue_requires_explicit_consent',
++             lambda item: edit_receipt(item, lambda row: row.update(acceptedKnownIssue=False)))
++    rejected('known_issue_requires_owner_decision',
++             lambda item: edit_receipt(item, lambda row: row.update(decisionText='consider release')))
++    rejected('known_issue_rejects_unhashed_consent_evidence',
++             lambda item: (item['receipt'].parent / 'decision.txt').write_text('changed\n', encoding='utf-8'))
++    rejected('known_issue_requires_failure_source_hash',
++             lambda item: edit_receipt(item, lambda row: row.pop('failureSourceSha256')))
++    def zero_exit(item):
++        path = item['failure'] / 'results.json'
++        rows = json.loads(path.read_text(encoding='utf-8'))
++        rows[-1]['exit'] = 0
++        path.write_text(json.dumps(rows), encoding='utf-8')
++        edit_receipt(item, lambda row: row.update(failureResultsSha256=sha(path.read_bytes())))
++    rejected('known_issue_rejects_zero_failure_exit', zero_exit)
++    rejected('known_issue_rejects_tampered_failure_log',
++             lambda item: (item['failure'] / '1-disconnect.txt').write_text('changed\n', encoding='utf-8'))
++    rejected('known_issue_rejects_fake_gate_pass',
++             lambda item: (item['failure'] / 'gate-pass.json').write_text('{}', encoding='utf-8'))
++    def missing_disclosure(item):
++        item['known'].write_text('# 已知问题\nWindows 蓝牙可能失败。\n', encoding='utf-8')
++        edit_receipt(item, lambda row: row.update(knownIssuesSha256=sha(item['known'].read_bytes())))
++    rejected('known_issue_requires_recovery_and_feedback_disclosure', missing_disclosure)
++    rejected('known_issue_rejects_installed_exe_drift',
++             lambda item: item['installed'].write_bytes(b'MZ stale installed'))
++    rejected('known_issue_requires_launch_evidence',
++             lambda item: (item['receipt'].parent / 'known-launch.txt').unlink())
++    rejected('known_issue_requires_listening_confirmation',
++             lambda item: edit_receipt(item, lambda row:
++                                       row['checks']['defaultOutputListening'].update(userConfirmed=False)))
++    rejected('known_issue_requires_feedback_entry_evidence',
++             lambda item: (item['receipt'].parent / 'known-feedbackEntry.txt').write_text('changed\n', encoding='utf-8'))
++    rejected('known_issue_rejects_final_source_drift',
++             lambda item: item['source'].write_text('APP_VERSION := "1.9.21"\n', encoding='utf-8'))
++    rejected('known_issue_rejects_final_zip_drift',
++             lambda item: edit_receipt(item, lambda row: row.update(zipSha256='0' * 64)))
++    p = subprocess.run([*cmd, '--gate-dir', str(case['failure'])], cwd=ROOT, capture_output=True)
++    check('known_issue_cli_rejects_mixed_gate_paths', p.returncode == 2)
++
+ print(f'RESULT failures=0 tests={passes}')

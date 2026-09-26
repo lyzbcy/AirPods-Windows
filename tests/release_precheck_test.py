@@ -37,22 +37,29 @@ def sha(data):
 
 
 def fixture(folder):
+    for name in guard.packager.STATIC_INPUTS:
+        path = folder / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b'build input fixture\n')
     source = folder / 'airpods_buddy.ahk'
     source.write_text('APP_VERSION := "1.9.20"\n', encoding='utf-8')
-    runtime = {}
     for name in guard.RUNTIME_INPUTS:
         path = folder / name
         path.parent.mkdir(parents=True, exist_ok=True)
         if name != 'airpods_buddy.ahk':
             path.write_text('runtime fixture\n', encoding='utf-8')
-        runtime[name] = sha(path.read_bytes())
+    (folder / 'webui/assets').mkdir(parents=True, exist_ok=True)
+    (folder / 'assets').mkdir(parents=True, exist_ok=True)
+    runtime = {name: sha((folder / name).read_bytes()) for name in guard.RUNTIME_INPUTS}
+    inputs = {name: sha((folder / name).read_bytes())
+              for name in guard.packager.expected_inputs(folder)}
     build = folder / 'build'
     build.mkdir()
     exe = b'MZ final candidate fixture'
     (build / 'AirPodsBuddy.exe').write_bytes(exe)
     (build / 'build-manifest.json').write_text(json.dumps({
         'source': sha(source.read_bytes()), 'sha256': sha(exe),
-        'version': '1.9.20', 'inputs': runtime}), encoding='utf-8')
+        'version': '1.9.20', 'inputs': inputs}), encoding='utf-8')
     archive = folder / 'AirPodsBuddy-Windows.zip'
     with zipfile.ZipFile(archive, 'w') as z:
         z.writestr('AirPodsBuddy.exe', exe)
@@ -183,6 +190,19 @@ with tempfile.TemporaryDirectory() as tmp:
     rows_file.write_text(json.dumps(rows), encoding='utf-8')
     check('changed_or_failed_results_rejected', fails(lambda: guard.verify_gate(gate, package)))
 
+    ui = source.parent / 'webui/index_built.html'
+    original_ui = ui.read_bytes()
+    ui.write_bytes(b'stale UI after build')
+    check('stale_ui_build_input_rejected', fails(lambda: guard.verify_package(build, archive, source)))
+    ui.write_bytes(original_ui)
+    manifest_path = build / 'build-manifest.json'
+    original_manifest = manifest_path.read_bytes()
+    incomplete_manifest = json.loads(original_manifest.decode('utf-8'))
+    incomplete_manifest['inputs'].pop('webui/index_built.html')
+    manifest_path.write_text(json.dumps(incomplete_manifest), encoding='utf-8')
+    check('missing_ui_build_inventory_rejected', fails(lambda: guard.verify_package(build, archive, source)))
+    manifest_path.write_bytes(original_manifest)
+
     with zipfile.ZipFile(archive, 'w') as z:
         z.writestr('AirPodsBuddy.exe', (build / 'AirPodsBuddy.exe').read_bytes())
         z.writestr('extra.txt', b'not part of the updater asset')
@@ -204,5 +224,142 @@ for args in [('--cycles', '1', '--release-gate'),
     p = subprocess.run(['python', 'tests/strict_gate.py', '--address', 'AABBCCDDEEFF', *args],
                        cwd=ROOT, capture_output=True)
     check('release_gate_rejects_invalid_cli_' + args[1], p.returncode == 2)
+
+
+def known_issue_fixture(folder):
+    source, build, archive, _gate, _strict_receipt = fixture(folder)
+    package = guard.verify_package(build, archive, source)
+    failure_dir = folder / 'historical-failure'
+    failure_dir.mkdir()
+    baseline = {'cycle': 0, 'phase': 'baseline', 'exit': 0,
+                'command': ['python', 'tests/live_audio.py', 'inspect', 'AABBCCDDEEFF', 'fixture.ini'],
+                'file': '0-baseline.txt'}
+    failed = {'cycle': 1, 'phase': 'disconnect', 'exit': 5,
+              'command': ['python', 'tests/live_audio.py', 'disconnect', 'AABBCCDDEEFF', 'fixture.ini'],
+              'file': '1-disconnect.txt'}
+    (failure_dir / '0-baseline.txt').write_text('RESULT baseline link=1 render=1\n', encoding='utf-8')
+    log = failure_dir / '1-disconnect.txt'
+    log.write_text('RESULT state=disconnect_failed link=1\n', encoding='utf-8')
+    failed['logSha256'] = sha(log.read_bytes())
+    (failure_dir / 'results.json').write_text(json.dumps([baseline, failed]), encoding='utf-8')
+    (failure_dir / 'failure.txt').write_text('1-disconnect source action failed with exit 5\n', encoding='utf-8')
+    known_issues = folder / 'known-issues.md'
+    known_issues.write_text('# 已知问题\nWindows 蓝牙可能偶发连接、断开或路由失败。'
+                            '用户可在设置中手动恢复 Windows 蓝牙；应用不自动全局重置。'
+                            '请通过反馈入口提交日志。\n', encoding='utf-8')
+    decision = folder / 'decision.txt'
+    decision.write_text('projectOwner: 直接发正式 Release 并写明已知问题\n', encoding='utf-8')
+    installed = folder / 'installed-AirPodsBuddy.exe'
+    checks = {}
+    for name in ('launch', 'defaultOutputListening', 'feedbackEntry'):
+        evidence = f'known-{name}.txt'
+        data = f'{name} manually recorded fixture\n'.encode()
+        (folder / evidence).write_bytes(data)
+        checks[name] = {'passed': True, 'evidence': evidence, 'sha256': sha(data)}
+    checks['defaultOutputListening']['userConfirmed'] = True
+    receipt = folder / 'accepted-known-issue.json'
+    receipt.write_text(json.dumps({
+        'releaseProfile': 'accepted-known-issue', 'hardwareGate': 'failed',
+        'acceptedKnownIssue': True, 'failureEvidenceHistorical': True,
+        'decisionText': '直接发正式 Release 并写明已知问题',
+        'acceptedBy': 'projectOwner', 'acceptedAt': '2026-09-27T02:00:00+08:00',
+        'decisionEvidence': decision.name, 'decisionEvidenceSha256': sha(decision.read_bytes()),
+        'sourceSha256': package['sourceSha256'], 'exeSha256': package['exeSha256'],
+        'zipSha256': package['zipSha256'], 'failureSourceSha256': sha(b'historical source'),
+        'failureResultsSha256': sha((failure_dir / 'results.json').read_bytes()),
+        'failureTextSha256': sha((failure_dir / 'failure.txt').read_bytes()),
+        'failureLogSha256': sha(log.read_bytes()), 'knownIssuesSha256': sha(known_issues.read_bytes()),
+        'installedExePath': str(installed), 'installedExeSha256': sha(installed.read_bytes()),
+        'checks': checks}, ensure_ascii=False), encoding='utf-8')
+    return {'source': source, 'build': build, 'archive': archive, 'package': package,
+            'failure': failure_dir, 'known': known_issues, 'receipt': receipt, 'installed': installed}
+
+
+def edit_receipt(case, callback):
+    value = json.loads(case['receipt'].read_text(encoding='utf-8'))
+    callback(value)
+    case['receipt'].write_text(json.dumps(value, ensure_ascii=False), encoding='utf-8')
+
+
+with tempfile.TemporaryDirectory() as tmp:
+    base = Path(tmp)
+    def fresh(name):
+        folder = base / name
+        folder.mkdir()
+        return known_issue_fixture(folder)
+
+    case = fresh('valid')
+    check('accepted_known_issue_valid_historical_failure',
+          guard.verify_accepted_known_issue(case['receipt'], case['failure'], case['known'],
+                                            case['package'])['hardwareGate'] == 'failed')
+    cmd = ['python', 'scripts/release-precheck.py', '--accepted-known-issue',
+           '--failure-dir', str(case['failure']), '--known-issues', str(case['known']),
+           '--build-dir', str(case['build']), '--zip', str(case['archive']),
+           '--acceptance', str(case['receipt']), '--source', str(case['source'])]
+    p = subprocess.run(cmd, cwd=ROOT, capture_output=True)
+    cli_output = p.stdout.decode('utf-8-sig')
+    check('accepted_known_issue_cli_has_honest_status', p.returncode == 0
+          and 'hardwareGate=failed acceptedKnownIssue=true' in cli_output
+          and 'historicalFailureNotFinalBuildRetest=true' in cli_output
+          and 'HUMAN_ATTESTATION_NOT_MACHINE_VERIFIED' in cli_output
+          and 'GATE_PASS' not in cli_output)
+    strict_case = fresh('strict-cli')
+    strict_cmd = ['python', 'scripts/release-precheck.py',
+                  '--gate-dir', str(strict_case['receipt'].parent / 'gate'),
+                  '--build-dir', str(strict_case['build']), '--zip', str(strict_case['archive']),
+                  '--acceptance', str(strict_case['receipt'].parent / 'installed-acceptance.json'),
+                  '--source', str(strict_case['source'])]
+    strict_p = subprocess.run(strict_cmd, cwd=ROOT, capture_output=True)
+    check('strict_cli_still_requires_five_passed_cycles', strict_p.returncode == 0
+          and 'cycles=5 productionPath=true' in strict_p.stdout.decode('utf-8-sig')
+          and 'hardwareGate=failed' not in strict_p.stdout.decode('utf-8-sig'))
+
+    def rejected(name, change):
+        item = fresh(name)
+        change(item)
+        def verify():
+            current_package = guard.verify_package(item['build'], item['archive'], item['source'])
+            guard.verify_accepted_known_issue(item['receipt'], item['failure'],
+                                              item['known'], current_package)
+        check(name, fails(verify))
+
+    rejected('known_issue_requires_explicit_consent',
+             lambda item: edit_receipt(item, lambda row: row.update(acceptedKnownIssue=False)))
+    rejected('known_issue_requires_owner_decision',
+             lambda item: edit_receipt(item, lambda row: row.update(decisionText='consider release')))
+    rejected('known_issue_rejects_unhashed_consent_evidence',
+             lambda item: (item['receipt'].parent / 'decision.txt').write_text('changed\n', encoding='utf-8'))
+    rejected('known_issue_requires_failure_source_hash',
+             lambda item: edit_receipt(item, lambda row: row.pop('failureSourceSha256')))
+    def zero_exit(item):
+        path = item['failure'] / 'results.json'
+        rows = json.loads(path.read_text(encoding='utf-8'))
+        rows[-1]['exit'] = 0
+        path.write_text(json.dumps(rows), encoding='utf-8')
+        edit_receipt(item, lambda row: row.update(failureResultsSha256=sha(path.read_bytes())))
+    rejected('known_issue_rejects_zero_failure_exit', zero_exit)
+    rejected('known_issue_rejects_tampered_failure_log',
+             lambda item: (item['failure'] / '1-disconnect.txt').write_text('changed\n', encoding='utf-8'))
+    rejected('known_issue_rejects_fake_gate_pass',
+             lambda item: (item['failure'] / 'gate-pass.json').write_text('{}', encoding='utf-8'))
+    def missing_disclosure(item):
+        item['known'].write_text('# 已知问题\nWindows 蓝牙可能失败。\n', encoding='utf-8')
+        edit_receipt(item, lambda row: row.update(knownIssuesSha256=sha(item['known'].read_bytes())))
+    rejected('known_issue_requires_recovery_and_feedback_disclosure', missing_disclosure)
+    rejected('known_issue_rejects_installed_exe_drift',
+             lambda item: item['installed'].write_bytes(b'MZ stale installed'))
+    rejected('known_issue_requires_launch_evidence',
+             lambda item: (item['receipt'].parent / 'known-launch.txt').unlink())
+    rejected('known_issue_requires_listening_confirmation',
+             lambda item: edit_receipt(item, lambda row:
+                                       row['checks']['defaultOutputListening'].update(userConfirmed=False)))
+    rejected('known_issue_requires_feedback_entry_evidence',
+             lambda item: (item['receipt'].parent / 'known-feedbackEntry.txt').write_text('changed\n', encoding='utf-8'))
+    rejected('known_issue_rejects_final_source_drift',
+             lambda item: item['source'].write_text('APP_VERSION := "1.9.21"\n', encoding='utf-8'))
+    rejected('known_issue_rejects_final_zip_drift',
+             lambda item: edit_receipt(item, lambda row: row.update(zipSha256='0' * 64)))
+    p = subprocess.run([*cmd, '--gate-dir', str(case['failure'])], cwd=ROOT, capture_output=True)
+    check('known_issue_cli_rejects_mixed_gate_paths', p.returncode == 2)
 
 print(f'RESULT failures=0 tests={passes}')

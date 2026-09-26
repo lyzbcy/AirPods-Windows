@@ -1,0 +1,117 @@
+Branch: fix/audit-20260926
+Changed files: E:\共享\创业\BluetoothDeviceConnector\scripts\release-precheck.py and E:\共享\创业\BluetoothDeviceConnector\tests\release_precheck_test.py
+Changed branch/fields: added mutually exclusive --accepted-known-issue path; receipt requires releaseProfile=accepted-known-issue, hardwareGate=failed, acceptedKnownIssue=true, failureEvidenceHistorical=true, failureSourceSha256, explicit project-owner decision with hashed evidence, historical nonzero failure results/log/failure.txt hashes, known-issues disclosure hash, final installed EXE hash, and launch/defaultOutputListening/feedbackEntry evidence. The strict five-cycle path remains unchanged. verify_package now reuses package-windows-release.py verify_build for the complete build-manifest input inventory and every current input hash, including webui/index_built.html. Successful known-issue output says hardwareGate=failed and explicitly says historical failure is not a final-build retest. Human receipt/listening authenticity is declared not machine-verified.
+No hardware, deployment, or release action was run.
+
+Four required artifacts (absolute paths):
+MODIFIED_FILE: E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-accepted-known-issue-precheck\MODIFIED_FILE (ZIP of both modified source files)
+DIFF_FILE: E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-accepted-known-issue-precheck\DIFF_FILE
+VERIFICATION.txt: E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-accepted-known-issue-precheck\VERIFICATION.txt
+ROLLBACK.sh: E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-accepted-known-issue-precheck\ROLLBACK.sh
+Support original ZIP: E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-accepted-known-issue-precheck\ORIGINAL_FILE
+Rollback test target: E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-accepted-known-issue-precheck\rollback-copy
+
+Original SHA-256 scripts/release-precheck.py: 2A2E3BAB8A11D1D0EE6DBD1846FE386EBF6ECB6BFE9FF56867D8F2B65FCB8843
+Original SHA-256 tests/release_precheck_test.py: 5C9A5327BB86CDF55410F42B38F7087FAABA62AB8ECD68D3304D9AE972455F34
+Modified SHA-256 scripts/release-precheck.py: B6D6CA47831A96790BC26F64E3A723CFEBE46C7BCDC1E1A46914E339A796F16E
+Modified SHA-256 tests/release_precheck_test.py: 0BB7379A5998C79F83999787BB54C5F3E434F40C07D4E460F4E293B2A73BBF09
+
+BASELINE command: python tests/release_precheck_test.py
+BASELINE input: original two files with original SHA-256 above; synthetic package/gate/acceptance only
+BASELINE literal output:
+PASS final_archive_matches_build_manifest_and_exe
+PASS five_production_cycles_accepted
+PASS installed_restart_listening_micon_receipts_accepted
+PASS missing_user_listening_confirmation_rejected
+PASS mic_off_only_acceptance_rejected
+PASS one_cycle_cannot_pass_release
+PASS diagnostic_single_request_report_rejected
+PASS gate_runtime_drift_rejected
+PASS bounded_production_retry_accepted
+PASS tampered_phase_log_rejected
+PASS third_ks_connect_request_rejected
+PASS changed_or_failed_results_rejected
+PASS extra_zip_entry_rejected
+PASS stale_zip_exe_rejected
+PASS build_runtime_drift_rejected
+PASS changed_source_rejected
+PASS release_gate_rejects_invalid_cli_1
+PASS release_gate_rejects_invalid_cli_5
+RESULT failures=0 tests=18
+BASELINE exit status: 0
+
+MODIFIED command: python tests/release_precheck_test.py
+MODIFIED input: modified two files with modified SHA-256 above; synthetic strict and accepted-known-issue fixtures only
+MODIFIED literal output/result (38 tests):
+PASS final_archive_matches_build_manifest_and_exe
+PASS five_production_cycles_accepted
+PASS installed_restart_listening_micon_receipts_accepted
+PASS missing_user_listening_confirmation_rejected
+PASS mic_off_only_acceptance_rejected
+PASS one_cycle_cannot_pass_release
+PASS diagnostic_single_request_report_rejected
+PASS gate_runtime_drift_rejected
+PASS bounded_production_retry_accepted
+PASS tampered_phase_log_rejected
+PASS third_ks_connect_request_rejected
+PASS changed_or_failed_results_rejected
+PASS stale_ui_build_input_rejected
+PASS missing_ui_build_inventory_rejected
+PASS extra_zip_entry_rejected
+PASS stale_zip_exe_rejected
+PASS build_runtime_drift_rejected
+PASS changed_source_rejected
+PASS release_gate_rejects_invalid_cli_1
+PASS release_gate_rejects_invalid_cli_5
+PASS accepted_known_issue_valid_historical_failure
+PASS accepted_known_issue_cli_has_honest_status
+PASS strict_cli_still_requires_five_passed_cycles
+PASS known_issue_requires_explicit_consent
+PASS known_issue_requires_owner_decision
+PASS known_issue_rejects_unhashed_consent_evidence
+PASS known_issue_requires_failure_source_hash
+PASS known_issue_rejects_zero_failure_exit
+PASS known_issue_rejects_tampered_failure_log
+PASS known_issue_rejects_fake_gate_pass
+PASS known_issue_requires_recovery_and_feedback_disclosure
+PASS known_issue_rejects_installed_exe_drift
+PASS known_issue_requires_launch_evidence
+PASS known_issue_requires_listening_confirmation
+PASS known_issue_requires_feedback_entry_evidence
+PASS known_issue_rejects_final_source_drift
+PASS known_issue_rejects_final_zip_drift
+PASS known_issue_cli_rejects_mixed_gate_paths
+RESULT failures=0 tests=38
+MODIFIED exit status: 0
+
+MODIFIED full offline command: python tests/run_suite.py --output verification/2026-09-27-known-issue-offline
+MODIFIED full offline input: repository source and synthetic/offline fixtures; no live audio operation
+MODIFIED full offline literal output/result:
+behavior PASS=9 EXIT=0
+device_classifier PASS=9 EXIT=0
+state PASS=50 EXIT=0
+resource_identity PASS=9 EXIT=0
+ks_retry PASS=34 EXIT=0
+p0_timeline PASS=2 EXIT=0
+strict_gate PASS=2 EXIT=0
+release_precheck PASS=38 EXIT=0
+package_windows_release PASS=18 EXIT=0
+audio_sessions PASS=2 EXIT=0
+target_endpoint PASS=6 EXIT=0
+audio PASS=25 EXIT=0
+background PASS=5 EXIT=0
+rpc PASS=13 EXIT=0
+windows PASS=20 EXIT=0
+update_health PASS=3 EXIT=0
+ks_backend PASS=33 EXIT=0
+mic_migration PASS=13 EXIT=0
+OFFLINE_PASS assertions=291 suites=18
+MODIFIED full offline exit status: 0
+
+ROLLBACK command: & 'D:\Program Files\Git\bin\bash.exe' 'verification/2026-09-27-accepted-known-issue-precheck/ROLLBACK.sh' 'verification/2026-09-27-accepted-known-issue-precheck/rollback-copy'
+ROLLBACK input: separate rollback-copy/scripts/release-precheck.py and rollback-copy/tests/release_precheck_test.py copied from modified working files; pre-run SHA-256 B6D6CA47831A96790BC26F64E3A723CFEBE46C7BCDC1E1A46914E339A796F16E and 0BB7379A5998C79F83999787BB54C5F3E434F40C07D4E460F4E293B2A73BBF09
+ROLLBACK literal output:
+ROLLBACK_OK file=scripts/release-precheck.py restored_sha256=2a2e3bab8a11d1d0ee6dbd1846fe386ebf6ecb6bfe9ff56867d8f2b65fcb8843
+ROLLBACK_OK file=tests/release_precheck_test.py restored_sha256=5c9a5327bb86cdf55410f42b38f7087faaba62ab8ecd68d3304d9ae972455f34
+ROLLBACK exit status: 0
+ROLLBACK restored behavior/status: both rollback-copy hashes match ORIGINAL_FILE; both working source files remain modified with the modified hashes above.
