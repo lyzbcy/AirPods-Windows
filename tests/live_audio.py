@@ -12,7 +12,7 @@ assert mode in ('inspect','connect','disconnect')
 target_address=sys.argv[2].upper() if len(sys.argv)>2 else ''
 if target_address and not re.fullmatch(r'[0-9A-F]{12}', target_address):
     raise SystemExit('target address must be 12 hexadecimal digits')
-names=['FindAllAudioDevices','FindDevByName','IsLinkUp','DoAction','BeginDeviceOp','OpCurrent','SetOpState','CanRoute','StartLinkVerify','LinkVerifyTick','ScheduleKsConnectRetry','TryKsConnectRetry','FinishKsConnectRetry','DrainRetryDisconnect','RunQueuedRetryDisconnect','AudioVerifyTick','MicSwitchTo','MicSwitchTick','StartDownVerify','DownVerifyTick','JsonStr','SettingRead','DeviceKey','DeviceLabel','FinishBluetoothAction','ValidEndpointId']
+names=['FindAllAudioDevices','FindDevByName','IsLinkUp','GetLinkState','TargetEndpointsInactive','DoAction','BeginDeviceOp','OpCurrent','SetOpState','CanRoute','StartLinkVerify','LinkVerifyTick','ScheduleKsConnectRetry','TryKsConnectRetry','FinishKsConnectRetry','DrainRetryDisconnect','RunQueuedRetryDisconnect','AudioVerifyTick','MicSwitchTo','MicSwitchTick','StartDownVerify','DownVerifyTick','JsonStr','SettingRead','DeviceKey','DeviceLabel','FinishBluetoothAction','ValidEndpointId']
 functions=[]
 for name in names:
     start=source.index('\n'+name+'(');end=source.index('\n}',start)+2

@@ -27,6 +27,6 @@ function Invoke-KsBluetooth {
  $container=Resolve-BluetoothContainer $Address
  $api=New-Object AirPodsBuddy.Ks.NativeBackend
  $r=[AirPodsBuddy.Ks.Policy]::Run($api,$container,($Action -eq 'connect'),$Microphone)
- return @{status=$(if($r.Accepted){'ok'}else{'fail'});backend='ks';container=$container;renderId=$r.RenderId;captureId=$r.CaptureId;requested=$r.Requested;error=$r.Error}
+ return @{status=$(if($r.Accepted){'ok'}else{'fail'});backend='ks';container=$container;renderId=$r.RenderId;captureId=$r.CaptureId;requested=$r.Requested;error=$r.Error;ksTrace=$r.KsTrace;targetEndpoints=$r.TargetEndpoints}
 }
 Export-ModuleMember -Function Initialize-KsBluetooth,Resolve-BluetoothContainer,Get-KsBluetoothProbe,Invoke-KsBluetooth

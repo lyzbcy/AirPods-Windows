@@ -1089,7 +1089,7 @@ SettingWrite(key, value) {
 BeginDeviceOp(name, action) {
     global deviceOps, operationSerial, routeOwner, actionEpoch
     gen := ++operationSerial
-    deviceOps[name] := {gen: gen, state: action, started: A_TickCount, backend: "", container: "", renderId: "", captureId: "", address: "", micRequested: false, retryCount: 0, retryEpoch: actionEpoch}
+    deviceOps[name] := {gen: gen, state: action, started: A_TickCount, backend: "", container: "", renderId: "", captureId: "", targetEndpoints: "", address: "", micRequested: false, retryCount: 0, retryEpoch: actionEpoch}
     if (action = "connect")
         routeOwner := gen
     return gen
@@ -1486,13 +1486,18 @@ RunQueuedRetryDisconnect(name, epoch) {
 }
 
 StartDownVerify(name, gen) {
-    DownVerifyTick(name, 8, gen)
+    ; One KS disconnect can be accepted well before Windows drops the control link.
+    ; A same-clock trace observed ACTIVE->UNPLUGGED->link down over ~25 s.
+    ; Wait up to 30 s before calling it a failure; submit no extra request.
+    DownVerifyTick(name, 26, gen)
 }
 
 DownVerifyTick(name, left, gen) {
+    global deviceOps
     if !OpCurrent(name, gen)
         return
-    if !IsLinkUp(name) {
+    ; An enum/API failure is unknown, not proof that the link went down.
+    if (GetLinkState(name) = 0 && TargetEndpointsInactive(deviceOps[name].targetEndpoints)) {
         SetOpState(name, gen, "disconnected")
         LogMsg("link down verified: '" name "'")
         PetUpdate("off")
@@ -1508,9 +1513,44 @@ DownVerifyTick(name, left, gen) {
     SetTimer(() => DownVerifyTick(name, left - 1, gen), -1200)
 }
 
+; Exact IDs returned by the same ContainerId-bound worker. Enumeration errors
+; and missing IDs are unknown, never confirmation that the endpoint is inactive.
+TargetEndpointsInactive(spec, backend?) {
+    if spec = ""
+        return false
+    try {
+        api := IsSet(backend) ? backend : CoreAudioBackend()
+        states := [Map(), Map()]
+        loop 2 {
+            flow := A_Index - 1
+            for row in api.Endpoints(flow, 15)
+                states[flow + 1][StrLower(row.id)] := row.state
+        }
+        for token in StrSplit(spec, ";") {
+            parts := StrSplit(token, "|")
+            if parts.Length != 2 || (parts[1] != "0" && parts[1] != "1")
+                return false
+            flow := Integer(parts[1])
+            if !ValidEndpointId(parts[2], flow)
+                return false
+            id := StrLower(parts[2])
+            if !states[flow + 1].Has(id) || states[flow + 1][id] = 1
+                return false
+        }
+        return true
+    } catch {
+        return false
+    }
+}
+
 ; Whole-radio reset and Bluetooth service fallback remain removed.
 
 IsLinkUp(name) {
+    return GetLinkState(name) = 1
+}
+
+; 1 = confirmed connected, 0 = confirmed disconnected, -1 = unavailable.
+GetLinkState(name) {
     searchParams := Buffer(40, 0)
     NumPut("uint", 40, searchParams, 0)
     NumPut("uint", 1, searchParams, 4)
@@ -1518,19 +1558,20 @@ IsLinkUp(name) {
     NumPut("uint", 560, deviceInfo, 0)
     handle := DllCall("Bthprops.cpl\BluetoothFindFirstDevice", "ptr", searchParams, "ptr", deviceInfo, "ptr")
     if !handle
-        return false
-    up := false
+        return -1
+    state := -1
     loop {
         if (Format("{:012X}", NumGet(deviceInfo, 8, "uint64")) = name || StrGet(deviceInfo.Ptr + 64, "UTF-16") = name) {
-            DllCall("Bthprops.cpl\BluetoothGetDeviceInfo", "ptr", 0, "ptr", deviceInfo, "uint")
-            up := NumGet(deviceInfo, 20, "uint") != 0   ; 位标志，非零即已连接
+            code := DllCall("Bthprops.cpl\BluetoothGetDeviceInfo", "ptr", 0, "ptr", deviceInfo, "uint")
+            if code = 0
+                state := NumGet(deviceInfo, 20, "uint") != 0 ? 1 : 0
             break
         }
         if !DllCall("Bthprops.cpl\BluetoothFindNextDevice", "ptr", handle, "ptr", deviceInfo)
             break
     }
     DllCall("Bthprops.cpl\BluetoothFindDeviceClose", "ptr", handle)
-    return up
+    return state
 }
 
 FindDevByName(name) {
@@ -1665,7 +1706,7 @@ DeviceLabel(key) {
 FinishBluetoothAction(name, action, gen, result) {
     global busy, deviceOps
     detail := ""
-    for field in ["backend", "container", "renderId", "captureId", "requested", "error"]
+    for field in ["backend", "container", "renderId", "captureId", "requested", "error", "ksTrace", "targetEndpoints"]
         if result.Has(field)
             detail .= " " field "=" result[field]
     status := result.Get("status", "fail")
@@ -1678,12 +1719,15 @@ FinishBluetoothAction(name, action, gen, result) {
         valid := valid && RegExMatch(result.Get("requested", "") "", "^\d+$")
         if (action = "connect")
             valid := valid && ValidEndpointId(result.Get("renderId", ""), 0)
+        else
+            valid := valid && result.Get("targetEndpoints", "") != ""
         if valid {
             deviceOps[name].backend := result["backend"]
             deviceOps[name].container := result["container"]
             deviceOps[name].renderId := result.Get("renderId", "")
             captureId := result.Get("captureId", "")
             deviceOps[name].captureId := ValidEndpointId(captureId, 1) ? captureId : ""
+            deviceOps[name].targetEndpoints := result.Get("targetEndpoints", "")
             if action = "connect"
                 StartLinkVerify(name, gen)
             else

@@ -6,8 +6,9 @@ namespace AirPodsBuddy.Ks {
  public sealed class FakeBackend : IBackend {
   public Endpoint[] Rows; public System.Collections.Generic.List<string> Calls=new System.Collections.Generic.List<string>();
   public int FailAt=0;
+  public int ThrowAt=0;
   public Endpoint[] List(string container){return Rows;}
-  public int Send(string id,uint property){Calls.Add(id+":"+property);return FailAt==Calls.Count?unchecked((int)0x80004005):0;}
+  public int Send(string id,uint property){Calls.Add(id+":"+property);if(ThrowAt==Calls.Count)throw new System.Runtime.InteropServices.COMException("driver",unchecked((int)0x80004002));return FailAt==Calls.Count?unchecked((int)0x80004005):0;}
  }
 }
 '@
@@ -25,6 +26,7 @@ $f=Fake @((Ep 'render' 0 1),(Ep 'capture' 1 8));$r=[AirPodsBuddy.Ks.Policy]::Run
 Check 'already_active_render_is_not_disconnected_or_reconnected' ($r.Accepted -and $f.Calls.Count -eq 0 -and $r.RenderId -eq 'render')
 $f=Fake @((Ep 'render' 0 8),(Ep 'other' 0 8 $b));$r=[AirPodsBuddy.Ks.Policy]::Run($f,$a,$true,$false)
 Check 'unplugged_exact_container_single_connect_request' ($r.Accepted -and $f.Calls.Count -eq 1 -and $f.Calls[0] -eq 'render:0')
+Check 'ks_trace_records_exact_request_and_hresult' ($r.KsTrace -match '^\d+,\d+,0,render,0x00000000$')
 Check 'same_name_other_container_untouched' ($f.Calls -notcontains 'other:0')
 $f=Fake @((Ep 'render' 0 8),(Ep 'capture' 1 8));$r=[AirPodsBuddy.Ks.Policy]::Run($f,$a,$true,$false)
 Check 'mic_off_leaves_capture_service_untouched' ($r.Accepted -and $f.Calls.Count -eq 1)
@@ -32,6 +34,7 @@ $f=Fake @((Ep 'render' 0 8),(Ep 'capture' 1 8));$r=[AirPodsBuddy.Ks.Policy]::Run
 Check 'mic_on_includes_target_capture' ($r.Accepted -and $f.Calls.Count -eq 2 -and $r.CaptureId -eq 'capture')
 $f=Fake @((Ep 'render' 0 1),(Ep 'capture' 1 1),(Ep 'other' 1 1 $b));$r=[AirPodsBuddy.Ks.Policy]::Run($f,$a,$false,$false)
 Check 'disconnect_covers_render_and_capture_only_target' ($r.Accepted -and $f.Calls.Count -eq 2 -and $f.Calls[0] -eq 'render:1' -and $f.Calls[1] -eq 'capture:1')
+Check 'disconnect_returns_exact_target_endpoint_ids' ($r.TargetEndpoints -eq '0|render;1|capture' -and $r.TargetEndpoints -notmatch 'other')
 $f=Fake @((Ep 'render' 0 8),(Ep 'capture' 1 8));$r=[AirPodsBuddy.Ks.Policy]::Run($f,$a,$false,$false)
 Check 'unplugged_audio_still_requests_control_link_disconnect' ($r.Accepted -and $r.Requested -eq 2 -and $f.Calls[0] -eq 'render:1' -and $f.Calls[1] -eq 'capture:1')
 $f=Fake @((Ep 'render' 0 1 $a 'shared'),(Ep 'capture' 1 1 $a 'shared'));$r=[AirPodsBuddy.Ks.Policy]::Run($f,$a,$false,$false)
@@ -47,6 +50,9 @@ $f=Fake @((Ep 'r' 0 8),(Ep 'hfp' 0 8 $a 'BTHHFENUM'));$r=[AirPodsBuddy.Ks.Policy
 Check 'known_hfp_render_not_selected_as_stereo' ($r.Accepted -and $r.RenderId -eq 'r' -and $f.Calls.Count -eq 1)
 $f=Fake @((Ep 'r' 0 8),(Ep 'capture' 1 8));$f.FailAt=1;$r=[AirPodsBuddy.Ks.Policy]::Run($f,$a,$true,$true)
 Check 'driver_error_not_accepted_and_no_blind_retry' (!$r.Accepted -and $r.Requested -eq 1 -and $f.Calls.Count -eq 1 -and $r.Error -match '80004005')
+Check 'ks_trace_records_driver_failure_hresult' ($r.KsTrace -match '^\d+,\d+,0,r,0x80004005$')
+$f=Fake @((Ep 'r' 0 8));$f.ThrowAt=1;$r=[AirPodsBuddy.Ks.Policy]::Run($f,$a,$true,$false)
+Check 'ks_trace_records_exception_hresult_without_retry' (!$r.Accepted -and $r.Requested -eq 1 -and $f.Calls.Count -eq 1 -and $r.KsTrace -match '^\d+,\d+,0,r,0x80004002$')
 Check 'empty_container_rejected' (MustThrow {[AirPodsBuddy.Ks.Policy]::Run($f,[guid]::Empty.ToString(),$true,$false)})
 Check 'invalid_address_rejected_before_discovery' (MustThrow {Resolve-BluetoothContainer 'name or wildcard' {throw 'should not run'} {}})
 $nodes=@([pscustomobject]@{InstanceId='BTHENUM\DEV_AABBCCDDEEFF\ONE'},[pscustomobject]@{InstanceId='BTHENUM\DEV_AABBCCDDEEF0\OTHER'})

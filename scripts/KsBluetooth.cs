@@ -35,6 +35,8 @@ namespace AirPodsBuddy.Ks {
  }
  public sealed class RequestResult {
   public bool Accepted; public int Requested; public string Error; public string RenderId; public string CaptureId;
+  // Diagnostic-only, UTC FILETIME ticks shared with the read-only state sampler.
+  public string KsTrace=""; public string TargetEndpoints="";
  }
  public interface IBackend {
   Endpoint[] List(string container); int Send(string endpointId, uint property);
@@ -63,6 +65,10 @@ namespace AirPodsBuddy.Ks {
    foreach(var ep in rows) {
     Guid c;if(!Guid.TryParse(ep.ContainerId,out c)||c!=target)continue;
     if(ep.State!=1&&ep.State!=8)continue; // never enable user-disabled/absent devices
+    if(!connect&&(ep.Flow==0||ep.Flow==1)) {
+     if(result.TargetEndpoints.Length>0)result.TargetEndpoints+=";";
+     result.TargetEndpoints+=ep.Flow+"|"+ep.Id;
+    }
     if(connect&&ep.Flow==0&&ep.Id!=render.Id)continue;
     if(connect&&ep.Flow==1&&!microphone)continue;
     if(ep.Flow==1&&String.IsNullOrEmpty(result.CaptureId))result.CaptureId=ep.Id;
@@ -76,9 +82,21 @@ namespace AirPodsBuddy.Ks {
     if(String.IsNullOrEmpty(ep.FilterId)){result.Error="Target filter identity missing";return result;}
     if(filters.Add(ep.FilterId))pending.Add(ep);
    }
-   // Finish all preflight checks before the first state-changing request.
+  // Finish all preflight checks before the first state-changing request.
+  if(!connect&&result.TargetEndpoints.Length==0){result.Error="No target audio endpoints to verify";return result;}
    foreach(var ep in pending) {
-    int hr=backend.Send(ep.Id,connect?0u:1u);result.Requested++;
+    long before=DateTime.UtcNow.ToFileTimeUtc();
+    int hr;
+    try {hr=backend.Send(ep.Id,connect?0u:1u);}
+    catch(Exception ex) {
+     long failedAt=DateTime.UtcNow.ToFileTimeUtc();result.Requested++;
+     if(result.KsTrace.Length>0)result.KsTrace+=";";
+     result.KsTrace+=before+","+failedAt+","+(connect?0:1)+","+ep.Id+",0x"+ex.HResult.ToString("X8");
+     result.Error="KS request exception HRESULT=0x"+ex.HResult.ToString("X8");return result;
+    }
+    long after=DateTime.UtcNow.ToFileTimeUtc();result.Requested++;
+    if(result.KsTrace.Length>0)result.KsTrace+=";";
+    result.KsTrace+=before+","+after+","+(connect?0:1)+","+ep.Id+",0x"+hr.ToString("X8");
     if(hr<0){result.Error="KS request failed HRESULT=0x"+hr.ToString("X8");return result;}
    }
    result.Accepted=true; // submission only; caller MUST verify live endpoint/link state

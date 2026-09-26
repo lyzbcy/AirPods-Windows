@@ -14,6 +14,8 @@ commands = [
     ('state', ['python', 'tests/run_state_tests.py']),
     ('resource_identity', ['python', 'tests/resource_identity_test.py']),
     ('ks_retry', ['python', 'tests/ks_retry_behavior.py']),
+    ('p0_timeline', ['python', 'tests/p0_timeline.py', '--self-test']),
+    ('target_endpoint', ['python', 'tests/target_endpoint_test.py']),
     ('audio', ['python', 'tests/run_ahk.py', 'tests/audio_routing_test.ahk']),
     ('background', ['python', 'tests/run_ahk.py', 'tests/background_job_test.ahk']),
     ('rpc', ['node', 'tests/rpc_test.cjs']),
