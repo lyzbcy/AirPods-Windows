@@ -11,6 +11,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 env = {k: v for k, v in os.environ.items() if k.lower() != 'psmodulepath'}
 commands = [
     ('behavior', ['python', 'tests/run_behavior.py', 'airpods_buddy.ahk']),
+    ('device_classifier', ['python', 'tests/device_classifier_test.py']),
     ('state', ['python', 'tests/run_state_tests.py']),
     ('resource_identity', ['python', 'tests/resource_identity_test.py']),
     ('ks_retry', ['python', 'tests/ks_retry_behavior.py']),

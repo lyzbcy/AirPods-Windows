@@ -119,14 +119,6 @@ IsAppleDevice(name) {
     return InStr(n, "airpods") || InStr(n, "beats")
 }
 
-; Classic Bluetooth discovery can report an unexpected Class of Device for a
-; paired AirPods/Beats device. Keep this as a display-only candidate decision:
-; the exact ContainerId and target render endpoint must still pass KS preflight
-; before any connection request is sent. This does not enumerate LE-only devices.
-IsAudioCandidate(cod, name) {
-    return ((cod >> 8) & 0x1F) = 4 || IsAppleDevice(name)
-}
-
 ; 排序键：用户优先级序号（未设置=999）→ Apple 家族优先 → 名称
 DeviceSortKey(dev) {
     global priorityList
@@ -1381,7 +1373,7 @@ FindAllAudioDevices() {
         return
     loop {
         cod := NumGet(deviceInfo, 16, "uint")
-        if IsAudioCandidate(cod, StrGet(deviceInfo.Ptr + 64, "UTF-16")) {
+        if ((cod >> 8) & 0x1F) = 4 {      ; Audio/Video major class
             info := Buffer(560)
             DllCall("RtlMoveMemory", "ptr", info, "ptr", deviceInfo, "ptr", 560)
             DllCall("Bthprops.cpl\BluetoothGetDeviceInfo", "ptr", 0, "ptr", info, "uint")

@@ -1,0 +1,53 @@
+AirPods/Beats Classic Bluetooth Class-of-Device candidate expansion
+Workspace: E:\共享\创业\BluetoothDeviceConnector
+Changed branch/field: FindAllAudioDevices now calls pure IsAudioCandidate(cod, name); major class 4 remains accepted, while paired Classic AirPods/Beats names are also accepted when CoD is unexpected. The KS ContainerId/render-endpoint capability preflight is unchanged. This is not LE-only enumeration or AirPods 5 hardware validation.
+
+Four artifacts:
+MODIFIED_FILE: E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-airpods5\MODIFIED_FILE.ahk
+DIFF_FILE: E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-airpods5\DIFF_FILE.patch
+VERIFICATION.txt: E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-airpods5\VERIFICATION.txt
+ROLLBACK.sh: E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-airpods5\ROLLBACK.sh
+
+Original SHA256: 93910B72B164E7CA95F4F3DC98133274D82CBC61E035162415E57710585A3745
+Modified SHA256: EA411AEFBD0EAE77DA558DEB7A37B092BD8BA0B8ED5ED0BA133D558E22BAF8EE
+
+BASELINE
+Command: python tests/run_suite.py --output verification/2026-09-27-airpods5/baseline
+Input: original airpods_buddy.ahk, before candidate change
+Literal result: OFFLINE_PASS assertions=262 suites=17
+Exit status: 0
+
+MODIFIED
+Command: python tests/device_classifier_test.py
+Input: changed IsAppleDevice and IsAudioCandidate extracted from airpods_buddy.ahk; synthetic CoD/name fixtures only
+Literal output:
+PASS classic_enumeration_uses_candidate_predicate
+PASS normal_audio_video_class_unchanged
+PASS airpods5_unknown_class_allowed
+PASS beats_peripheral_class_allowed
+PASS apple_match_case_insensitive
+PASS nonapple_peripheral_rejected
+PASS nonapple_unknown_class_rejected
+PASS nonapple_lookalike_rejected
+PASS empty_name_unknown_class_rejected
+RESULT failures=0
+Exit status: 0
+Command: python tests/run_suite.py --output verification/2026-09-27-airpods5/modified
+Input: modified airpods_buddy.ahk and new classifier suite
+Literal result: OFFLINE_PASS assertions=271 suites=18
+Exit status: 0
+Command: Ahk2Exe.exe /in airpods_buddy.ahk /out verification/2026-09-27-airpods5/compile-check.exe /base AutoHotkey64.exe /silent (Start-Process, hidden)
+Input: modified production script
+Literal output: EXIT=0; OUTPUT_EXISTS=True; 3673600 bytes
+Exit status: 0
+
+ROLLBACK
+Command: D:\Program Files\Git\bin\bash.exe verification/2026-09-27-airpods5/ROLLBACK.sh verification/2026-09-27-airpods5/rollback-copy/airpods_buddy.ahk
+Input: separate copy of MODIFIED_FILE.ahk, SHA256 EA411AEFBD0EAE77DA558DEB7A37B092BD8BA0B8ED5ED0BA133D558E22BAF8EE
+Literal output: ROLLBACK_OK sha256=93910b72b164e7ca95f4f3dc98133274d82cbc61e035162415e57710585a3745
+Exit status: 0
+Command: python -c "from pathlib import Path; s=Path('verification/2026-09-27-airpods5/rollback-copy/airpods_buddy.ahk').read_text(encoding='utf-8-sig'); assert 'if ((cod >> 8) & 0x1F) = 4 {' in s; assert 'IsAudioCandidate(cod,' not in s; print('BASELINE_CLASSIFICATION_RESTORED')"
+Input: rollback-copy/airpods_buddy.ahk after ROLLBACK.sh
+Literal output: BASELINE_CLASSIFICATION_RESTORED
+Exit status: 0
+Restored behavior/status: rollback copy again rejects non-Audio/Video CoD even if its name contains AirPods/Beats; production airpods_buddy.ahk remains modified (SHA256 EA411AEFBD0EAE77DA558DEB7A37B092BD8BA0B8ED5ED0BA133D558E22BAF8EE).
