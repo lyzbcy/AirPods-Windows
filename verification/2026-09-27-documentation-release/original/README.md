@@ -20,7 +20,7 @@
 
 ---
 
-> v1.9.20 已接受偶发 Windows 蓝牙/音频路由失效作为[已知问题](RELEASE_NOTES_v1.9.20.md)公开披露；严格五轮真机验收没有通过。下载请以 [Release 页面](https://github.com/lyzbcy/AirPods-Windows/releases/latest)为准，验收证据见[开发清单](doc/07-审计修复清单.md)。
+> 当前源码为 v1.9.20 开发候选，公开下载仍以 Release 页面为准。KS 后端与验收进度见 [开发清单](doc/07-审计修复清单.md)。
 
 ## 🤔 为什么需要它？（和系统设置比一比）
 
@@ -78,18 +78,17 @@
 
 ## ❓ 常见问题
 
-**AirPods 5 等新耳机如何配对？连上却没有声音怎么办？**
+**新耳机（AirPods 5 / AirPods Pro 3 等）连不上或连上没声音？**
 
-AirPods 5 可以作为蓝牙耳机与非 Apple 设备配对；本程序目前只验证了已配对设备的经典蓝牙音频端点，**尚无 AirPods 5 真机日志或听音验收**，不能保证每台 Windows 电脑都能连接。AirPods 5 / AirPods 4 / AirPods Pro 3 的配对方式：耳机放在充电盒内、打开盒盖，轻点盒体正面两下，直到指示灯闪白，再在 Windows「设置 → 蓝牙和设备 → 添加设备」中选择耳机。见 [Apple 配对说明](https://support.apple.com/en-ge/guide/airpods/dev499c9718b/web)。Apple 的 [AirPods 5 技术规格](https://support.apple.com/en-euro/148759)列出 Bluetooth 5.3，并未说明其支持 LE Audio；不能凭 Windows 的 LE Audio 更新推断这就是故障根因。
+新款 AirPods 支持「LE 音频」新协议，Windows 与它的协商路径和老款不同
+（微软 2026 年 6 月的系统更新专门改善了这块的稳定性）。可以按顺序试：
 
-连接异常时，请按影响范围由小到大手动检查：
-
-1. 在 Windows 声音设置确认**实际默认播放设备**是耳机，并试听；「蓝牙已连接」不等于音频端点已就绪。
-2. 如果 Windows 自带「连接」也失败，先手动关闭再开启**电脑蓝牙**，然后重试；这会短暂影响本机所有蓝牙设备，程序不会代做。
-3. 仍失败时，仅遗忘这副耳机并按上面的白灯步骤重新配对；这会重建这副耳机与本机的配对。
-4. 最后再重启电脑。上述顺序来自本机用户恢复经验，不是已证实的通用根因或自动修复。
-
-仍未恢复时，在程序底部点「问题反馈（可附日志）」，选相符问题并保留日志勾选，填写 Windows 版本、耳机在 Windows 显示的**准确名称**、失败发生在发现/配对/连接/播放哪一步。只有口头「AirPods 5 不支持」反馈，尚无法做型号专属真机结论。
+1. **Windows 设置 → 蓝牙和其他设备 → 点开耳机详情**：如有「LE 音频」
+   开关，先关掉再连接（走传统蓝牙路径，兼容性最好）
+2. **更新 Windows 到最新**（2026-06 之后的更新包含蓝牙/LE 音频修复）
+3. 重新配对：删除设备后按耳机说明重新配对一次
+4. 都不行的话，在程序里点「🐞 问题反馈」选「🆕 新耳机连不上」，
+   附上系统版本说明一下——日志会自动带上，我拿到就能定位
 
 ## 🛠 开发者
 
@@ -112,4 +111,4 @@ MIT
 
 ## 维护与验收
 
-当前源码 v1.9.20；实际发布版号与资产以 [GitHub Release](https://github.com/lyzbcy/AirPods-Windows/releases/latest)为准。开发入口 [SKILL.md](SKILL.md)，审计清单 [doc/07-审计修复清单.md](doc/07-审计修复清单.md)。Windows 与 Mac 应用各有独立 CI，不把 Stream Deck helper 的构建当主应用验收。
+当前源码候选 v1.9.20，尚未发布 GitHub Release；公开下载页仍按已发布版本提供安装包。开发入口 [SKILL.md](SKILL.md)，审计清单 [doc/07-审计修复清单.md](doc/07-审计修复清单.md)。Windows 与 Mac 应用各有独立 CI，不把 Stream Deck helper 的构建当主应用验收。

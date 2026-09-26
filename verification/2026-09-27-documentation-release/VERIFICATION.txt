@@ -1,0 +1,38 @@
+Branch: fix/audit-20260926
+Changed branch/field: README AirPods 5 FAQ and manual recovery; CHANGELOG/AGENTS/SKILL/doc04/doc07/doc08/doc09 release-policy and status fields; RELEASE_NOTES_v1.9.20.md known-issue disclosure. Historical five-cycle result stays failed; no AirPods 5 hardware success claimed.
+
+Four artifacts (opened/read back):
+MODIFIED_FILE: E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-documentation-release\MODIFIED_FILE (ZIP of 9 modified/new documentation files)
+DIFF_FILE: E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-documentation-release\DIFF_FILE (UTF-8 unified diff)
+VERIFICATION.txt: E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-documentation-release\VERIFICATION.txt
+ROLLBACK.sh: E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-documentation-release\ROLLBACK.sh (executable, accepts separate copy root)
+
+BASELINE
+Command: python -c "from pathlib import Path; p=Path('verification/2026-09-27-documentation-release/original/README.md');s=p.read_text(encoding='utf-8');print('BASELINE false_airpods5_le_claim='+str('新款 AirPods 支持「LE 音频」' in s));print('BASELINE recovery_sequence='+str('重启电脑' in s[s.index('## ❓ 常见问题'):s.index('## 🛠 开发者')]));print('BASELINE exit=0')"
+Input: exact original README.md copy, SHA256 2238192DE0338B32EB9A8E37AFCC9B467BB292E1D644150BF9C930068F287E0F
+Literal output:
+BASELINE false_airpods5_le_claim=True
+BASELINE recovery_sequence=False
+BASELINE exit=0
+Exit status: 0
+
+MODIFIED
+Command: python -c "from pathlib import Path; s=Path('README.md').read_text(encoding='utf-8');n=Path('RELEASE_NOTES_v1.9.20.md').read_text(encoding='utf-8');k=Path('SKILL.md').read_text(encoding='utf-8');d=Path('doc/08-更新与后台任务.md').read_text(encoding='utf-8');assert '新款 AirPods 支持「LE 音频」' not in s and '关闭再开启**电脑蓝牙**' in s and '重启电脑' in s;assert '已知问题' in n and '五轮真机验收未通过' in n;assert '301 suites=20' in k and '接受已知问题档位' in d;print('MODIFIED doc_claims=PASS recovery=PASS disclosure=PASS skill=PASS release_path=PASS')"
+Input: modified README.md, SKILL.md, doc/08-更新与后台任务.md and RELEASE_NOTES_v1.9.20.md in working source
+Literal output: MODIFIED doc_claims=PASS recovery=PASS disclosure=PASS skill=PASS release_path=PASS
+Exit status: 0
+Additional command: python tests/run_suite.py --output verification/2026-09-27-formal-release/offline-final
+Additional literal result: OFFLINE_PASS assertions=301 suites=20
+Additional exit status: 0
+
+ROLLBACK
+Command: D:\Program Files\Git\bin\bash.exe verification/2026-09-27-documentation-release/ROLLBACK.sh verification/2026-09-27-documentation-release/rollback-copy-2
+Input: separate copy of all nine modified/new documentation files; original/ contains immutable baseline copies of eight prior files
+Literal output: ROLLBACK_OK documentation restored from original copies
+Exit status: 0
+Verification command: python -c "from pathlib import Path;import hashlib;d=Path('verification/2026-09-27-documentation-release');c=d/'rollback-copy-2';fs=['README.md','CHANGELOG.md','SKILL.md','AGENTS.md','doc/04-项目进度.md','doc/07-审计修复清单.md','doc/08-更新与后台任务.md','doc/09-Windows连接方案选型.md'];assert all(hashlib.sha256((c/f).read_bytes()).digest()==hashlib.sha256((d/'original'/f).read_bytes()).digest() for f in fs);assert not (c/'RELEASE_NOTES_v1.9.20.md').exists();print('ROLLBACK hashes=8/8 original release_note=ABSENT')"
+Literal output: ROLLBACK hashes=8/8 original release_note=ABSENT
+Exit status: 0
+Restored behavior: baseline FAQ again contains unsupported LE Audio claim and lacks reboot recovery; release note is absent. This restoration was only on rollback-copy-2. Working source keeps the corrected FAQ, release note, and known-issue policy.
+
+Artifact readback: MODIFIED_FILE entries=9 zip_crc=PASS; DIFF_FILE changed_lines=217; git diff --check exit 0.
