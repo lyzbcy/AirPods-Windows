@@ -1,0 +1,19 @@
+name: Mac app
+on:
+  push:
+    paths:
+      - 'mac/AirPodsBuddyMac/**'
+      - '.github/workflows/mac-app.yml'
+  pull_request:
+    paths:
+      - 'mac/AirPodsBuddyMac/**'
+      - '.github/workflows/mac-app.yml'
+jobs:
+  build-and-test:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unit tests
+        run: swift test --package-path mac/AirPodsBuddyMac
+      - name: Release build
+        run: swift build -c release --package-path mac/AirPodsBuddyMac

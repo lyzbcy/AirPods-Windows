@@ -8,6 +8,11 @@ let package = Package(
         .executableTarget(
             name: "AirPodsBuddyMac",
             path: "Sources/AirPodsBuddyMac"
+        ),
+        .testTarget(
+            name: "AirPodsBuddyMacTests",
+            dependencies: ["AirPodsBuddyMac"],
+            path: "Tests/AirPodsBuddyMacTests"
         )
     ]
 )

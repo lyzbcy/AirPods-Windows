@@ -1,69 +1,78 @@
 import Foundation
 import IOBluetooth
 
-// 蓝牙服务：连接/断开/状态查询。
-// 核心逻辑移植自上游 ChromuSx/BluetoothDeviceConnector 的 macos-helper
-// （IOBluetoothDevice.openConnection/closeConnection，MIT），新增：
-// 设备状态通知订阅与"只断开 Apple 音频设备"的辅助判断。
-
+// All calls into IOBluetooth are made by Watchdog's serial worker, never its timer.
 enum BluetoothService {
-    /// 所有已配对设备（名字非空）
     static func pairedDevices() -> [IOBluetoothDevice] {
-        (IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice]) ?? []
-            .filter { !($0.nameOrAddress ?? "").isEmpty }
+        (IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] ?? []).filter {
+            guard let address = $0.addressString else { return false }
+            return !address.isEmpty && isAudio($0)
+        }
     }
 
-    /// Apple 家族（AirPods / Beats）优先排序，其余按名字
+    // Bluetooth Class of Device: major class 0x04 is Audio/Video.
+    static func isAudio(_ device: IOBluetoothDevice) -> Bool {
+        Int(device.deviceClassMajor) == kBluetoothDeviceClassMajorAudio
+            || device.isHandsFreeDevice || isApple(device)
+    }
+
     static func sortedAudioCandidates() -> [IOBluetoothDevice] {
         pairedDevices().sorted { a, b in
             let aa = isApple(a), ab = isApple(b)
             if aa != ab { return aa }
-            return (a.nameOrAddress ?? "").localizedCaseInsensitiveCompare(b.nameOrAddress ?? "") == .orderedAscending
+            let comparison = (a.nameOrAddress ?? "").localizedCaseInsensitiveCompare(b.nameOrAddress ?? "")
+            return comparison == .orderedSame
+                ? (a.addressString ?? "") < (b.addressString ?? "")
+                : comparison == .orderedAscending
         }
     }
 
     static func isApple(_ device: IOBluetoothDevice) -> Bool {
-        let n = (device.nameOrAddress ?? "").lowercased()
-        return n.contains("airpods") || n.contains("beats")
+        let name = (device.nameOrAddress ?? "").lowercased()
+        return name.contains("airpods") || name.contains("beats")
     }
 
-    static func device(named name: String) -> IOBluetoothDevice? {
-        pairedDevices().first {
-            ($0.nameOrAddress ?? "").localizedCaseInsensitiveCompare(name) == .orderedSame
+    static func device(address: String) -> IOBluetoothDevice? {
+        let matches = pairedDevices().filter {
+            ($0.addressString ?? "").caseInsensitiveCompare(address) == .orderedSame
         }
+        return matches.count == 1 ? matches[0] : nil
     }
 
-    static func isConnected(_ name: String) -> Bool {
-        device(named: name)?.isConnected() ?? false
+    static func isConnected(address: String) -> Bool {
+        device(address: address)?.isConnected() ?? false
     }
 
-    /// 连接并等待到位（超时 8s）
-    static func connect(_ name: String) -> Bool {
-        guard let device = device(named: name) else {
-            Log.error("device not found: \(name)")
+    static func connect(address: String) -> Bool {
+        guard let device = device(address: address) else {
+            Log.error("audio device not found for address \(address)")
             return false
         }
         if !device.isConnected() {
-            let r = device.openConnection()
-            guard r == kIOReturnSuccess else {
-                Log.error("openConnection failed: \(r)")
+            let result = device.openConnection()
+            guard result == kIOReturnSuccess else {
+                Log.error("openConnection failed: \(result)")
                 return false
             }
         }
         return waitFor(connected: true, device: device)
     }
 
-    /// 断开并等待到位（超时 8s）
-    static func disconnect(_ name: String) -> Bool {
-        guard let device = device(named: name) else { return false }
+    static func disconnect(address: String) -> Bool {
+        guard let device = device(address: address) else {
+            Log.error("disconnect target not found: \(address)")
+            return false
+        }
         if device.isConnected() {
-            let r = device.closeConnection()
-            guard r == kIOReturnSuccess else {
-                Log.error("closeConnection failed: \(r)")
+            let result = device.closeConnection()
+            guard result == kIOReturnSuccess else {
+                Log.error("closeConnection failed: \(result)")
                 return false
             }
         }
-        return waitFor(connected: false, device: device)
+        let disconnected = waitFor(connected: false, device: device)
+        if !disconnected { Log.error("disconnect not verified: \(address)") }
+        return disconnected
     }
 
     private static func waitFor(connected: Bool, device: IOBluetoothDevice,
@@ -77,38 +86,31 @@ enum BluetoothService {
     }
 }
 
-/// 简单文件日志：~/Library/Logs/AirPodsBuddyMac.log（对应 Windows 版 logs/ 的设计）
 enum Log {
+    private static let queue = DispatchQueue(label: "AirPodsBuddyMac.log")
     private static var logURL: URL {
         let dir = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Logs", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.appendingPathComponent("AirPodsBuddyMac.log")
     }
-
-    static func info(_ msg: String) { write("INFO", msg) }
-    static func error(_ msg: String) { write("ERROR", msg) }
-
-    private static func write(_ level: String, _ msg: String) {
-        let line = "\(timestamp()) [\(level)] \(msg)\n"
-        if let data = line.data(using: .utf8) {
-            if let fh = try? FileHandle(forWritingTo: logURL) {
-                fh.seekToEndOfFile()
-                fh.write(data)
-                try? fh.close()
+    static func info(_ message: String) { write("INFO", message) }
+    static func error(_ message: String) { write("ERROR", message) }
+    private static func write(_ level: String, _ message: String) {
+        queue.async {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+            let line = "\(formatter.string(from: Date())) [\(level)] \(message)\n"
+            guard let data = line.data(using: .utf8) else { return }
+            if let handle = try? FileHandle(forWritingTo: logURL) {
+                handle.seekToEndOfFile()
+                handle.write(data)
+                try? handle.close()
             } else {
                 try? data.write(to: logURL)
             }
         }
     }
-
-    private static func timestamp() -> String {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        return f.string(from: Date())
-    }
 }
 
-enum AppInfo {
-    static let version = "0.1.0"
-}
+enum AppInfo { static let version = "0.2.0" }

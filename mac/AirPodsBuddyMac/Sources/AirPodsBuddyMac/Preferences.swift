@@ -7,6 +7,7 @@ enum Preferences {
 
     private enum Key {
         static let targetDeviceName = "targetDeviceName"
+        static let targetDeviceAddress = "targetDeviceAddress"
         static let connectedEmoji = "connectedEmoji"
         static let disconnectedEmoji = "disconnectedEmoji"
         static let watchdogEnabled = "watchdogEnabled"
@@ -16,6 +17,11 @@ enum Preferences {
     static var targetDeviceName: String? {
         get { defaults.string(forKey: Key.targetDeviceName) }
         set { defaults.set(newValue, forKey: Key.targetDeviceName) }
+    }
+
+    static var targetDeviceAddress: String? {
+        get { defaults.string(forKey: Key.targetDeviceAddress) }
+        set { defaults.set(newValue, forKey: Key.targetDeviceAddress) }
     }
 
     /// 状态表情：连接=🎧，断开=💤（对应 Windows 版绿圈/原版布丁双图标）
