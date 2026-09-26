@@ -1,0 +1,490 @@
+# v1.9.20（2026-09-26，KS 连接候选，未发 Release）
+
+- 2026-09-27 发布预检防线：未改写生产路径的严格五轮通过回执绑定运行时源码/设置/逐阶段结果和原始日志哈希，诊断 `--single-request` 结果不可放行；预检核对 31 阶段、连接有界重试预算、最终 ZIP 内 exe 与构建清单/实物 exe 哈希一致，还必须提供安装版哈希、重启复连、用户默认路径听音及 micOn 的独立验收回执与证据。现有旧 ZIP 被拒绝。最新单请求真机对照第 1 轮断开约39.48秒后仍 link=1、exit5，未进入重连；五轮门槛未过，不部署、不发 Release。发布预检离线新增17项，另将只读音频会话工具2项自测接入，完整236项/16套通过。
+
+- Windows CI 的 checkout/setup-python/setup-node 升到 Node24 runtime 对应版本（v5/v6/v5），setup-node 关闭不需要的自动包管理缓存；Windows CI 回归入口统一为 `python tests/run_suite.py`，避免新加的严格门槛解析、同钟采样及麦克风迁移单测只在本机跑而遗漏到发布流水线；构建仍独立执行，不触碰真机。 首次远端运行抓到心跳自测依赖毫秒级睡眠的非确定性，已改为确定性三步停止器并经远端复跑通过；动作版本升级后 Windows CI `36259245852` 全步骤通过。
+
+- 2026-09-27 迟到路由收敛：有界核实报 audio_failed 后，隐藏窗口的独立监测仍会只读检查同一操作、精确ACTIVE播放端点及三个默认输出角色；Windows自行恢复时 UI 状态更新为 ready，不补发KS、不抢用户后来选择的输出。增加5项故障注入，离线216项/14套通过。
+- 诊断采样器增加独立进程心跳，用于区分本机采样线程64秒空窗与整机停顿；一次有界单轮又复现 audio_failed，随后链路掉线，HCI ETW 在本机该提供程序未产生可用链路事件。P0仍未闭环，候选只构建未部署。
+
+- 2026-09-27 候选修订：连接前精确读取目标蓝牙链路三态，ACTIVE 端点但链路未连时不再跳过 KS 请求；未知态不盲重试、不冒充断开。
+- 旧版关麦造成 HFP 录音端点缺失时，仅用户明确从关麦切到开麦才对这副耳机执行一次目标 HFP 恢复，等待录音端点并核实默认输入；失败回滚麦克风偏好。日常连接仍不安装/移除服务。
+- 增加隔离麦克风迁移与五轮严格验收脚本；211 项/14 套离线回归通过。目标耳机麦克风实测语音峰值 -17.887286 dB，默认路径播放由用户确认从 AirPods 发声；严格五轮第 1 轮断开超时，戴好后单次重连仍 link=0，故保持未部署、未发布。
+
+- P0 取证：KS 每次请求新增 UTC FILETIME 起止、目标端点、属性及原始 HRESULT，异常 HRESULT 也记录；不增加请求或全局恢复动作。
+- 新增同一 Windows 时钟下的只读链路/音频端点/三个默认输出角色采样器，以及目标 PnP/System 事件快照；故障可按时间轴复盘，现有失败尚不能归因。
+- 首次同钟真机记录显示断开 KS 返回成功后，首次在约9.3秒后的样本采到目标UNPLUGGED（该段有17.60秒采样空窗）、链路约24.1秒后才断；旧9秒核实窗口报假失败。候选断开核实延至约30秒，不补发请求；新候选单轮断开/重连通过但离五轮仍远。
+- 链路查询改为已连接/已断开/未知三态，API/枚举失败不冒充断开；断开完成还核实同目标已知播放/录音端点全部非ACTIVE。采样器记录读取耗时与空窗，避免把阻塞的查询当连续观测。
+- 真机采样器的有界操作若失败，采集证据后向调用方传递该操作退出码；不能把采样完成误当耳机操作通过。
+- Windows 连接改用微软 KS 单次请求；不再把蓝牙音频服务卸装作为日常连接开关。复用公开实现的拓扑/互操作思路并保留 MIT 版权。
+- 精确绑定 Bluetooth 地址、ContainerId、端点 ID；能力不足明确失败，不操作其他设备或自动升级到全局恢复。
+- 断开覆盖目标 render/capture；UNPLUGGED 仍提交一次断开以处理残余控制链路；同驱动 filter 去重。
+- 已 ACTIVE 连接不反复重连；麦克风关闭时不改默认录音、不请求录音连接，也不卸载 HFP 驱动。
+- KS 请求接受但链路/音频未就绪时，共用最多一次 15 秒延迟重试；用户可取消，旧 timer 与回调不越过新操作。实际重试中取消会排队同目标断开，不仅取消界面提示。
+- 三角色读回后再次核实 ACTIVE；失活不报成功，条件恢复本次默认值。
+- 每次启动资源目录增加 GUID，避免同版本候选在 PID 重用后误加载旧 KS 模块；旧资源目录清理兼容保留。
+- 新增 KS 故障注入及完整离线测试入口（165 项通过）；真实连续测试失败保留，稳定性与听音不由单测替代。
+
+# v1.9.19（2026-09-26，审计修复开发版，未发 Release）
+
+- 文档：明确Windows用户体验优先；新增三项目源码对照与KS连接方案选型，尚未接入、未改变安装版。
+
+- Windows：地址主键、桥接来源与参数校验、虚拟主机页面、后台蓝牙/网络任务、超时进程回收。
+- 连接：断开超时才补关 AVRCP，重连恢复控制服务；真机对照发现该遗漏会导致 link=1 但播放端点缺失。稳定性按独立循环记录，不掩盖失败轮次。
+- 更新：可信发布元数据及摘要、ZIP验证、原子替换、原始哈希备份、实际UI健康与存活检查、失败回滚和回执轮询。
+- 构建部署：先完整构建再停精确目标，复制/启动失败恢复旧版，记录源码/二进制哈希。
+- 反馈：移除 opaque 假送达，统一业务回执与截止，附件失败单列；没有向群发送测试消息。
+- 修复脚本：默认只读，显式单节点、finally恢复、ACTIVE render验证、所有路径写回执。
+- 资源与界面：版本化资源和30秒缺失恢复、无错误MsgBox、固定弹窗标题/按钮、日期与设置失败回滚（含旧启动快捷方式）。
+- 验收与诊断：隐藏界面时也监测已确认路由丢失；蓝牙worker记录各服务结果。默认播放用户反馈来自电脑扬声器，单电脑对照后用户确认原生及默认听音通过，但P0重连稳定性仍未通过；不把端点读回当听音证明。
+- 前端状态：修复鼠标悬停导致设备状态永久不刷新，以及连接位未变时漏刷音频失效；新增三项Node回归。
+- Mac：UID/地址绑定、串行后台连接、有界看门狗、偏好与实际状态一致；新增独立单测/CI。
+
+# v1.9.18（2026-09-26，候选，未部署/未发布）
+
+- 修正 IPolicyConfig COM 调用：移除第 14 槽调用；使用第 13 槽逐角色切换并读回；失败按实际修改角色恢复，不覆盖外部新选择。
+- Core Audio 枚举 ACTIVE render/capture；拒绝 HFP-only 播放、歧义目标和 PnP 格式 ID；跳过枚举中消失的端点。
+- 每设备操作代次、最新连接路由所有权、链路/默认音频状态分离、断开异步核实；停用自动全局 radio reset。
+- 修复 busy/finally、RPC 超时与 pending 清理、优先级持久化、JSON 控制字符、原子配置写入、RunWait 返回值和日期间隔计算。
+- 回归含真实 AHK 故障注入、COM 模拟后端和 Node RPC。真实连接默认路由已通过；第一段听音未通过，第二段显式 WASAPI 播放用户已确认听到。单次显式端点听音通过不等于普通应用和重连稳定性通过。
+- 完整未完成项见 doc/07-审计修复清单.md；无声修复脚本、更新器、Mac 等尚未全部处理。
+
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.9.16] - 2026-09-26
+
+### Changed
+- **切换默认播放升级为双保险**（上游 ChromuSx + SoundSwitch 调研定稿）：SetDefaultDevice(vtable 14) 为主 + SetDefaultEndpoint(vtable 13) 对 eConsole/eMultimedia/**eCommunications** 三角色全设为辅（缺通信角色时微信/游戏语音仍走旧设备）；任一成功即 toast 确认，全部失败记 WARN。vtable 布局经本机 ctypes 实测与 SoundSwitch/AudioSwitcher 源码交叉验证。
+- **端点匹配避开 Hands-Free**：AirPods 同设备暴露 Stereo 与 HFP 两个播放端点，模糊匹配会选错——render 查询先 NOT LIKE 'Hands-Free' 再兜底（上游打分法 -50 同理）。
+- **音频端点等待 10.5s → 12s**：对齐上游 AudioEndpointRouter 的播放端点轮询时长。
+
+## [1.9.15] - 2026-09-26
+
+### Fixed
+- **「连上没声音」主链修复（用户现场实测确诊）**：蓝牙与播放端点都在，但 Windows 不自动切默认播放——本机装有 VoiceMeeter/UU 等多虚拟声卡时声音仍走扬声器。ctypes 实测确诊 vtable 序号错误：本机 Win11 的 `IPolicyConfig::SetDefaultDevice` 在 **vtable 14**（项目原用 13 恒返 E_INVALIDARG，09-25 切麦四连败的同因）。新增 `RenderSwitchTo`：连接核实通过后自动把默认输出切到耳机（toast「🔊 声音输出已切到耳机」）；切麦同步改 14。手动 ctypes 切换已当场恢复用户耳机出声。
+- **反馈类型选择器**（GPT v1.9.10 遗留）：视觉重做把 chips 类名 `.chip`→`.tchip`，JS 选择器未跟改——用户点选的问题类型被静默丢弃（日志 types='' 铁证）。已修。
+- **反馈正文泄露本地日志**：通用 rpc 日志把 sendissue 消息全文写入（违反 v1.9.13 声明的隐私惯例）。现只记长度。
+- **'- Find My' 条目假设否证**（PnP 枚举）：重配后 A2DP/AVRCP 服务完好挂同一 MAC，仅设备名变化——连接目标无错，A7 根因收敛至密钥/路由层。
+
+## [1.9.14] - 2026-09-25
+
+### Fixed
+- 断开分支在判定服务结果前也初始化 `micWanted`，避免 `UnsetError`。
+- 宠物资源被清理后，按需从编译包重新释放 `pet_built.html`。
+- 用户显式开启自启动后持久记录选择并复读确认；旧安装在 Run 项仍有效时迁移该选择；下次启动发现 Run 项被删除或仍指向旧路径时重建。修复在启动期间同步执行，不被后续联网更新检查阻塞；toast 延后到页面就绪后派发。`StartupApproved` 的 REG_BINARY 按十六进制文本判读，若系统仍禁用则明确提示而不假报成功。没有启用证据时不自行开启。
+
+### Verification
+- 无窗口编译通过；独立编译的无窗口回归程序在本机完成耳机连接→断开（链路核实为 down）、清 Temp 后宠物资源恢复、隔离 Run 键删除/旧路径/StartupApproved 禁用状态回归。候选 exe 已部署用户常驻目录；同一用户上下文删除真实 Run 项后重启，日志确认 `Run entry restored`，进程与 Run 值复读均通过。未发布 Release。
+- **未通过音频主链**：用户 22:44 再试，`link verified` 后 22:45 `audio endpoint NOT up`；企微缓存 10:43/11:15/21:34 反馈均指向“蓝牙已连但播放输出缺失/反复失败”。v1.9.14 不应被当成“连接出声”修复版，详见 doc/05 A7。
+
+## [1.9.13] - 2026-09-22
+
+### Added
+- **问题反馈可选留联系方式**（2026-09-22 真实用户反馈引出：反馈是单向 webhook 进群，开发者回复用户看不到、也联系不上用户）：反馈弹窗新增「📞 联系方式（选填）」输入框（邮箱/QQ 等，60 字上限，C0 控制字符同规则清洗），内容随反馈消息以「📞 可回复：xxx」行发出；localStorage 记住（apb_iss_contact），下次打开自动回填；本地日志按隐私惯例只记长度不记内容。fetch 主通道与 AHK 兜底通道（含 sendissue 第 4 参数）双路同步支持。
+
+### Changed
+- **「使用耳机麦克风」开关升级为真正的稳定模式**（2026-09-22 真实用户病例驱动）：该用户在 v1.9.12 报告"切应用回来声音时有时无、重连恢复、重置耳机无效"——经典 A2DP/HFP 冲突（任何应用开"默认麦克风"→拉起 HFP→掐断 A2DP 放音），而 v1.9.11 起自动切默认麦克风到耳机（默认开）会让所有开默认麦的应用都碰到耳机 HFP，放大了此问题。现在关掉该开关时连接**完全不启用 HFP 服务**（原实现只跳过切默认设备这一步，HFP 服务照启），从源头消除冲突；开启时行为不变（HFP+自动切换）。原计划的独立"稳定模式"开关因此不再单设——两个开关干同一件事是坏设计，并入单开关文案。改动在下次连接生效（连接流程本就先断后连，天然生效点）。
+
+## [1.9.12] - 2026-09-21
+
+### Fixed（用户 v1.9.11 实测 20:34 反馈驱动，两条错误码都有日志实证）
+- **麦克风切换 E_INVALIDARG（0x80070057）**：链路/音频核实全过后 `SetDefaultDevice` 拒绝参数。地面真值排查：C#（MMDeviceEnumerator 真枚举 + IPolicyConfig 真调用）与本机 AHK `ComCall(13)` 用同一枚默认录音端点 ID 自设**均返回 S_OK**——API、vtable 索引、`{0.0.1.00000000}.{GUID}` 端点 ID 全部正确；结论=链路刚建立时 HFP 录音端点还在过渡态（引用社区已知行为：对未就绪端点 SetDefaultDevice 报 E_INVALIDARG）。修法：每轮重查端点 + 失败 2 秒重试共 4 次（端点晚几秒出现也兜住），最终失败把**端点 ID 落进日志**供下轮诊断。
+- **断开断不开 + 二次断开误报失败（A2DP fail:0x00000490）**：实测病例——第一次断开 HFP+A2DP 服务全关成功，但 fConnected 仍为 1（链路被没关的服务拽着，嫌疑最大 AVRCP：A2DP 连接时 Windows 自动启用）；第二次断开 A2DP 报 1168"找不到元素"（服务记录已删）还被当失败弹 toast。修法三件套：① 1168 在关服务时一律幂等视为 absent（原仅 HFP）；② 断开判成功改为"服务无报错即可"（全 absent=本来就关着）；③ 新增**断开核实链** StartDownVerify：轮询真实链路 ~10s，没断→补关 AVRCP {0000110e} 再等一轮→仍不断→WARN + 气泡如实告知（放盒/手机侧断开），绝不弹窗。
+
+## [1.9.11] - 2026-09-21
+
+### Added
+- **蓝牙栈自救（用户实测病例驱动）**：2026-09-21 晚用户四连反馈+完整日志确诊——连续 7 次连接 `BluetoothSetServiceState` 全部返回成功但链路 9s 未建立，与手机蓝牙/耳机放回盒/重启 App 全部无关，重启电脑立即恢复（且是系统开机自动恢复的连接，App 未发起）＝Windows 蓝牙栈卡死（旁证：BTHUSB 事件 18 每次开机必现，适配器存不了链接密钥的廉价 dongle；事发前系统连续运行 22.5h）。非代码 bug，但"只能重启电脑"体验不可接受。落地：同一设备连续 2 次链路失败后，经 WinRT Radio API 自动开关一次蓝牙无线电（等效手动开关蓝牙，无需管理员）并自动重连一次；一轮故障只自救一次防重启循环，期间用户任何新动作作废自救（audioVerifyGen 代数号），被拒/超时/PS 异常全部如实降级为"开关蓝牙或重启电脑"指引并落日志。PS 段全 ASCII 走 -EncodedCommand（B6/B8.9 规矩）。
+- **连接后自动切到耳机麦克风（功能补齐）**：同日反馈"耳机连上了但默认麦克风还是电脑的"——排查确认 `OnConnectSuccess` 从未做过端点切换（Windows 新设备接入只自动切播放默认端，不切录音默认端）。落地：音频核实（AudioVerifyTick）通过后，WMI 按 PnP 实例名取该耳机录音端点 ID（`SWD\MMDEVAPI\{0.0.1.…}.{guid}`，0.0.1=录音端点，复用 AudioEndpointAlive 同款查询路数），经 `IPolicyConfig::SetDefaultDevice`（vtable 13，系统声音面板同款未公开接口）设为默认录音设备；a2dp-only 档位无录音端点则 INFO 跳过；失败只落 WARN 不弹窗。
+- **设置面板新增两行开关**：「连接后切到耳机麦克风」「连不上时蓝牙自救」（均默认开启，键 auto_mic_switch / bt_rescue），rpc 新增 get/setmicswitch、get/setrescue。
+- doc/05 新增 A5：蓝牙栈卡死病例全文（根因链 + 自救设计边界），防未来误诊成代码 bug。
+
+### Fixed
+- **两处"网上说行"陷阱被真机实测当场打回并修复**（老田式验收追问的功劳）：
+  ① 自救 PS 初版用 `.GetAwaiter().GetResult()` 等 WinRT 异步——本机 PS5.1 实测抛 `__ComObject 不包含 GetAwaiter`（实例语法调不到扩展方法），换成久经考验的 AsTask 泛型反射模式并**真机实测通过**（`radio=蓝牙 state=On setstate(same)=Allowed`，调用链全走通且未改变状态）；② `FindCaptureEndpointId` 初版 SELECT 只投影 PNPDeviceID 却又读 ConfigManagerErrorCode——WMI 投影查询不返回未选列（AHK 真机实测抛 no property，生产代码会永远静默走 WARN 分支），补投影后实测能从真实端点取出 `{0.0.1.00000000}.{GUID}` 格式 ID。
+- BtRadioRescue 的 PS 拼接首次编译另踩 B8.8 坑①（`""` 转义编译器不认），换 `` `" `` 后 oracle=0。
+
+### 验证边界（如实标注）
+- **已实测**：WinRT Radio API 调用链（枚举+同态设置，AsTask 模式）；音频端点 ID 格式假设（真机全量端点核对，0.0.1=录音/0.0.0=播放）；AHK 侧 IPolicyConfig COM 对象创建；WQL 端点查询（AHK 真机跑通）；设置弹窗三行开关无头截图+CSS 结构复查（复用生产类，dlg 限高内滚）；编译 oracle=0×2；桌面部署 boot v1.9.11×2。
+- **待真机**：蓝牙无线电真实开关+自动重连（需栈卡死场景自然触发，设计上失败降级为指引）；SetDefaultDevice 真实切换（耳机当前已断开，端点不在场；COM 创建已验证，调用留待下次连接）。
+- 本机环境备忘：录音端点里有 VoiceMeeter/变声虚拟设备全家桶，麦克风自动切换会把默认录音从虚拟设备切到耳机——这正是反馈用户的诉求，且设置里可关。
+
+## [1.9.10] - 2026-09-20
+
+### Fixed
+- **问题反馈弹窗视觉重做（用户要求视觉复查；无头截图评审发现两处布局硬伤）**：
+  ① 7 个类型 chips 与设备卡片的 `.chip`（40×40 固定尺寸）类名冲突，被压成小方块、文字竖排逐字折行不可读 → 问题反馈改用独立 `.tchip` 类，横排胶囊、可换行；② 1.9.8 声称的"弹窗限高+内部滚动"实为幻影（B8.7 第四例，全文件无 dlg max-height/overflow 规则），副标题四行长文与 chips 挤压重叠 → `.dlg` 全局补 `max-height:min(86vh,540px)+overflow-y:auto`（连带修好同样溢出的关于弹窗），副标题砍成一句，新增「① 什么问题？/② 补充说明」分节标题，选中 chip 加 ✓ 前缀，日志选项升级为卡片（标题+用途说明两行）。验证：Edge headless + chrome.webview mock 截图三态（默认/选中/关于弹窗）全部布局正常，编译 oracle=0，桌面部署运行零错误。
+
+### Added
+- **AirPods 5（2026-09-09 发布，支持 LE 音频）兼容应对**：用户反馈"不支持 AirPods 5"。排查结论：本项目连接走经典蓝牙 A2DP/HFP 服务开关，AirPods 5 双模、枚举与名字识别无碍；风险在 LE 音频协商路径（微软 2026-06 更新 26200.8737+ 才改善），**无真机不做协议层改动**。落地三件事：① Apple 设备连接失败时追加问诊式提示（LE 音频开关自查 + 系统更新 + 引导反馈），不断言根因；② 问题反馈新增「🎧 找不到耳机」（吸收远端 0693e58 预设文案）与「🆕 新耳机连不上」类型，引导带日志反馈拿真机数据；③ README 新增常见问题段（LE 音频四步自查）。
+- **合并远端平行线**（origin/main v1.9.0~v1.9.9，27 commits）：代码取本地（远端尚带转义腐蚀伤：`64Utf16` 缺 B、SETTINGS_PATH/GatherLogTail 坏路径；其 0693e58 因 QY 44001 撤掉了文件上传，本地已修复 44001 真因）；吸收远端新贴纸托盘图标、宠物落地影、「找不到耳机」预设、AGENTS 单仓规约与完整版本史。上游 ChromuSx/BluetoothDeviceConnector 评估：fork 后主脚本仅加命令行参数（已有 UI 版），其余更新全在 Stream Deck 插件生态，与主程序无交集，不合并。
+- **「提意见」与「问题反馈」拆成两个独立功能**（用户需求：意见走轻通道，问题反馈带类型+日志）：
+  - **提意见**（页脚「💬 提意见」直达，自动展开输入框）：纯文本轻通道，fetch no-cors 直发 → powershell 兜底，不带日志。
+  - **问题反馈**（页脚「🐞 问题反馈」直达新弹窗）：① 常见问题类型多选 chips（手机来回抢/连上没声音/连不上/断不开/界面托盘）；② 补充说明（可选，可不选类型直接写）；③ 自动附日志——文本消息带最近 50 行摘要（字节预算 ≤3900B，Node 单测通过）+ **完整日志文件（今天+昨天合并）经企微 upload_media 上传、以 file 消息发到群里可直接下载**（复选框默认勾选，可关）。链路：fetch 主通道发文本 + powershell HttpClient 上传文件；文件被安全软件拦时如实提示「摘要日志已带上，不影响定位」。上传链路端到端实测通过（44001 两根因均已修复：.NET 默认给 boundary 参数加引号企微不认；filename 闭合引号丢失）。
+- **二维码灯箱（真正落地；1.9.8 声称过但全 git 历史无 lightbox 代码，同 B8.7 空头支票）**：关于弹窗三个二维码（粉丝群/赞赏码/表情包）点击弹出白底大图子页（最大 300px/56vh，自适应竖版图），带标题+副标题，点击任意处或 Esc 关闭，扫码后回到关于页。图片 src 复用小图的 data URI，built 体积零增长。
+- **反馈 fetch 主通道（真正落地）**：前端 `fbSend` 先经 WebView2 引擎 `fetch` no-cors 直发企微 webhook（`text/plain` JSON，协议已联调验证 errcode:0；浏览器引擎联网不被安全软件拦），失败才降级 powershell 兜底（不带日志）。CHANGELOG 1.9.7 声称的三层通道此前同样只有第②③层，第①层从未在前端存在过（全 git 历史无 `no-cors`）。
+
+### Fixed
+- **/testpet 模式从未真正工作过**：`PetEnsure` 引用的 `wv2Fallback` 在 /testpet（auto-exec 前段执行）时尚未初始化 → UnsetError → 宠物 webview 创建失败、静默跳过全部演示（QA 路径长期失效无人察觉）。修复：`wv2Fallback := ""` 提前到 boot 日志后初始化。验证：`//testpet` 退出码 0、`pet bg readback=00000000`。附：命令行传 `/xxx` 参数会被 AHK 解释器吞掉，须写 `//xxx`。
+- **GatherLogTail 日志路径缺分隔符**：`dir "app-"` 拼出 `...\logsapp-*.log` 永远 miss（v1.9.9 清 BEL 时同族矫枉过正）→ `getfblogs` 恒返回空。补回 `\`。
+- **设置持久化从未生效**（用户实测发现）：`SettingWrite`/`SavePriority` 把 `FileDelete` 与 `FileAppend` 放在同一个 try 块——文件不存在时 `FileDelete` 抛 `TargetError` 整块跳过，**首次写入永远失败**。连带后果：connect_count 连接计数永远归零（求好评永远不触发）、自定义 feedback_webhook 存不下来、设备优先级排序首存即丢。改为先 `FileExist` 判断、两步各自 try，已用独立最小脚本双跑验证（修复前 readback=MISSING，修复后 readback=ok123）。
+- **SETTINGS_PATH 缺路径分隔符**：v1.9.9 清除 BEL 字符时把 `\a` 连字面反斜杠一起删了，拼出 `...BluetoothDeviceConnectorapp_settings.ini`（无 `\`），设置会写到目录名拼接出的畸形路径。补回 `\app_settings.ini`。
+- **index.html 转义实体化污染**（BEL 事故同族）：前端正则 `/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g` 的转义序列被写成**真实控制字节**（NUL/VT/FF 等 7 个），浏览器语义碰巧等价所以功能正常，但源文件被 `file` 判为二进制——grep 静默失效、编辑器/AI 工具链全线翻车（本次实测就被它骗过一轮）。还原为纯 ASCII 转义文本并重建 index_built.html；doc/05 里的同类"实物展品"字节同步替换为 `<BEL>`/`<VT>` 可读标记，仓库源码文件恢复全文本。
+
+## [1.9.9] - 2026-09-20（补录，当时漏更 CHANGELOG；其"chunked 投递"声称与实现不符，见 1.9.10）
+
+> 注：远端 main 存在平行实现（0693e58：反馈预设点选填充 + 50 行日志 text 分块直发，遇企微 44001 后撤掉了文件上传）。2026-09-20 合并时以本地实现为准（类型多选+补充说明分离、摘要单条+完整日志文件上传、44001 真因修复），远端"找不到耳机"预设文案已吸收进问题反馈类型列表。
+
+### Fixed
+- 构建时把真实 APP_VERSION 烙进静态 ver 元素（旧占位符一直谎报 v1.6.0）。
+- 转义污染清洗第一轮（B64Utf16 名称、settings/log 路径 BEL 字符、PS 路径 VT 字符）+ 反馈日志经 webview no-cors 分块投递。
+
+## [1.9.8] - 2026-09-07
+
+### Added
+- **连接来回跳检测**：2 秒看门狗追踪各设备连接状态，120 秒窗口内翻转 ≥3 次 → 气泡+托盘提示「手机和电脑在抢耳机」+ 设备列表标注，5 分钟冷却；只提示不自动动作（自动重连会加剧抢占）。重连成功自动清除标注。
+- **关于弹窗二维码点击放大**：灯箱（白底大图 + 标题 + 点击任意处/Esc 关闭）。
+- **关于弹窗限高+内部滚动**：提意见展开/失败面板出现时弹窗不再超出屏幕，底部按钮永远可达。
+
+### Fixed
+- 横跳检测容器误用 Object（无 Has/__Item）导致后台每 2 秒刷错误（单日 5.9 万行日志）；冷却哨兵传 0 使 DateDiff 首触抛 ValueError —— 两处均改为 Map/空串哨兵（对抗审计发现）。
+
+## [1.9.7] - 2026-09-06
+
+### Added
+- **关于捞鱼 v2**：近黑金星的「给项目点个 Star」一键直达卡；「提意见/反馈问题」内联输入框。
+- **意见反馈三层通道**：① WebView2 前端 `fetch` no-cors 直发（浏览器引擎不被安全软件拦截，主通道）② 失败自动降级 powershell 后台发送（修复：`-EncodedCommand` 不支持尾随参数导致兜底从未生效，改为值内嵌 + PsStr 转义）③ 双通道全挂时失败面板给具体原因（网络拦截/限流/通道失效/错误码）+ 三条出路（重试 / 复制文字 / 去 GitHub 预填 issue）。
+- **设置面板 + 开机自启动开关**（v1.9.5，本次随版发布）：默认关闭；注册表 Run 键实现，任务管理器可见可逆；被禁用时开关置灰并指路。
+
+### Fixed
+- 反馈 payload 带 UTF-8 BOM 被企微 API 拒收（HTTP 200 掩盖 errcode 40008）→ 改 UTF-8-RAW + 以响应体 `errcode:0` 判成功，不再被 200 假象欺骗。
+- 反馈全文写入本地日志的隐私问题 → 只记长度。
+- 发送防抖（飞行中忽略连点）、成功后清空草稿、25 秒前端超时兜底（任何后端异常不再永久转圈）。
+- 意见文本超长截断不再切裂 emoji；C0 控制字符全量剥除（富文本粘贴不再被企微拒收误报）。
+- 关于弹窗二维码行溢出、双黑按钮打架、字符图标与 SVG 混用等对抗评审修正。
+
+## [1.9.6] - 2026-09-06
+
+### Added
+- **关于捞鱼 v2：Star 卡 + 内联意见反馈**。Star 卡（近黑底金星）一键直达仓库；「提意见」展开内联输入框，一键直发开发者企业微信群机器人（webhook 存于 app_settings.ini 的 feedback_webhook，可随时换 key）——零注册零跳转。未配置 webhook 时自动降级为打开预填好的 GitHub issue。字数计数同步、发送 busy 防重、成功态整卡换肤。
+- **对抗评审三处修正落地**：二维码行溢出修复（对齐线归位）；发送键金色化（消双黑打架）；★💬→▾ 四处字符图标统一为 SVG 描边语言 + 计数器同步 + 展开态激活感 + 垂直节奏 12/16 网格。
+
+## [1.9.5] - 2026-09-06
+
+### Added
+- **设置面板 + 开机自启动开关**（默认关闭）：页脚新增「⚙ 设置」，开关走 HKCU Run 键（任务管理器→启动应用 可见可逆，免管理员）。兼容迁移：旧版启动文件夹快捷方式存在即视为已开启，切换时统一迁移到注册表，避免双开。若被安全软件/任务管理器禁用（StartupApproved 禁用标志），开关置灰并如实提示去哪重新开启——不假装生效。
+
+## [1.9.4] - 2026-09-05
+
+### Added
+- **Honest connect v2 (user-discovered tuning)**: connect now disconnects first, waits 400ms, then re-enables services — clearing half-dead links (user empirically confirmed this raises real success rate). After service toggles, the app polls the REAL link state (`fConnected` via fresh enumeration) for ~9s: only then does it report 已连接; timeout = honest 「没能连上」 with likely causes. Kills the "Beats 放得远远的也报成功" lie. New `linkok`/`linkfail` events; star-ask now counts verified connects only.
+
+### Changed
+- **UI v2.1 (two adversarial-review rounds, direction: 简约/更黄/典雅动画)**: flat bright-yellow orb (#FFC53D) with dark-ink text (WCAG ~9:1) replacing the pseudo-3D brown ball; halo pulse moved to a compositor-friendly ::after; device cards slimmer (12px radius, neutral chips/tags — yellow now appears ONLY on the orb); ▲▼/delete revealed on hover with spring easing (rest state 30% visible, :focus-within fallback, fixed dead :active rule); orb hint no longer repeats the orb text; duplicate apple/other tag removed; modal buttons flattened (primary = near-black, no more brown gradients/inset highlights); pet window recomposed (bigger character, ground shadow, cream speech bubble top-right with tail).
+
+## [1.9.3] - 2026-09-05
+
+### Changed
+- **Sticker refresh (curated from 100+ 弹 5-star rated stickers)**: tray icons now use a consistent girl character across states — 未连接=发呆, 已连接=抱爱心(green ring), 连接中=奋笔疾书+spinner; new modal faces: star-ask=委屈求助, delete=招手; new assets face_plead/face_happy/face_peek reserved for toasts.
+- **UI review quick wins** (adversarial review scored usability 6.5 / aesthetics 7): orb has static default content (no more dead empty ball while fetching); badge now states 未连接/已连 N 台 with sage-green active tint; list fetch failure renders an error + retry link; toast duration scales with text length (up to 8s); priority label shows on every row and the orb hint names the exact next device; device name+tags flow inline (no 108px reserved dead space); ▲▼ buttons enlarged to 28px; footer drops the duplicate version; min-button glyph and connected-state text color fixed for contrast; pet bubble gets a tail pointing at the character.
+
+## [1.9.2] - 2026-09-05
+
+### Fixed
+- **Updater honesty (360-class AV interception)**: the update swapper's file-replace can be silently blocked by security software (reproduced live: 360安全卫士 denies write/delete on the running exe even from a normal user token). The swapper now runs every step with `-ErrorAction Stop`, writes an `update_result.txt` receipt (ok/fail+reason), and the app verifies the receipt on next boot — success shows a confirmed toast, failure honestly says 「上次自动更新没完成（多半被安全软件拦截），仍在旧版本」 with the trust-folder fix. No more fake "更新成功" followed by a silent old-version restart. The in-app progress text also no longer claims completion before the swap is verified.
+
+## [1.9.1] - 2026-09-05
+
+### Added
+- **Audio-grab verification** (honest connect): after a successful Bluetooth connect, the app polls the device's audio endpoint (WMI `Win32_PnPEntity`, class `AudioEndpoint`) for ~9s. Endpoint up → toast 「🎧 音频已切到电脑」; never up → pet fail pose + device row shows 「已连接 · 音频被手机占用」 + tray tip with the fix (pause phone music, click connect again). Kills the "shows 已连接 but audio still on the phone" trap: Windows has no API to arbitrate AirPods' active audio source (Mac-style "follow whoever plays" is impossible), and when the phone holds the A2DP stream the endpoint never comes up on PC — now the app says so instead of pretending. Also observed: if the PC stays silent after grabbing, AirPods multipoint hops back to the phone on its own.
+
+### Fixed
+- Latent bug: AHK-side `toast` events (update-check results) were pushed but never handled by the front-end — `window.__event` now routes them.
+
+## [1.9.0] - 2026-08-27
+
+### Added (adopted from the personal component library: 共享/tools/软件开发)
+- **Update UX completion** (自适应更新检测 spec): proxy tip for CN users in the update dialog; failure path now shows a one-click "打开发布页" fallback button (new `openrelease` bridge).
+- **Star-ask component** (不打扰用户的求好评 spec): after the 10th successful connect (and every 50 after), a gentle card asks for a GitHub star; dismissed = 15-day cooldown, tracked in `app_settings.ini` (`stardone`/`openrepo` bridges).
+
+### Fixed
+- **Landing page restored (rollback)**: an accidental push from a diverged local copy had replaced the interactive landing page (v2.x: clickable app-window mock with connect states / priority sorting, pet sprite demo, tray cards) with a simplified static version (-602 lines). Rolled back to the v2.2.0 interactive page and bumped its `PAGE_VER` to 2.2.1 so cached visitors auto-refresh back. Root cause + prevention rules documented in doc/05 B7.
+- **v1.9.0 GitHub Release published** — the tag had been pushed without a release, so in-app update checks and the landing version chip still saw v1.8.4 as latest. Initial publish attached a bare `AirPodsBuddy.exe`, breaking the landing-page download link (404) since both it and the in-app updater expect the asset name `AirPodsBuddy-Windows.zip`; the correctly-structured zip (exe + 使用说明.txt, same layout as v1.8.4) was uploaded and verified.
+
+
+## [1.8.4] - 2026-08-25
+
+### Fixed (WebView2 Runtime 缺失自愈——0x80070002 不再劝退新手)
+- **根因**：WebView2 控件**不复用**用户已装的 Edge 浏览器（只认 WebView2 Runtime 或 Edge Beta/Dev/Canary 通道）。精简系统/服务器镜像/被"优化工具"清理过的机器上 Runtime 常缺失 → 启动即 0x80070002"找不到文件"报错退出。旧提示"请安装微软 Edge"是误导——装了也没用（2026-08-25 在一台装着 Edge 151 的机器上实证：Edge 在、Runtime 无、照样报错）。
+- **自愈流程**：启动时用官方 API `GetAvailableCoreWebView2BrowserVersionString` 探测 → 缺失则询问并自动下载微软官方 Evergreen Bootstrapper（约 2MB）`/silent /install` 静默安装后自动继续 → 断网/用户拒绝/UAC 被拒时**降级直接借用本机 Edge 目录**当运行时（同一套内核）→ 全失败才弹手动指引（一键打开官方下载页，文案明确说"装 Edge 浏览器是没用的"）。宠物窗口（PetEnsure）同样吃到降级目录。
+- **顺手排掉的隐形炸弹**：AHK v2 `DllCall` 输出参数必须传 VarRef（`"ptr*", &info`）；传值（`info := 0`）**不报错但指针永远不回填**——若未测试直接发布，探针会在**有**运行时的机器上误报缺失、每次开机弹修复窗（函数级测试实证：hr=0 成功但指针为空）。已记入 doc/05 C 节。
+
+### Changed
+- 构建工具链（便携 AutoHotkey v2 + Ahk2Exe，均在 `tools/`，gitignore）在本副本就位，Ahk2Exe 编译参数与 doc/02 §7 一致（`/silent /compress 0`）。
+
+## [1.8.2] - 2026-08-19
+
+### Fixed (pet popup, all four user reports; subagent with empirical verification)
+- **Missing frames**: the spritesheet crop kept only column 0 (192px) of the 8-column atlas — every frame beyond the first rendered blank. Re-cropped full width (1536x1248) and corrected `background-size`; all 35 used frames verified non-empty per alpha count.
+- **True transparency, no background**: the white came from the AHK Gui surface + the white card (WebView2 `DefaultBackgroundColor=0x00000000` actually works in HWND mode). White card removed; sprite now floats on the desktop like the original Codex pet, with a small dark translucent status bubble. Full-window magenta color-key was tested and rejected (DirectComposition bypasses LWA_COLORKEY).
+- **Size halved**: window 300x420 -> 200x260 logical, sprite 192x208 -> 120x130.
+- Latent bug: `/testpet` ran before pet globals were initialized (UnsetError swallowed by OnError broke the ready handshake) — guarded with IsSet().
+
+## [1.8.3] - 2026-08-24
+
+### Changed
+- **Repository renamed**: `BluetoothDeviceConnector` → `AirPods-Windows` (a name people can actually find). `UPDATE_API` / `RELEASE_PAGE` now point at the new repo directly instead of relying on GitHub redirects.
+- All download/source links updated (README, landing `index.html`, product page `airpods-buddy.html`; download buttons now deep-link the zip asset).
+- **First release since v1.1.2**: ships every fix from v1.2.0–v1.8.2. Most importantly for existing users, this kills the boot-time error dialog — *"This value of type String has no property named Result"* roughly 3.5 s after every launch — caused by the leftover `[vp2]` diagnostic probe in v1.1.2 (removed in v1.2.0). Existing installs auto-update; the popup never meant the app was broken.
+
+## [1.8.1] - 2026-08-19
+
+### Fixed
+- **Tray left-click dead (finally, evidence-based)**: `A_TrayMenu.Click := 1` is v1 syntax; v2's property is `ClickCount`. Assigning the wrong name silently creates a plain property (no error), leaving the real threshold at double-click. A/B-verified via UIA-simulated real clicks (subagent). One-line fix.
+- **noise_mode.ps1 rewritten** (subagent): byte-reversed MAC from AHK normalized, 12-byte payload, AAP handshake packet before the command, two marshaling crashes fixed, PSM 0x1001 + SDP fallback chain, full step-by-step diagnostics to noise_debug.log.
+
+### Known limitation (documented honestly)
+- Native noise control is **blocked by Windows itself**: user-mode Winsock L2CAP is non-functional (even bind() fails with 10050; corroborated by MagicPods shipping a kernel driver for exactly this). The menu entry now explains this and points users to MagicPods instead of a misleading generic error.
+
+
+## [1.8.0] - 2026-08-19
+
+### Changed
+- **Apple-style redesign by a clean-context subagent** (per user request): cream/yellow-white palette (#FBF9F4 base, honey #D4A967 accents), macOS-grade cards (16px radius, hairline border, restrained shadows), Big Sur capsule buttons, sage-green connected state; all cutesy decorations (polka dots, clouds, stars, sticker tilt) removed; long device names now truncate with ellipsis while tags stay in a fixed right column.
+
+### Fixed
+- **Connection state always read as disconnected (the big one)**: Windows fills the BLUETOOTH_DEVICE_INFO flag fields with bit values (connected reads 32, remembered 16, authenticated 8 — verified against live connected AirPods), but the code compared , so every check failed. Now any nonzero value counts as true. This also explains the seemingly-dead tray left-click: the action fired, but the icon (same detection), the pet popup (off-screen), and the UI all reported nothing — every feedback channel was broken at once.
+
+
+## [1.7.1] - 2026-08-19
+
+### Fixed
+- **Pet popup flew off-screen on 150% DPI**: mixing physical pixels (A_ScreenWidth) with logical Gui.Show coordinates multiplied the offset by the scale factor, leaving only a corner visible. Positioning now uses a pure physical chain (SPI work area -> GetWindowRect -> SetWindowPos), verified fully visible 16px from the screen corner.
+
+
+## [1.7.0] - 2026-08-19
+
+### Added
+- **Native noise-control switching (off / ANC / transparency / adaptive)**: tray right-click → "🎧 降噪/通透模式" now directly switches the mode via Apple's private L2CAP service (`74ec2172-…`, command `0x0D`), implemented from scratch with PowerShell + Winsock (`tools/noise_mode.ps1`, embedded into the exe). Protocol facts from the librepods reverse-engineering docs (credited in README). Falls back to a toast explaining why if the earbuds aren't connected or don't support it. `/testnoise` CLI mode for QA.
+- Note: needs the earbuds connected over Bluetooth Classic; verified plumbing end-to-end except the final write (no connected buds on the dev machine at build time).
+
+
+## [1.6.0] - 2026-08-19
+
+### Fixed
+- **Tray left-click dead**: the default menu item name (with full-width parens) failed to match and the swallowed error silently disabled single-click activation; now set via a shared variable with try/catch logging.
+- **Pet popup rendered blank**: the pet WebView2 was created on a hidden window — the same IsVisible=false suspension bug as the original main-window white screen (pitfall C in doc/05, now bitten twice). `PetShow` now re-fills bounds and forces `IsVisible := true`; background transparency is verified via a readback log line.
+
+### Added
+- **Kawaii restyle** (user request): blush-pink candy design — cream→blush gradient with polka dots, drifting clouds and twinkling stars, sticker cards (white borders, slight tilt), candy orb button with rotating dashed ring and gloss, pink-tinted shadows, hand-drawn squiggle section title, sticker tags. All functionality unchanged.
+- **Noise-control menu entry (experimental)**: tray right-click → "🎧 降噪/通透模式…". Windows cannot switch AirPods ANC natively (Apple AAP over BLE); the entry detects installed helpers (MagicPods-Windows / librepods-windows) and launches them, otherwise points to the recommended project.
+
+
+## [1.5.0] - 2026-08-19
+
+### Added
+- **Star Pudding pet popup** (user request, the "moe" upgrade): clicking the tray icon now pops out the 星星布丁 girl from the bottom-right corner — waiting pose + "连接中…" while connecting, jumping + hearts + "连上啦！💕" on success, waving "已断开 💤 拜拜~" on disconnect, deflated "没连上 QAQ" on failure. Transparent always-on-top no-activate WebView2 window with spring pop-in/fade-out.
+- Assets pipeline: `webui/build_pet.ps1` inlines the pet spritesheet (cropped 6-row atlas from `~/.codex/pets/xingxing-pudding`, 52KB webp) into `webui/pet_built.html`; frame durations follow the hatch-pet spec.
+- `/testpet` CLI mode: cycles all five popup states for QA/screenshots.
+- petready handshake so the first state is never lost to page load.
+
+
+## [1.4.0] - 2026-08-19
+
+### Added
+- **Three-state tray icons with curated sticker faces** (Mac parity, user request): disconnected = 可爱 face on cream base, connected = 心动 face on green ring, connecting = 加油 face + 6-frame rotating-arc spinner. Regenerate via `assets/make_tray_icons.ps1`. Supersedes the v-unreleased two-frame blink on Windows (same intent, richer states).
+- **Independent tray watchdog (2s)**: tray state no longer depends on the web UI's `statuspoll` — hidden WebView2 windows get throttled timers, which previously stalled icon updates.
+- Centralized busy-state: `DoAction` now wraps every path (tray left-click, menu, UI buttons) in `SetTrayLoading(true/false)`.
+
+
+## [Unreleased]
+
+### Added
+- **Connecting busy-state (both platforms)**: headset connect takes a few seconds and users re-clicked because nothing seemed to happen. Mac now shows a braille spinner in the menu bar ("连接中…"), ignores clicks mid-operation, and runs Bluetooth work off the main thread so the UI never freezes (it used to block up to 8s). Windows blinks the tray icon between on/off states with an "操作进行中…" tooltip during `DoAction` (covers both tray clicks and UI buttons). Note: Windows tray left-click toggle already exists since v1.3.1 (`A_TrayMenu.Default` + `Click := 1`); if it doesn't work on the Windows machine, the running exe is stale — rebuild with `compile_autohotkey.ps1` after `git pull`.
+- **Dev/test launchers**: double-clickable `mac/AirPodsBuddyMac/run.command` (auto incremental build + launch, keeps window open on failure) and `run.bat` (root, detached-start of `dist/AirPodsBuddy.exe` respecting pitfall B1). These are for daily development; unified packaging (.app/DMG + Windows installer) comes at release time per roadmap.
+
+### Fixed (macOS)
+- **Left-click toggle stuck on "connect"** (real-device bug): the toggle branched on `Watchdog.armed` instead of the headset's actual connection state, so with the watchdog pref off the icon stayed 💤 forever and left-click could never disconnect (user's log showed 6 consecutive `toggle → connected`). Toggle and icon now treat `armed || isConnected` as connected.
+- **Mac first successful build**: `swift build -c release` passes on a real Mac (arm64). Two scaffold bugs fixed: `CFString("")` is not constructible in Swift (→ `var name: CFString = "" as CFString`), and `Watchdog.tick()` was `private` while `StatusBarController` calls it on startup (→ `internal`). Smoke test passed: app boots, writes to `~/Library/Logs/AirPodsBuddyMac.log`, zero popups. Real-AirPods field testing (connect / anti-hijack / output lock) still pending — see `doc/06`. Also added `mac/AirPodsBuddyMac/.build/` to `.gitignore`.
+
+## [1.3.1] - 2026-08-19
+
+### Fixed
+- **Window dragging (take 2)**: the `WM_NCLBUTTONDOWN` bridge was blocked by WebView2's mouse capture; replaced with a manual drag loop (`GetCursorPos` + `SetWindowPos` while LButton held) which works regardless of capture.
+
+### Added
+- **Tray left-click toggle**: single left-click on the tray icon now toggles connect/disconnect (menu moved to right-click only) — one step instead of two.
+- **Tray status icons**: disconnected = original pudding icon, connected = green-ring pudding (`assets/star_pudding_on.ico`, generated via `make_ico.ps1`); icon and tooltip update on state change.
+- **macOS variant started**: `mac/AirPodsBuddyMac` Swift menu-bar app scaffold — left-click toggle, emoji state icons, and an anti-hijack watchdog (reconnects the AirPods and re-locks CoreAudio default output every 2s; only a user-initiated disconnect stops it). Reuses upstream's IOBluetooth core. See `mac/README.md` (not yet compiled — no Mac on the dev machine).
+
+## [1.3.0] - 2026-08-19
+
+### Added
+- **Window dragging**: grab the top bar / header to move the borderless window (JS bridge → `WM_NCLBUTTONDOWN`).
+- **Device priority system**: reorder devices with ▲▼ per card (persisted to `device_priority.txt`); "one-click connect" (tray & hero orb) now follows this user-defined order; Apple devices (AirPods/Beats) sort ahead of others by default, others get an "其他" tag.
+- **Hero orb**: big circular 3D connect button showing the current priority target; tap to connect/disconnect.
+- Rounder, more minimal UI: circular 3D action buttons, pill cards (radius 22), squarer window (460×600), Esc closes modals.
+- **Proper app icon**: `star_pudding.ico` embedded at compile time — tray/taskbar now show the pudding avatar instead of the default "H".
+
+### Fixed
+- `TypeError: Expected a Number but got a String` in device sorting — AHK v2 `<` is numeric-only; use `StrCompare` for name ordering.
+- Device JSON was silently truncated (multi-line juxtaposition doesn't continue statements in v2) — single-line concatenation.
+
+## [1.2.0] - 2026-08-19
+
+### Fixed
+- **White screen on launch**: WebView2 controller created on a hidden window starts with `IsVisible=false`, suspending rendering while page JS keeps running. Now `SyncWebView()` re-fills bounds and forces visibility on every show/resize.
+- **AHK error dialog popups**: a diagnostic timer accessed `.Result` on a Promise-resolved string, causing unhandled rejection dialogs. Diagnostics removed in favor of the new logging system.
+- **Device list never rendered**: `Reply()` injected bare JSON so the frontend `JSON.parse()`d already-parsed objects ("[object Object]" errors every 4s). All non-literal payloads are now wrapped with `JsonStr()`.
+- **App exited on window close** instead of staying in tray: added `Persistent`.
+
+### Added
+- Logging system: daily files under `<exe dir>\logs\`, 7-day retention, three-level write fallback (UTF-8 → CP0 → OutputDebugString) so logging can never crash the app.
+- Global `OnError` trap: uncaught errors are logged silently instead of popping dialogs on the user's face.
+- Frontend forwards `window.onerror` / `unhandledrejection` to the AHK log (`[JS-ERROR]` entries).
+- WebView2 creation retries 3× (works around transient AV interference `0x800704C7`).
+- `doc/` knowledge base (progressive disclosure) for humans and AI assistants.
+
+### Changed
+- Replaced v1-only `EnvSub` with `DateAdd` (v2 has no EnvSub — undefined function calls fail script load silently).
+
+## [1.1.0.1-beta.2] - 2026-07-12
+
+### Fixed
+- Include the `ws` runtime dependency in CI-built plugin bundles. Beta 1 could not start on either Windows or macOS and left the Property Inspector on “Detecting devices…”.
+
+### Added
+- Experimental macOS 13+ support for the Stream Deck plugin through a native universal Swift helper.
+- macOS CI build, parser tests, and an installable beta artifact for hardware testing.
+
+### Changed
+- The Stream Deck runtime now selects the Windows or macOS Bluetooth helper automatically.
+- System feedback sounds and Bluetooth setup text are platform-aware.
+
+## [1.0.5.0] - 2026-05-31
+
+### Fixed
+- **Speaker-only devices now connect** (e.g. Amazon Echo Dot, Bluetooth speakers). Connecting no longer aborts when a device lacks the Handsfree (HFP) profile; each audio profile is toggled independently and the action succeeds if at least one connects.
+- **Device names with special characters** no longer break the command — the helper executable is now invoked with an argument array instead of a shell string.
+- **Button no longer gets stuck on "Connecting"** when the helper returns unexpected output.
+- Standalone script: added a retry cap that previously allowed an infinite loop on unsupported devices.
+
+### Added
+- **Device picker** in the Property Inspector — choose a paired device from a dropdown instead of typing its exact name.
+- **Live connection state** — the key reflects the device's real connection status when it appears (survives Stream Deck restarts).
+
+### Changed
+- Disabled Node debug mode in the published manifest.
+- Slimmed the packaged plugin to the runtime dependency only.
+
+## [1.0.4.0] - 2025-12-17
+
+### Fixed
+- Resolved disconnect issues and multiple-instance errors for the Marketplace submission.
+
+## [1.0.1] - 2025-12-06
+
+### Changed
+- **Compiled AutoHotkey script to standalone executable** - Plugin now uses `BluetoothConnector.exe` instead of runtime + script
+- **Improved startup performance** - No script parsing overhead
+- **Simplified package structure** - Single executable instead of two files
+
+### Removed
+- AutoHotkey64.exe runtime (no longer needed)
+- bluetooth_connector.ahk script file (compiled into .exe)
+
+## [1.0.0] - 2025-12-06
+
+### Added
+
+#### Stream Deck Plugin
+- **Initial Stream Deck plugin release** - Connect/disconnect Bluetooth devices with a single button press
+- **Visual state indicators** - Button shows different states with colored overlays:
+  - Disconnected (default icon)
+  - Connecting (orange dot)
+  - Connected (green dot)
+  - Error (red dot)
+- **Toggle functionality** - Press once to connect, press again to disconnect
+- **Audio notifications** - Windows system sounds for success and error states
+- **Visual notifications** - Temporary text display on button ("Connected!", "Disconnected!", "Error!")
+- **Multi-device support** - Add multiple plugin instances for different Bluetooth devices
+- **Configurable device name** - Set target device in Property Inspector
+- **AutoHotkey v2 migration** - Migrated script from v1 to v2 for better performance
+
+#### Core Features
+- Bluetooth device connection via Windows Bluetooth API
+- Support for audio devices (Handsfree and AudioSink profiles)
+- CLI support for automation and integration
+
+### Technical Details
+- Built with TypeScript and Node.js
+- Uses Stream Deck SDK v2
+- AutoHotkey v2 for Windows Bluetooth control
+- WebSocket communication between Stream Deck and plugin
+- State management for connection tracking
+
+### Package Contents
+- Stream Deck plugin with all icons
+- AutoHotkey runtime and script
+- Property Inspector for configuration
+- Complete documentation
+
+---
+
+## [Unreleased]
+
+### Added
+- The standalone AutoHotkey script now supports configurable `connect` and `disconnect` actions plus `a2dp` and `a2dp-hfp` audio profiles through editable defaults or command-line arguments.
+
+### Changed
+- Stereo-only standalone connections explicitly disable Hands-Free before enabling A2DP, while combined mode preserves the previous stereo-plus-microphone behavior.
+- The standalone script now uses the same bounded retry and speaker-only compatibility rules as the Windows helper bundled with the Stream Deck plugin.
+
+### Planned Features
+- Configurable connection timeout
+- Custom sound notifications
+- Auto-reconnect on connection loss
+- Connection history and logging
+
+## [1.1.0.5] - 2026-08-06
+
+### Added
+- After a successful Windows connection, the plugin now selects and verifies the matching default playback endpoint. With the combined A2DP + HFP profile, it also attempts to select and verify the device's microphone when Windows exposes one.
+
+### Fixed
+- Switching Bluetooth targets no longer leaves Windows audio routed to the previously active device.
+- Migrating a key from the implicit legacy default device now preserves that device as the pending handoff target, so it is disconnected before the newly selected device connects.
+
+## [1.1.0.4] - 2026-08-06
+
+### Added
+- Changing the device assigned to a Stream Deck key now creates an exclusive handoff: the next press disconnects that key's previous audio target before connecting the newly selected one.
+
+### Fixed
+- Rapid Property Inspector changes no longer race plugin-side handoff updates or restore an older device selection.
+- Connect/disconnect operations no longer report success when one exposed Bluetooth audio service failed to reach the requested state.
+- macOS helper failures now preserve `stderr` details for accurate not-found handling and diagnostics.
+- Delayed visual-feedback timers can no longer overwrite a newer action or settings state.
+
+## [1.1.0.3] - 2026-08-06
+
+### Fixed
+- A2DP-only connections no longer show an error when Windows reports `ERROR_NOT_FOUND` for an already unavailable Hands-Free profile.
+
+## [1.1.0.2] - 2026-08-06
+
+### Added
+- Stream Deck keys can now select **Stereo only (A2DP)** or **Stereo + microphone (A2DP + HFP)** on Windows.
+
+### Changed
+- Stereo-only connections explicitly disable Hands-Free before enabling A2DP, while existing keys without the new setting retain their combined-profile behavior.
+- Stereo-only keys reconcile A2DP on their first press when Windows reports only a device-wide Bluetooth connection.
+- Updated the bundled `ws` runtime dependency to 8.21.2.
+
+### Fixed
+- Manual helper launches without an attached console now return cleanly instead of showing an AutoHotkey invalid-handle dialog.

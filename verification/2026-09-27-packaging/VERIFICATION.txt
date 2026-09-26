@@ -1,0 +1,50 @@
+PACKAGING TRANSACTION — 2026-09-27
+Branch: fix/audit-20260926
+Changed branch/field: Windows Release ZIP packaging from final build-only build-manifest.json; tests/run_suite.py commands += package_windows_release; scripts/release-precheck.py verify_package now requires ZIP namelist == ['AirPodsBuddy.exe']; .gitattributes preserves rollback evidence bytes. No deployment, hardware use, tag, or publication.
+
+FOUR REOPENABLE ARTIFACTS
+MODIFIED_FILE: E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-packaging\MODIFIED_FILE (copy of scripts/package-windows-release.py; SHA256 5F264CEBDDE38C37B4EDF0E55786AFB60987BCDD9549E2021F7B78DB044F8CE4)
+DIFF_FILE: E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-packaging\DIFF_FILE (unified diff of nine changed/new code, test, documentation, and attribute files)
+VERIFICATION.txt: E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-packaging\VERIFICATION.txt
+ROLLBACK.sh: E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-packaging\ROLLBACK.sh
+Original run_suite.py SHA256 4D0267191C8A075D3092FED635B3A0768F2ED5892128885D196D03D94465BC8F; modified SHA256 181A3DA6B5FA180E5873B7D4128FDA12DD4CB7BC591A596598F3A232AACB69CE. New packager and its test did not exist at baseline. Tracked originals and modified copies are stored under original/ and modified/; rollback-hashes.tsv binds each file.
+Original release-precheck.py SHA256 28D94180582FC982987311F9C5AFC5FB80052FA5A307A1F1A8637B12CE3FCC49; modified SHA256 2A2E3BAB8A11D1D0EE6DBD1846FE386EBF6ECB6BFE9FF56867D8F2B65FCB8843.
+
+BASELINE
+Command: python tests/run_suite.py --output verification/2026-09-27-packaging/baseline-suite
+Input: pre-packager tests/run_suite.py and then-current source tree (before parent added strict_gate failure-snapshot self-test).
+Literal result: OFFLINE_PASS assertions=241 suites=16
+Exit status: 0
+Baseline console: verification/2026-09-27-packaging/baseline-console.txt
+Command: python tests/release_precheck_test.py
+Input: original release-precheck.py ZIP verifier and existing fault-injection fixtures.
+Literal result: RESULT failures=0 tests=17
+Exit status: 0
+
+MODIFIED
+Command: python tests/package_windows_release_test.py
+Input: isolated synthetic build-only manifest, exe, full source input inventory, newly requested output directory; mutated exe/source/UI/manifest/inventory/ZIP and concurrent-source-change cases.
+Literal result: RESULT failures=0 tests=18
+Exit status: 0
+Command: python tests/release_precheck_test.py
+Input: modified ZIP entry verifier; extra ZIP entry present with otherwise matching exe.
+Literal result: RESULT failures=0 tests=18 (including PASS extra_zip_entry_rejected)
+Exit status: 0
+Command: python tests/run_suite.py --output verification/2026-09-27-packaging/modified-suite-final2
+Input: changed run_suite.py, ZIP packaging and precheck, and then-current source tree including strict_gate read-only failure snapshot self-test.
+Literal result: OFFLINE_PASS assertions=261 suites=17
+Exit status: 0
+Modified console: verification/2026-09-27-packaging/modified-console-final2.txt
+Command: python scripts/package-windows-release.py --build-dir dist/build-eed4c9b5184945ff88416baa37d758f6 --output-dir verification/2026-09-27-packaging/must-not-exist-old-build-output
+Input: actual older build-manifest.json and exe against current source.
+Literal result: PACKAGE_FAIL stale build manifest input: airpods_buddy.ahk
+Exit status: 1 (expected rejection); output directory was not created.
+
+ROLLBACK
+Command: & 'D:\Program Files\Git\bin\bash.exe' verification/2026-09-27-packaging/ROLLBACK.sh verification/2026-09-27-packaging/rollback-test-copy-v3
+Input: separate rollback-test-copy-v3/ containing all nine modified/new files with verified modified SHA256 values.
+Literal result: ROLLBACK_OK original_sha256=4D0267191C8A075D3092FED635B3A0768F2ED5892128885D196D03D94465BC8F new_files_removed=true
+Exit status: 0
+Readback: ROLLBACK_V3_READBACK_OK; the copy restored baseline run_suite.py, release-precheck.py, tests, attributes, and docs byte hashes, removed both newly added files. Live source stayed changed: LIVE_PACKAGER_EXISTS=True and LIVE_PRECHECK_MODIFIED=True. No installed app or Bluetooth state was changed.
+
+The first modified full-suite run was interrupted by a concurrent strict_gate.py self-test fixture KeyError; the parent repaired that separate self-test and the final full-suite run above passed. This transaction does not claim five-cycle hardware stability or Release readiness.

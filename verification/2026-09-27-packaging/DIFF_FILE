@@ -1,0 +1,390 @@
+--- a/scripts/package-windows-release.py
++++ b/scripts/package-windows-release.py
+@@ -0,0 +1,143 @@
++"""Build the exact Windows update ZIP from a fresh build-only directory.
++
++This command never builds, installs, connects hardware, or publishes a release.
++The output directory must be new so an older asset cannot be silently reused.
++"""
++from __future__ import annotations
++
++import argparse
++import hashlib
++import json
++from pathlib import Path
++import re
++import sys
++import zipfile
++
++
++ROOT = Path(__file__).resolve().parents[1]
++ASSET = 'AirPodsBuddy-Windows.zip'
++EXE = 'AirPodsBuddy.exe'
++SHA256 = re.compile(r'[0-9A-F]{64}')
++VERSION = re.compile(r'APP_VERSION\s*:=\s*"([^"]+)"')
++STATIC_INPUTS = (
++    'airpods_buddy.ahk', 'webui/index.html', 'webui/index_built.html',
++    'webui/pet.html', 'webui/pet_built.html', 'webui/build_ui.ps1',
++    'tools/noise_mode.ps1', 'tools/ahk2exe_stable/Ahk2Exe.exe',
++    'tools/ahk_v2_portable/AutoHotkey64.exe', 'scripts/background-worker.ps1',
++    'scripts/KsBluetooth.cs', 'scripts/KsBluetooth.psm1',
++    'THIRD_PARTY_NOTICES.md', 'scripts/UpdateCore.psm1',
++    'scripts/update-swap.ps1',
++)
++
++
++def digest(path: Path) -> str:
++    value = hashlib.sha256()
++    with path.open('rb') as source:
++        for chunk in iter(lambda: source.read(1024 * 1024), b''):
++            value.update(chunk)
++    return value.hexdigest().upper()
++
++
++def expected_inputs(root: Path) -> set[str]:
++    names = set(STATIC_INPUTS)
++    names.update(path.relative_to(root).as_posix() for path in (root / 'lib').rglob('*')
++                 if path.is_file() and path.suffix.lower() in ('.ahk', '.dll'))
++    names.update(path.relative_to(root).as_posix() for path in (root / 'assets').glob('*.ico')
++                 if path.is_file())
++    names.update(path.relative_to(root).as_posix() for path in (root / 'webui/assets').iterdir()
++                 if path.is_file())
++    return names
++
++
++def verify_build(build_dir: Path, root: Path) -> dict:
++    manifest_path = build_dir / 'build-manifest.json'
++    manifest = json.loads(manifest_path.read_text(encoding='utf-8-sig'))
++    if not isinstance(manifest, dict):
++        raise ValueError('invalid build manifest object')
++    inputs = manifest.get('inputs')
++    if not isinstance(inputs, dict):
++        raise ValueError('build manifest has no input snapshot')
++    expected = expected_inputs(root)
++    if set(inputs) != expected:
++        raise ValueError('build manifest input inventory differs from current source tree')
++    if any(not isinstance(value, str) or not SHA256.fullmatch(value) for value in inputs.values()):
++        raise ValueError('invalid build input hash')
++    for name, expected_hash in inputs.items():
++        if digest(root / name) != expected_hash:
++            raise ValueError(f'stale build manifest input: {name}')
++    source_hash = inputs['airpods_buddy.ahk']
++    if manifest.get('source') != source_hash:
++        raise ValueError('build manifest source hash differs from input snapshot')
++    source = (root / 'airpods_buddy.ahk').read_text(encoding='utf-8-sig')
++    version = VERSION.search(source)
++    if version is None or manifest.get('version') != version.group(1):
++        raise ValueError('build manifest version differs from current source')
++    exe_hash = manifest.get('sha256')
++    if not isinstance(exe_hash, str) or not SHA256.fullmatch(exe_hash):
++        raise ValueError('invalid build exe hash')
++    if digest(build_dir / EXE) != exe_hash:
++        raise ValueError('build exe differs from manifest')
++    return {'manifestSha256': digest(manifest_path), 'exeSha256': exe_hash,
++            'sourceSha256': source_hash, 'inputs': inputs, 'version': version.group(1)}
++
++
++def verify_zip(archive_path: Path, expected_exe_hash: str) -> str:
++    with zipfile.ZipFile(archive_path) as archive:
++        if archive.namelist() != [EXE]:
++            raise ValueError('release ZIP must contain only one root AirPodsBuddy.exe')
++        if archive.testzip() is not None:
++            raise ValueError('release ZIP CRC check failed')
++        value = hashlib.sha256()
++        with archive.open(EXE) as exe:
++            for chunk in iter(lambda: exe.read(1024 * 1024), b''):
++                value.update(chunk)
++        if value.hexdigest().upper() != expected_exe_hash:
++            raise ValueError('ZIP root exe differs from build manifest and source exe')
++    return digest(archive_path)
++
++
++def package(build_dir: Path, output_dir: Path, root: Path = ROOT) -> dict:
++    build_dir = build_dir.resolve(strict=True)
++    root = root.resolve(strict=True)
++    output_dir = output_dir.absolute()
++    if output_dir.exists():
++        raise ValueError('output directory already exists; choose a new directory')
++    before = verify_build(build_dir, root)
++    output_dir.mkdir(parents=False, exist_ok=False)
++    archive_path = output_dir / ASSET
++    try:
++        with zipfile.ZipFile(archive_path, 'x', compression=zipfile.ZIP_DEFLATED,
++                             compresslevel=9) as archive:
++            archive.write(build_dir / EXE, arcname=EXE)
++        zip_hash = verify_zip(archive_path, before['exeSha256'])
++        after = verify_build(build_dir, root)
++        if after != before:
++            raise ValueError('build inputs or manifest changed during packaging')
++        if verify_zip(archive_path, after['exeSha256']) != zip_hash:
++            raise ValueError('release ZIP changed during final verification')
++    except Exception:
++        archive_path.unlink(missing_ok=True)
++        output_dir.rmdir()
++        raise
++    return {'path': str(archive_path), 'zipSha256': zip_hash, **before}
++
++
++def main(argv: list[str] | None = None) -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument('--build-dir', type=Path, required=True,
++                        help='final build-only dist/build-... directory')
++    parser.add_argument('--output-dir', type=Path, required=True,
++                        help='new directory for the exact Windows Release asset')
++    args = parser.parse_args(argv)
++    try:
++        result = package(args.build_dir, args.output_dir)
++    except (OSError, ValueError, KeyError, json.JSONDecodeError, zipfile.BadZipFile) as exc:
++        print(f'PACKAGE_FAIL {exc}')
++        return 1
++    print(f'PACKAGE_OK asset={result["path"]} version={result["version"]} '
++          f'exeSha256={result["exeSha256"]} zipSha256={result["zipSha256"]}')
++    return 0
++
++
++if __name__ == '__main__':
++    sys.exit(main())
+--- a/tests/package_windows_release_test.py
++++ b/tests/package_windows_release_test.py
+@@ -0,0 +1,155 @@
++"""Offline release ZIP packaging tests; never build, deploy, or use hardware."""
++from pathlib import Path
++import hashlib
++import importlib.util
++import json
++import shutil
++import subprocess
++import sys
++import tempfile
++from unittest.mock import patch
++import zipfile
++
++
++ROOT = Path(__file__).resolve().parents[1]
++SCRIPT = ROOT / 'scripts/package-windows-release.py'
++spec = importlib.util.spec_from_file_location('release_packager', SCRIPT)
++packager = importlib.util.module_from_spec(spec)
++spec.loader.exec_module(packager)
++passes = 0
++
++
++def check(name, condition):
++    global passes
++    if not condition:
++        raise AssertionError(name)
++    passes += 1
++    print('PASS', name)
++
++
++def rejects(callback):
++    try:
++        callback()
++    except (OSError, ValueError, KeyError, json.JSONDecodeError, zipfile.BadZipFile):
++        return True
++    return False
++
++
++def sha(data):
++    return hashlib.sha256(data).hexdigest().upper()
++
++
++def fixture(base):
++    root = base / 'source'
++    root.mkdir()
++    for name in packager.STATIC_INPUTS:
++        path = root / name
++        path.parent.mkdir(parents=True, exist_ok=True)
++        path.write_bytes(b'fixture input\n')
++    (root / 'airpods_buddy.ahk').write_text('APP_VERSION := "1.9.20"\n', encoding='utf-8')
++    for name in ('lib/AudioRouting.ahk', 'assets/icon.ico', 'webui/assets/pet.png'):
++        path = root / name
++        path.parent.mkdir(parents=True, exist_ok=True)
++        path.write_bytes(b'dynamic fixture\n')
++    inputs = {name: packager.digest(root / name) for name in packager.expected_inputs(root)}
++    build = base / 'build-final'
++    build.mkdir()
++    exe = b'MZ final build-only executable fixture'
++    (build / packager.EXE).write_bytes(exe)
++    manifest = {'version': '1.9.20', 'source': inputs['airpods_buddy.ahk'],
++                'sha256': sha(exe), 'inputs': inputs, 'builtAt': '2026-09-27T00:00:00Z'}
++    (build / 'build-manifest.json').write_text(json.dumps(manifest), encoding='utf-8')
++    return root, build, manifest, exe
++
++
++with tempfile.TemporaryDirectory(prefix='AirPodsBuddy_package_test_') as temp:
++    base = Path(temp)
++    root, build, manifest, exe = fixture(base)
++    output = base / 'new-release-output'
++    result = packager.package(build, output, root)
++    asset = output / packager.ASSET
++    check('new_directory_contains_exact_asset', asset.is_file() and list(output.iterdir()) == [asset])
++    with zipfile.ZipFile(asset) as archive:
++        check('zip_has_only_root_exe', archive.namelist() == [packager.EXE])
++        check('zip_root_exe_matches_source_exe', archive.read(packager.EXE) == exe)
++    check('zip_exe_matches_manifest_hash', result['exeSha256'] == manifest['sha256'])
++    check('zip_sha256_readback', result['zipSha256'] == packager.digest(asset))
++    original_asset_hash = packager.digest(asset)
++    check('existing_output_refused', rejects(lambda: packager.package(build, output, root)))
++    check('existing_asset_untouched', packager.digest(asset) == original_asset_hash)
++
++    script_in_fixture = root / 'scripts/package-windows-release.py'
++    script_in_fixture.parent.mkdir(parents=True, exist_ok=True)
++    shutil.copyfile(SCRIPT, script_in_fixture)
++    cli_output = base / 'cli-output'
++    cli = subprocess.run([sys.executable, str(script_in_fixture), '--build-dir', str(build),
++                          '--output-dir', str(cli_output)], cwd=root, capture_output=True, text=True)
++    check('cli_success_and_hashes', cli.returncode == 0 and 'PACKAGE_OK asset=' in cli.stdout
++          and manifest['sha256'] in cli.stdout and (cli_output / packager.ASSET).is_file())
++    cli_repeat = subprocess.run([sys.executable, str(script_in_fixture), '--build-dir', str(build),
++                                 '--output-dir', str(cli_output)], cwd=root, capture_output=True, text=True)
++    check('cli_repeat_refuses_overwrite', cli_repeat.returncode == 1
++          and 'PACKAGE_FAIL output directory already exists' in cli_repeat.stdout)
++
++    (build / packager.EXE).write_bytes(b'MZ stale or modified exe')
++    check('changed_exe_refused_before_creating_output',
++          rejects(lambda: packager.package(build, base / 'bad-exe', root))
++          and not (base / 'bad-exe').exists())
++    (build / packager.EXE).write_bytes(exe)
++    source = root / 'airpods_buddy.ahk'
++    original_source = source.read_bytes()
++    source.write_text('APP_VERSION := "1.9.21"\n', encoding='utf-8')
++    check('stale_source_refused', rejects(lambda: packager.package(build, base / 'stale-source', root)))
++    source.write_bytes(original_source)
++    ui = root / 'webui/index_built.html'
++    original_ui = ui.read_bytes()
++    ui.write_bytes(b'changed UI fixture')
++    check('stale_ui_input_refused', rejects(lambda: packager.package(build, base / 'stale-ui', root)))
++    ui.write_bytes(original_ui)
++
++    new_lib = root / 'lib/new-module.ahk'
++    new_lib.write_bytes(b'new build input')
++    check('new_build_input_refused', rejects(lambda: packager.package(build, base / 'new-input', root)))
++    new_lib.unlink()
++
++    manifest_path = build / 'build-manifest.json'
++    original_manifest = manifest_path.read_bytes()
++    missing = dict(manifest)
++    missing['inputs'] = {k: v for k, v in manifest['inputs'].items() if k != 'webui/index.html'}
++    manifest_path.write_text(json.dumps(missing), encoding='utf-8')
++    check('missing_build_input_refused', rejects(lambda: packager.package(build, base / 'missing-input', root)))
++    manifest_path.write_bytes(original_manifest)
++
++    bad_hash = dict(manifest)
++    bad_hash['sha256'] = '0' * 64
++    manifest_path.write_text(json.dumps(bad_hash), encoding='utf-8')
++    check('manifest_exe_mismatch_refused', rejects(lambda: packager.package(build, base / 'bad-hash', root)))
++    manifest_path.write_bytes(original_manifest)
++
++    changed_during = base / 'changed-during'
++    real_verify = packager.verify_build
++    calls = 0
++
++    def mutate_on_second_check(build_dir, source_root):
++        global calls
++        calls += 1
++        if calls == 2:
++            ui.write_bytes(b'changed during zip write')
++        return real_verify(build_dir, source_root)
++
++    with patch.object(packager, 'verify_build', side_effect=mutate_on_second_check):
++        check('concurrent_source_change_refused_and_partial_removed',
++              rejects(lambda: packager.package(build, changed_during, root))
++              and not changed_during.exists())
++    ui.write_bytes(original_ui)
++
++    tampered_zip = base / 'tampered.zip'
++    with zipfile.ZipFile(tampered_zip, 'w') as archive:
++        archive.writestr(packager.EXE, b'MZ stale fixture')
++    check('tampered_zip_exe_rejected', rejects(lambda: packager.verify_zip(tampered_zip, manifest['sha256'])))
++    with zipfile.ZipFile(tampered_zip, 'w') as archive:
++        archive.writestr(packager.EXE, exe)
++        archive.writestr('extra.txt', b'not allowed')
++    check('extra_zip_entry_rejected', rejects(lambda: packager.verify_zip(tampered_zip, manifest['sha256'])))
++
++print(f'RESULT failures=0 tests={passes}')
+--- a/tests/run_suite.py
++++ b/tests/run_suite.py
+@@ -17,6 +17,7 @@
+     ('p0_timeline', ['python', 'tests/p0_timeline.py', '--self-test']),
+     ('strict_gate', ['python', 'tests/strict_gate.py', '--self-test']),
+     ('release_precheck', ['python', 'tests/release_precheck_test.py']),
++    ('package_windows_release', ['python', 'tests/package_windows_release_test.py']),
+     ('audio_sessions', ['python', 'tests/audio_sessions.py', '--self-test']),
+     ('target_endpoint', ['python', 'tests/target_endpoint_test.py']),
+     ('audio', ['python', 'tests/run_ahk.py', 'tests/audio_routing_test.ahk']),
+--- a/doc/08-更新与后台任务.md
++++ b/doc/08-更新与后台任务.md
+@@ -9,6 +9,10 @@
+ Windows CI 只运行离线回归与 build-only，不运行真实耳机，也不上传资产。真实发版前先在隔离设置下运行 `python tests/strict_gate.py --address <12位目标地址> --settings <仓库内micOff设置文件> --cycles 5 --dwell 15 --release-gate --output <新的仓库内证据目录>`；此路径不改写生产重试函数，首错即停，只有完整五轮成功才生成 `gate-pass.json`。回执绑定运行时源码、设置、逐阶段结果及各阶段原始日志 SHA256；诊断用 `--single-request` 明确被发布门槛拒绝。
+ 
+ 用最终源码执行 `scripts/build-deploy.ps1` 的 build-only，依据该构建产物制作精确命名的 `AirPodsBuddy-Windows.zip`。安装候选后，再独立完成人工验收回执 `installed-acceptance.json`：`installedExePath` 指向实际运行的安装 exe，`installedExeSha256` 与最终构建一致，`gateResultsSha256` 绑定本次生产五轮结果；`checks` 中的 `restartReconnect`、`defaultOutputListening`、`micOn` 均需 `passed:true`、同目录证据文件名 `evidence` 与对应 `sha256`，听音还需 `userConfirmed:true`，micOn 需 `autoMicSwitch:"1"`。回执应在真实重启复连、默认路径听音及 micOn 检查后由验收人填写，预检不自动生成成功回执。上传前运行 `python scripts/release-precheck.py --gate-dir <通过的证据目录> --build-dir <最终构建目录> --zip <最终AirPodsBuddy-Windows.zip> --acceptance <installed-acceptance.json>`；预检要求生产五轮 31 阶段、最多一次有界连接重试，当前源码/构建/ZIP 内 exe 一致，安装版及三项人工验收证据哈希一致。预检只验证提交证据的内部一致性，**不自行证明人工回执所述听音或操作真实发生**；验收人仍须核对原始记录与用户确认。预检输出 ZIP SHA256 供上传后与 GitHub 资产 digest 交叉核对；缺任一项即不发 Release。
++
++最终 build-only 目录确定后，用 `python scripts/package-windows-release.py --build-dir <最终dist/build-...目录> --output-dir <新的输出目录>` 离线制作资产。输出目录必须尚不存在；脚本核对 `build-manifest.json` 所列全部编译输入与当前源码树清单、版本、源文件哈希及 exe 哈希，打包后再次核对以拒绝构建漂移；ZIP 只含根目录 `AirPodsBuddy.exe`，并读回验证 CRC、exe SHA256 与构建清单一致。它不编译、不部署、不上传；已有输出拒绝覆盖。完成后仍须执行上一段独立生产五轮、安装版人工验收及 `release-precheck.py`，不能凭 ZIP 制作成功宣布可发布。
++
++上传前预检也要求 ZIP **唯一**条目就是根目录 `AirPodsBuddy.exe`；有额外目录或文件的包会拒绝，避免打包器正确而预检放过其他工具生成的杂项资产。
+ 
+ ## 修改原因
+ 旧更新器直接接受网页 URL，同步下载，固定临时目录、未检查 tar 退出码、脚本追加且无版本健康回滚。旧反馈把 no-cors opaque 响应当送达，蓝牙与网络阻塞宿主。
+--- a/doc/04-项目进度.md
++++ b/doc/04-项目进度.md
+@@ -1,3 +1,13 @@
++# 2026-09-27 · 最终 Windows ZIP 离线打包防线
++
++新增 `python scripts/package-windows-release.py --build-dir <最终dist/build-...> --output-dir <新的输出目录>`：只读最终构建清单与当前全部编译输入，核对版本、源码/exe SHA256，拒绝旧清单与已有输出目录；生成仅含根目录 `AirPodsBuddy.exe` 的精确 `AirPodsBuddy-Windows.zip` 并读回验哈希。离线故障注入 18 项已接入 `tests/run_suite.py`；不部署、不发布，不替代生产五轮真机与安装版验收。当前 P0 未闭环，仍未 Release。
++
++同步收紧 `scripts/release-precheck.py`：ZIP 必须仅有根 exe 一个条目，额外文件也拒绝；新增 1 项反例。完整离线 261 项/17 套通过。
++
++严格门槛脚本在源操作失败后会追加只读链路、端点、三个默认角色及音频会话快照，并保留原失败退出码；本次仅跑离线自测，未重新操作耳机。
++
++---
++
+ # 2026-09-27 · 五轮单请求发版门槛仍失败，补发布预检
+ 
+ 隔离 `--single-request` 五轮对照（`verification/2026-09-27-single5/`）从目标 link=1/播放 ACTIVE/三默认输出角色一致起步，但第 1 轮断开约 39.48 秒后仍 `disconnect_failed`、link=1、exit5，脚本按首错即停，**没有进入重连**。本轮 render 与 capture 的目标 KS 断开请求均返回 HRESULT0，仅表示请求被接受。约 01:54 CST（测试后约15分钟）的独立只读快照为目标 connected=0、render/capture state=4、默认输出三角色回 Realtek；然而仍运行的旧安装版日志另记 01:53:15/01:53:35 两条 `rpc: disconnect`、01:53:24 旧服务后端 `hfp=ok a2dp=ok`、01:54:00 link=0，事件发起者未知。因此 01:54 状态已受另一断开操作影响，不能归为单请求测试的迟到结果，不能把39.48秒失败改写为通过。旧安装版及其设置未变。单请求连接假设本轮未得到检验，五轮门槛未过，候选仍不部署、不发 Release。
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -1,4 +1,10 @@
+ # v1.9.20（2026-09-26，KS 连接候选，未发 Release）
++
++- 2026-09-27 新增仅离线的 Windows Release 资产打包命令：从最终 build-only 清单校验全部编译输入、版本及 exe SHA256，写入新的输出目录且 ZIP 仅含根 exe，打包后读回并拒绝源码漂移/旧包覆盖；18 项故障注入接入完整离线回归。此项不代替五轮真机和安装版验收，未发布。
++
++- 同步收紧发布预检：ZIP 必须只有根目录 exe 一个条目，额外文件也拒绝；新增 1 项故障注入。完整离线 261 项/17 套通过。
++
++- 严格门槛源操作失败后补只读链路、端点、默认角色与音频会话快照，不覆盖原退出码；只做离线自测，未重新操作耳机。
+ 
+ - 2026-09-27 发布预检防线：未改写生产路径的严格五轮通过回执绑定运行时源码/设置/逐阶段结果和原始日志哈希，诊断 `--single-request` 结果不可放行；预检核对 31 阶段、连接有界重试预算、最终 ZIP 内 exe 与构建清单/实物 exe 哈希一致，还必须提供安装版哈希、重启复连、用户默认路径听音及 micOn 的独立验收回执与证据。现有旧 ZIP 被拒绝。最新单请求真机对照第 1 轮断开约39.48秒后仍 link=1、exit5，未进入重连；五轮门槛未过，不部署、不发 Release。发布预检离线新增17项，另将只读音频会话工具2项自测接入，完整236项/16套通过。
+ 
+--- a/scripts/release-precheck.py
++++ b/scripts/release-precheck.py
+@@ -122,8 +122,8 @@
+             'build manifest runtime inputs differ from current files')
+     with zipfile.ZipFile(archive_path) as archive:
+         require(archive.testzip() is None, 'release ZIP failed CRC verification')
+-        require(archive.namelist().count('AirPodsBuddy.exe') == 1,
+-                'release ZIP must contain exactly one root AirPodsBuddy.exe')
++        require(archive.namelist() == ['AirPodsBuddy.exe'],
++                'release ZIP must contain only one root AirPodsBuddy.exe')
+         packaged_hash = hashlib.sha256(archive.read('AirPodsBuddy.exe')).hexdigest().upper()
+     require(packaged_hash == exe_hash, 'release ZIP EXE differs from final build EXE')
+     return {'version': manifest['version'], 'sourceSha256': source_hash,
+--- a/tests/release_precheck_test.py
++++ b/tests/release_precheck_test.py
+@@ -184,6 +184,11 @@
+     check('changed_or_failed_results_rejected', fails(lambda: guard.verify_gate(gate, package)))
+ 
+     with zipfile.ZipFile(archive, 'w') as z:
++        z.writestr('AirPodsBuddy.exe', (build / 'AirPodsBuddy.exe').read_bytes())
++        z.writestr('extra.txt', b'not part of the updater asset')
++    check('extra_zip_entry_rejected', fails(lambda: guard.verify_package(build, archive, source)))
++
++    with zipfile.ZipFile(archive, 'w') as z:
+         z.writestr('AirPodsBuddy.exe', b'MZ stale candidate')
+     check('stale_zip_exe_rejected', fails(lambda: guard.verify_package(build, archive, source)))
+ 
+--- a/.gitattributes
++++ b/.gitattributes
+@@ -1 +1,4 @@
+ verification/2026-09-27-release-guard/ROLLBACK.sh text eol=lf
++.gitattributes text eol=lf
++verification/2026-09-27-packaging/** -text -diff
++verification/2026-09-27-packaging/ROLLBACK.sh text eol=lf diff

@@ -1,0 +1,19 @@
+PASS new_directory_contains_exact_asset
+PASS zip_has_only_root_exe
+PASS zip_root_exe_matches_source_exe
+PASS zip_exe_matches_manifest_hash
+PASS zip_sha256_readback
+PASS existing_output_refused
+PASS existing_asset_untouched
+PASS cli_success_and_hashes
+PASS cli_repeat_refuses_overwrite
+PASS changed_exe_refused_before_creating_output
+PASS stale_source_refused
+PASS stale_ui_input_refused
+PASS new_build_input_refused
+PASS missing_build_input_refused
+PASS manifest_exe_mismatch_refused
+PASS concurrent_source_change_refused_and_partial_removed
+PASS tampered_zip_exe_rejected
+PASS extra_zip_entry_rejected
+RESULT failures=0 tests=18
