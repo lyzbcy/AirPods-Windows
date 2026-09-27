@@ -13,7 +13,7 @@
   - `mac/AirPodsBuddyMac/` — Mac 版（Swift 菜单栏应用，macOS CI 编译和单测已通过，真机验收另记）
   - `doc/` — 知识库（**必读**，见下）
   - `tools/` — 构建工具（gitignore，下载方式见 doc/02 §7）
-- **当前版本**：Windows v1.9.20 正式 Release 已于 2026-09-27 16:38 公开，GitHub Latest；`main`、tag peeled 与 Release target 均为 `e15fb9046056768eec9948883f6d7a633895fdc3`，唯一 ZIP SHA256 `4E6AC4F14E7ADC8C95248FB4B9FAE2EEEC68974EB70421A24B9E4684EC009AC9`。最终提交 Windows CI `36306464529` 成功。15:49 新版部署、16:16 用户确认从 AirPods 听到默认输出；历史五轮失败仍在发布说明披露。Release：`https://github.com/lyzbcy/AirPods-Windows/releases/tag/v1.9.20`。Mac 状态以 doc/06 与真实构建记录为准
+- **当前版本**：Windows v1.9.20 正式 Release 已于 2026-09-27 16:38 公开，GitHub Latest；发布 tag peeled 与 Release target 均为 `e15fb9046056768eec9948883f6d7a633895fdc3`；main 后续只追加发布记录文档，唯一 ZIP SHA256 `4E6AC4F14E7ADC8C95248FB4B9FAE2EEEC68974EB70421A24B9E4684EC009AC9`。最终提交 Windows CI `36306464529` 成功。15:49 新版部署、16:16 用户确认从 AirPods 听到默认输出；历史五轮失败仍在发布说明披露。Release：`https://github.com/lyzbcy/AirPods-Windows/releases/tag/v1.9.20`。Mac 状态以 doc/06 与真实构建记录为准
 
 ## 连接/断开进度最新候选（2026-09-27）
 
