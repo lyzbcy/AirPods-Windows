@@ -13,11 +13,11 @@
   - `mac/AirPodsBuddyMac/` — Mac 版（Swift 菜单栏应用，macOS CI 编译和单测已通过，真机验收另记）
   - `doc/` — 知识库（**必读**，见下）
   - `tools/` — 构建工具（gitignore，下载方式见 doc/02 §7）
-- **当前版本**：Windows 源码 v1.9.20 候选；正式 Release 仍是草稿。15:49 新进度 UI 候选已部署且启动导航/list RPC 通过；此前用户反馈对应 15:11 的旧候选，不代表新界面或最终听音验收。main/tag 与草稿资产仍旧，最终听音与资产复验仍待完成。Mac 状态以 doc/06 与真实构建记录为准
+- **当前版本**：Windows v1.9.20 正式发版候选。15:49 新进度 UI 已部署；16:16 安装版真实连接日志与用户明确从 AirPods 听到默认输出的回执对应。代码提交 `deddcc3` 的 Windows CI `36304899963` 已通过；历史五轮失败须继续披露。最终 main/tag/资产与 GitHub Release 状态以发布核对记录为准。Mac 状态以 doc/06 与真实构建记录为准
 
 ## 连接/断开进度最新候选（2026-09-27）
 
-后端 `progress` 按实际请求、链路、一次有界重试、播放与断开核实阶段返回；前端小宠物/圆形主按钮持续动效显示第 N / M 步、已等待时间和**当前阶段观察窗口**，不是整体 ETA 或百分比。结果说明持留到设备状态变化，`ready` 仍需用户试听；连接请求提交完成后可取消，重试 worker 中取消会明确排队；断开中禁重复点击，后端忙碌态拒绝重复请求，支持 `prefers-reduced-motion`。本机完整离线 `OFFLINE_PASS assertions=364 suites=20`、460×600 双场景截图已检查。本轮进度 UI 15:49 已部署（exe `59F859CA5A4A9A27E18245FE3785919072A3848BDFA33383E816F7FC99202D3A`，本地 ZIP `4E6AC4F14E7ADC8C95248FB4B9FAE2EEEC68974EB70421A24B9E4684EC009AC9`），尚待用户实际连接/听音反馈；未发布，草稿资产仍旧。协议读 `doc/02-架构与原理.md`，证据读 `verification/2026-09-27-progress-backend/` 与 `verification/2026-09-27-progress-frontend/`。
+后端 `progress` 按实际请求、链路、一次有界重试、播放与断开核实阶段返回；前端小宠物/圆形主按钮持续动效显示第 N / M 步、已等待时间和**当前阶段观察窗口**，不是整体 ETA 或百分比。结果说明持留到设备状态变化，`ready` 仍需用户试听；连接请求提交完成后可取消，重试 worker 中取消会明确排队；断开中禁重复点击，后端忙碌态拒绝重复请求，支持 `prefers-reduced-motion`。本机完整离线 `OFFLINE_PASS assertions=364 suites=20`、460×600 双场景截图已检查。本轮进度 UI 15:49 已部署（exe `59F859CA5A4A9A27E18245FE3785919072A3848BDFA33383E816F7FC99202D3A`，本地 ZIP `4E6AC4F14E7ADC8C95248FB4B9FAE2EEEC68974EB70421A24B9E4684EC009AC9`），用户已确认一次新安装版真实连接及从 AirPods 听到默认输出；连续五轮失败仍保留。发布状态以最终 GitHub Release 核对为准。协议读 `doc/02-架构与原理.md`，证据读 `verification/2026-09-27-progress-backend/` 与 `verification/2026-09-27-progress-frontend/`。
 
 ## P0 音频真相（2026-09-27，优先于下方历史记录）
 
