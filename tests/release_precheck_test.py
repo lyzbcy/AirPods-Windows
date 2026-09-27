@@ -42,7 +42,7 @@ def fixture(folder):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b'build input fixture\n')
     source = folder / 'airpods_buddy.ahk'
-    source.write_text('APP_VERSION := "1.9.20"\n', encoding='utf-8')
+    source.write_text('APP_VERSION := "1.9.21"\n', encoding='utf-8')
     for name in guard.RUNTIME_INPUTS:
         path = folder / name
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -59,7 +59,7 @@ def fixture(folder):
     (build / 'AirPodsBuddy.exe').write_bytes(exe)
     (build / 'build-manifest.json').write_text(json.dumps({
         'source': sha(source.read_bytes()), 'sha256': sha(exe),
-        'version': '1.9.20', 'inputs': inputs}), encoding='utf-8')
+        'version': '1.9.21', 'inputs': inputs}), encoding='utf-8')
     archive = folder / 'AirPodsBuddy-Windows.zip'
     with zipfile.ZipFile(archive, 'w') as z:
         z.writestr('AirPodsBuddy.exe', exe)
@@ -216,7 +216,7 @@ with tempfile.TemporaryDirectory() as tmp:
     runtime_file.write_text('changed runtime fixture\n', encoding='utf-8')
     check('build_runtime_drift_rejected', fails(lambda: guard.verify_package(build, archive, source)))
 
-    source.write_text('APP_VERSION := "1.9.21"\n', encoding='utf-8')
+    source.write_text('APP_VERSION := "1.9.22"\n', encoding='utf-8')
     check('changed_source_rejected', fails(lambda: guard.verify_package(build, archive, source)))
 
 for args in [('--cycles', '1', '--release-gate'),
@@ -247,8 +247,16 @@ def known_issue_fixture(folder):
     known_issues.write_text('# 已知问题\nWindows 蓝牙可能偶发连接、断开或路由失败。'
                             '用户可在设置中手动恢复 Windows 蓝牙；应用不自动全局重置。'
                             '请通过反馈入口提交日志。\n', encoding='utf-8')
-    decision = folder / 'decision.txt'
-    decision.write_text('projectOwner: 直接发正式 Release 并写明已知问题\n', encoding='utf-8')
+    decision = folder / 'decision.json'
+    decision_text = '非常好，非常好，实测下来没有任何问题，发版吧'
+    accepted_at = '2026-09-27T22:00:00+08:00'
+    decision.write_text(json.dumps({
+        'releaseVersion': package['version'], 'releaseKind': 'formal',
+        'acceptedAt': accepted_at, 'decisionText': decision_text,
+        'knownIssueContext': {
+            'version': '1.9.20',
+            'userText': '直接发正式 Release 并写明已知问题'}},
+        ensure_ascii=False), encoding='utf-8')
     installed = folder / 'installed-AirPodsBuddy.exe'
     checks = {}
     for name in ('launch', 'defaultOutputListening', 'feedbackEntry'):
@@ -261,8 +269,8 @@ def known_issue_fixture(folder):
     receipt.write_text(json.dumps({
         'releaseProfile': 'accepted-known-issue', 'hardwareGate': 'failed',
         'acceptedKnownIssue': True, 'failureEvidenceHistorical': True,
-        'decisionText': '直接发正式 Release 并写明已知问题',
-        'acceptedBy': 'projectOwner', 'acceptedAt': '2026-09-27T02:00:00+08:00',
+        'releaseVersion': package['version'], 'decisionText': decision_text,
+        'acceptedBy': 'projectOwner', 'acceptedAt': accepted_at,
         'decisionEvidence': decision.name, 'decisionEvidenceSha256': sha(decision.read_bytes()),
         'sourceSha256': package['sourceSha256'], 'exeSha256': package['exeSha256'],
         'zipSha256': package['zipSha256'], 'failureSourceSha256': sha(b'historical source'),
@@ -279,6 +287,19 @@ def edit_receipt(case, callback):
     value = json.loads(case['receipt'].read_text(encoding='utf-8'))
     callback(value)
     case['receipt'].write_text(json.dumps(value, ensure_ascii=False), encoding='utf-8')
+
+
+def edit_decision(case, callback):
+    path = case['receipt'].parent / 'decision.json'
+    value = json.loads(path.read_text(encoding='utf-8'))
+    callback(value)
+    path.write_text(json.dumps(value, ensure_ascii=False), encoding='utf-8')
+    edit_receipt(case, lambda row: row.update(decisionEvidenceSha256=sha(path.read_bytes())))
+
+
+def change_decision_text(case, field, value):
+    edit_decision(case, lambda row: row.update({field: value}))
+    edit_receipt(case, lambda row: row.update({field: value}))
 
 
 with tempfile.TemporaryDirectory() as tmp:
@@ -327,8 +348,26 @@ with tempfile.TemporaryDirectory() as tmp:
              lambda item: edit_receipt(item, lambda row: row.update(acceptedKnownIssue=False)))
     rejected('known_issue_requires_owner_decision',
              lambda item: edit_receipt(item, lambda row: row.update(decisionText='consider release')))
+    rejected('known_issue_requires_current_release_version',
+             lambda item: edit_receipt(item, lambda row: row.update(releaseVersion='1.9.20')))
+    rejected('known_issue_rejects_stale_versioned_decision_evidence',
+             lambda item: edit_decision(item, lambda row: row.update(releaseVersion='1.9.20')))
+    rejected('known_issue_rejects_non_formal_release_decision',
+             lambda item: edit_decision(item, lambda row: row.update(releaseKind='prerelease')))
+    rejected('known_issue_rejects_matching_but_denied_release_text',
+             lambda item: change_decision_text(item, 'decisionText', '先别发版吧，继续测'))
+    rejected('known_issue_rejects_matching_but_disagreed_release_text',
+             lambda item: change_decision_text(item, 'decisionText', '不同意正式发版'))
+    rejected('known_issue_rejects_denied_historical_issue_context',
+             lambda item: edit_decision(item, lambda row:
+                                        row['knownIssueContext'].update(userText='可以发版，别写已知问题')))
+    rejected('known_issue_rejects_missing_historical_issue_context',
+             lambda item: edit_decision(item, lambda row: row.pop('knownIssueContext')))
+    rejected('known_issue_rejects_future_issue_context',
+             lambda item: edit_decision(item, lambda row:
+                                        row['knownIssueContext'].update(version='1.9.22')))
     rejected('known_issue_rejects_unhashed_consent_evidence',
-             lambda item: (item['receipt'].parent / 'decision.txt').write_text('changed\n', encoding='utf-8'))
+             lambda item: (item['receipt'].parent / 'decision.json').write_text('changed\n', encoding='utf-8'))
     rejected('known_issue_requires_failure_source_hash',
              lambda item: edit_receipt(item, lambda row: row.pop('failureSourceSha256')))
     def zero_exit(item):
@@ -356,7 +395,7 @@ with tempfile.TemporaryDirectory() as tmp:
     rejected('known_issue_requires_feedback_entry_evidence',
              lambda item: (item['receipt'].parent / 'known-feedbackEntry.txt').write_text('changed\n', encoding='utf-8'))
     rejected('known_issue_rejects_final_source_drift',
-             lambda item: item['source'].write_text('APP_VERSION := "1.9.21"\n', encoding='utf-8'))
+             lambda item: item['source'].write_text('APP_VERSION := "1.9.22"\n', encoding='utf-8'))
     rejected('known_issue_rejects_final_zip_drift',
              lambda item: edit_receipt(item, lambda row: row.update(zipSha256='0' * 64)))
     p = subprocess.run([*cmd, '--gate-dir', str(case['failure'])], cwd=ROOT, capture_output=True)

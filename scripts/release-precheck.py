@@ -169,8 +169,7 @@ def verify_accepted_known_issue(receipt_path, failure_dir, known_issues_path, pa
             and receipt.get('acceptedKnownIssue') is True
             and receipt.get('failureEvidenceHistorical') is True,
             'known-issue release decision fields missing')
-    require(receipt.get('decisionText') == '直接发正式 Release 并写明已知问题'
-            and receipt.get('acceptedBy') == 'projectOwner',
+    require(receipt.get('acceptedBy') == 'projectOwner',
             'explicit project-owner release decision missing')
     try:
         accepted_at = datetime.fromisoformat(receipt.get('acceptedAt', '').replace('Z', '+00:00'))
@@ -192,8 +191,35 @@ def verify_accepted_known_issue(receipt_path, failure_dir, known_issues_path, pa
                 f'{name} evidence missing or changed')
         return path
 
-    check_receipt_file('decisionEvidenceSha256', receipt_path.parent,
-                       receipt.get('decisionEvidence'))
+    decision_path = check_receipt_file('decisionEvidenceSha256', receipt_path.parent,
+                                       receipt.get('decisionEvidence'))
+    decision = json.loads(decision_path.read_text(encoding='utf-8'))
+    require(isinstance(decision, dict)
+            and receipt.get('releaseVersion') == package['version']
+            and decision.get('releaseVersion') == package['version']
+            and decision.get('releaseKind') == 'formal'
+            and decision.get('acceptedAt') == receipt.get('acceptedAt')
+            and decision.get('decisionText') == receipt.get('decisionText'),
+            'versioned project-owner release decision differs from receipt or final package')
+    release_text = receipt.get('decisionText')
+    def explicitly_approves(text):
+        return (isinstance(text, str) and not re.search(
+                    r'不要|先别|别发|别写|暂不|不发|不发布|不同意|不可以|不行|不提|不用(?:写|披露)|取消', text)
+                and re.search(r'(?:可以|同意|直接|现在|马上|请|就|仍|准备好).*?(?:正式\s*Release|发版|发布)|(?:发版|发布)吧',
+                              text, re.IGNORECASE))
+    require(explicitly_approves(release_text),
+            'versioned project-owner text does not authorize formal release')
+    context = decision.get('knownIssueContext')
+    require(isinstance(context, dict), 'known-issue consent context missing')
+    context_version = context.get('version')
+    require(isinstance(context_version, str) and re.fullmatch(r'\d+\.\d+\.\d+', context_version)
+            and tuple(map(int, context_version.split('.'))) <= tuple(map(int, package['version'].split('.'))),
+            'known-issue consent context has no valid current or historical version')
+    context_text = context.get('userText')
+    require(explicitly_approves(context_text)
+            and re.search(r'已知问题|偶发.*(?:连接|断开|无声)|五轮', context_text)
+            and re.search(r'知悉|知道|接受|同意|写明|披露|仍', context_text),
+            'known-issue consent context does not acknowledge a formal release with known issues')
     require(not (failure_dir / 'gate-pass.json').exists(),
             'failed hardware gate cannot contain gate-pass.json')
     results_path = check_receipt_file('failureResultsSha256', failure_dir, 'results.json')
