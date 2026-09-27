@@ -13,7 +13,15 @@
   - `mac/AirPodsBuddyMac/` — Mac 版（Swift 菜单栏应用，macOS CI 编译和单测已通过，真机验收另记）
   - `doc/` — 知识库（**必读**，见下）
   - `tools/` — 构建工具（gitignore，下载方式见 doc/02 §7）
-- **当前版本**：Windows 源码 v1.9.20（正式发版准备，已知连接问题须公开披露；2026-09-27 严格五轮仍未通过），安装版/Release 状态按最新验收记录核对；Mac 状态以 doc/06 与真实构建记录为准
+- **当前版本**：Windows 源码 v1.9.20 候选；正式 Release 仍是草稿。15:49 新进度 UI 候选已部署且启动导航/list RPC 通过；此前用户反馈对应 15:11 的旧候选，不代表新界面或最终听音验收。main/tag 与草稿资产仍旧，最终听音与资产复验仍待完成。Mac 状态以 doc/06 与真实构建记录为准
+
+## 连接/断开进度最新候选（2026-09-27）
+
+后端 `progress` 按实际请求、链路、一次有界重试、播放与断开核实阶段返回；前端小宠物/圆形主按钮持续动效显示第 N / M 步、已等待时间和**当前阶段观察窗口**，不是整体 ETA 或百分比。结果说明持留到设备状态变化，`ready` 仍需用户试听；连接请求提交完成后可取消，重试 worker 中取消会明确排队；断开中禁重复点击，后端忙碌态拒绝重复请求，支持 `prefers-reduced-motion`。本机完整离线 `OFFLINE_PASS assertions=364 suites=20`、460×600 双场景截图已检查。本轮进度 UI 15:49 已部署（exe `59F859CA5A4A9A27E18245FE3785919072A3848BDFA33383E816F7FC99202D3A`，本地 ZIP `4E6AC4F14E7ADC8C95248FB4B9FAE2EEEC68974EB70421A24B9E4684EC009AC9`），尚待用户实际连接/听音反馈；未发布，草稿资产仍旧。协议读 `doc/02-架构与原理.md`，证据读 `verification/2026-09-27-progress-backend/` 与 `verification/2026-09-27-progress-frontend/`。
+
+## P0 音频真相（2026-09-27，优先于下方历史记录）
+
+此前旧安装版用户确认默认输出清晰提示音「完全没听到」，系统原生「测试」答复「完全没听到／系统报错」（不能确定是哪一项）。即使 `link=1`、目标 render ACTIVE、默认三角色均指向耳机，也不能显示为已证实可播放。独立 Core Audio 对照中，AirPods 自身 mix 的共享模式支持检查返回 `0x88890008`，Realtek 返回 `0x00000000`，根因未定。**候选工作树已实现**切默认前精确目标 render 的无声 `GetMixFormat → IsFormatSupported → Initialize(shared)` 预检：阴性不切默认、不标 `ready`/`audiook`、不补 KS；阳性仍需用户听音，不是成功回执。离线 `OFFLINE_PASS assertions=337 suites=20`、AHK build-only 编译通过；新候选 15:11 已部署、15:12 启动检查通过，但尚无用户听音确认。本地新 ZIP 与已安装 exe 一致，仍须复验安装版听音和 CI、更新远端资产，再审正式发版；旧验收与旧资产不可沿用。证据见 `verification/2026-09-27-coreaudio-readonly/RESULT.txt`、`verification/2026-09-27-p0-audio-truth/VERIFICATION.txt`。
 
 ## 必读文档（按角色）
 

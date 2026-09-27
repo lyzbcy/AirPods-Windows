@@ -53,6 +53,53 @@ class CoreAudioBackend {
         }
         return rows
     }
+    ; Read-only to Windows settings and silent: no Start, frames, or default-role
+    ; writes. This checks only whether an exact render ID can open a shared stream;
+    ; even success does not prove that a listener heard sound.
+    ProbeRender(id) {
+        devicePtr := 0, clientPtr := 0, mixPtr := 0, closestPtr := 0
+        try {
+            hr := ComCall(5, this.enumerator, "wstr", id, "ptr*", &devicePtr, "int") ; GetDevice
+            if (hr != 0)
+                return {status: "unknown", reason: "GetDevice HRESULT=" Format("{:08X}", hr & 0xFFFFFFFF)}
+            device := ComValue(13, devicePtr, 1)
+            state := 0
+            hr := ComCall(6, device, "uint*", &state, "int")
+            if (hr != 0 || state != 1)
+                return {status: "unknown", reason: "GetState HRESULT=" Format("{:08X}", hr & 0xFFFFFFFF) " state=" state}
+            iid := Buffer(16, 0)
+            if DllCall("ole32\CLSIDFromString", "wstr", "{1CB9AD4C-DBFA-4C32-B178-C2F568A703B2}", "ptr", iid, "int") != 0
+                return {status: "unknown", reason: "IAudioClient IID unavailable"}
+            hr := ComCall(3, device, "ptr", iid, "uint", 23, "ptr", 0, "ptr*", &clientPtr, "int") ; Activate, CLSCTX_ALL
+            if (hr != 0)
+                return {status: "unknown", reason: "Activate HRESULT=" Format("{:08X}", hr & 0xFFFFFFFF)}
+            client := ComValue(13, clientPtr, 1)
+            hr := ComCall(8, client, "ptr*", &mixPtr, "int") ; GetMixFormat
+            if (hr != 0 || !mixPtr)
+                return {status: "unknown", reason: "GetMixFormat HRESULT=" Format("{:08X}", hr & 0xFFFFFFFF)}
+            hr := ComCall(7, client, "int", 0, "ptr", mixPtr, "ptr*", &closestPtr, "int") ; shared IsFormatSupported
+            if (hr != 0)
+                return {status: AudioSharedFormatStatus(hr), reason: "IsFormatSupported(shared) HRESULT=" Format("{:08X}", hr & 0xFFFFFFFF)}
+            ; NOPERSIST prevents this short diagnostic render session from
+            ; persisting its volume/mute state. It does not avoid session creation.
+            hr := ComCall(3, client, "int", 0, "uint", 0x00080000, "int64", 0, "int64", 0, "ptr", mixPtr, "ptr", 0, "int") ; Initialize, never Start
+            if (hr != 0)
+                return {status: AudioSharedFormatStatus(hr), reason: "Initialize(shared) HRESULT=" Format("{:08X}", hr & 0xFFFFFFFF)}
+            return {status: "supported", reason: "shared stream initialized; playback not listened to"}
+        } catch as e {
+            return {status: "unknown", reason: "shared stream probe exception: " e.Message}
+        } finally {
+            if closestPtr
+                DllCall("ole32\CoTaskMemFree", "ptr", closestPtr)
+            if mixPtr
+                DllCall("ole32\CoTaskMemFree", "ptr", mixPtr)
+        }
+    }
+}
+
+AudioSharedFormatStatus(hr) {
+    code := hr & 0xFFFFFFFF
+    return code = 0 ? "supported" : (code = 0x88890008 ? "unsupported" : "unknown")
 }
 
 ; Literal matching only. Ambiguous matches fail closed instead of routing to a
@@ -130,6 +177,19 @@ AudioRouteMatchesId(id, backend?) {
         return AudioEndpointIdActive(id, 0, api)
     } catch {
         return false
+    }
+}
+
+AudioRenderProbe(id, backend?) {
+    if (id = "" || InStr(id, "SWD\"))
+        return {status: "unknown", reason: "invalid render endpoint ID"}
+    try {
+        api := IsSet(backend) ? backend : CoreAudioBackend()
+        if !AudioEndpointIdActive(id, 0, api)
+            return {status: "unknown", reason: "render endpoint not ACTIVE"}
+        return api.ProbeRender(id)
+    } catch as e {
+        return {status: "unknown", reason: "render probe unavailable: " e.Message}
     }
 }
 

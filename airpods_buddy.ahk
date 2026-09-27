@@ -385,13 +385,17 @@ WatchAudioRoutes() {
     global devices, deviceOps
     for dev in devices {
         key := DeviceKey(dev)
-        if !deviceOps.Has(key) || (deviceOps[key].state != "ready" && deviceOps[key].state != "audio_failed")
+        if !deviceOps.Has(key) || (deviceOps[key].state != "ready" && deviceOps[key].state != "audio_failed"
+            && deviceOps[key].state != "playback_unavailable" && deviceOps[key].state != "playback_unverified")
             continue
         wasReady := deviceOps[key].state = "ready"
         state := DeviceAudioState(key, dev.connected)
-        if (wasReady && state != "ready") {
+        if (wasReady && state = "audio_lost") {
             LogMsg("verified route lost address=" key " state=" state, "WARN")
             PushEvent("routelost", JsonStr(key))
+        } else if (wasReady && (state = "playback_unavailable" || state = "playback_unverified")) {
+            ; The default route can still match while the shared stream fails.
+            PushEvent("audioheld", JsonStr(key))
         }
     }
 }
@@ -1126,7 +1130,7 @@ MicPreferenceSet(value) {
 BeginDeviceOp(name, action) {
     global deviceOps, operationSerial, routeOwner, actionEpoch
     gen := ++operationSerial
-    deviceOps[name] := {gen: gen, state: action, started: A_TickCount, backend: "", container: "", renderId: "", captureId: "", targetEndpoints: "", address: "", micRequested: false, micRestore: false, retryCount: 0, retryEpoch: actionEpoch}
+    deviceOps[name] := {gen: gen, action: action, state: action, started: A_TickCount, phaseStarted: A_TickCount, backend: "", container: "", renderId: "", captureId: "", targetEndpoints: "", address: "", micRequested: false, micRestore: false, retryCount: 0, retryEpoch: actionEpoch, probeId: "", probeAt: -1, probeStatus: "unknown", probeReason: ""}
     if (action = "connect")
         routeOwner := gen
     return gen
@@ -1144,21 +1148,48 @@ CanRoute(name, gen) {
 
 SetOpState(name, gen, state) {
     global deviceOps
-    if OpCurrent(name, gen)
+    if OpCurrent(name, gen) && deviceOps[name].state != state {
         deviceOps[name].state := state
+        deviceOps[name].phaseStarted := A_TickCount
+    }
 }
 
 StartAudioVerify(name) {
     global deviceOps
-    if deviceOps.Has(name) && deviceOps[name].renderId != ""
+    if deviceOps.Has(name) && deviceOps[name].renderId != "" {
+        SetOpState(name, deviceOps[name].gen, "audio_pending")
         AudioVerifyTick(name, 9, deviceOps[name].gen)
+    }
+}
+
+; A route readback is not a playback check. Cache this silent exact-render
+; shared-stream probe so the 2s status/watchdog loop never opens a stream on
+; every tick. A new operation or a changed route invalidates its result.
+ProbeDeviceRender(name, gen, minInterval := 30000) {
+    global deviceOps
+    if !OpCurrent(name, gen)
+        return {status: "unknown", reason: "stale device operation"}
+    op := deviceOps[name]
+    id := op.renderId
+    age := A_TickCount - op.probeAt
+    if (op.probeId = id && op.probeAt >= 0 && age >= 0 && age < minInterval)
+        return {status: op.probeStatus, reason: op.probeReason}
+    probe := AudioRenderProbe(id)
+    op.probeId := id, op.probeAt := A_TickCount
+    op.probeStatus := probe.status, op.probeReason := probe.reason
+    return probe
 }
 
 AudioVerifyTick(name, left, gen) {
     global deviceOps, actionEpoch
     if (!CanRoute(name, gen) || deviceOps[name].retryEpoch != actionEpoch || deviceOps[name].state = "retry_cancelled")
         return
+    epoch := deviceOps[name].retryEpoch
+    renderId := deviceOps[name].renderId
     linkState := GetLinkState(name)
+    if (!CanRoute(name, gen) || deviceOps[name].retryEpoch != epoch || actionEpoch != epoch
+        || deviceOps[name].renderId != renderId || deviceOps[name].state = "retry_cancelled")
+        return
     if linkState = 0 {
         SetOpState(name, gen, "link_failed")
         PushEvent("linkfail", JsonStr(name))
@@ -1174,16 +1205,62 @@ AudioVerifyTick(name, left, gen) {
         }
         return
     }
-    renderId := deviceOps[name].renderId
-    if (renderId != "" && RenderSwitchToId(renderId)) {
-        SetOpState(name, gen, "ready")
-        LogMsg("audio route verified (render, roles 0/1/2): '" name "'")
-        OnConnectSuccess()
-        PetUpdate("ok")
-        PushEvent("audiook", JsonStr(name))
-        MicSwitchTo(name, gen)
-        return
+    ; Probe before changing defaults: a Windows endpoint can say ACTIVE while
+    ; rejecting its own shared mix format. Do not route users to that output.
+    if (renderId != "" && AudioEndpointIdActive(renderId, 0)) {
+        probe := ProbeDeviceRender(name, gen, 10000)
+        ; COM may yield while the user starts another operation. A stale probe
+        ; must never change a newer route, state, or UI after returning.
+        if (!CanRoute(name, gen) || deviceOps[name].retryEpoch != epoch || actionEpoch != epoch
+            || deviceOps[name].renderId != renderId || deviceOps[name].state = "retry_cancelled")
+            return
+        freshLink := GetLinkState(name)
+        if (!CanRoute(name, gen) || deviceOps[name].retryEpoch != epoch || actionEpoch != epoch
+            || deviceOps[name].renderId != renderId || deviceOps[name].state = "retry_cancelled")
+            return
+        if (freshLink = -1) {
+            ; The second link read is no more authoritative than the first.
+            ; Unknown remains a bounded wait, never an instant disconnect.
+            if (left > 1)
+                SetTimer(() => AudioVerifyTick(name, left - 1, gen), -1500)
+            else {
+                SetOpState(name, gen, "link_failed")
+                LogMsg("Bluetooth link query unavailable after playback precheck address=" name, "WARN")
+                PushEvent("linkfail", JsonStr(name))
+            }
+            return
+        }
+        if (freshLink != 1) {
+            SetOpState(name, gen, "link_failed")
+            LogMsg("Bluetooth link not up after playback precheck address=" name " state=" freshLink, "WARN")
+            PushEvent("linkfail", JsonStr(name))
+            return
+        }
+        if (probe.status != "supported") {
+            state := probe.status = "unsupported" ? "playback_unavailable" : "playback_unverified"
+            SetOpState(name, gen, state)
+            LogMsg("playback precheck failed address=" name " status=" state " reason=" probe.reason, "WARN")
+            PetUpdate("fail")
+            TrayTip("蓝牙已连接，但 Windows 播放端点无法打开或播放未验证。请查看 Windows 声音输出。", "AirPods 小助手", 2)
+            PushEvent("audioheld", JsonStr(name))
+            return
+        }
+        if RenderSwitchToId(renderId) {
+            if (!CanRoute(name, gen) || deviceOps[name].retryEpoch != epoch || actionEpoch != epoch
+                || deviceOps[name].renderId != renderId || deviceOps[name].state = "retry_cancelled")
+                return
+            SetOpState(name, gen, "ready")
+            LogMsg("shared playback precheck passed address=" name " render=" renderId "; actual sound not listened to")
+            OnConnectSuccess()
+            PetUpdate("ok")
+            PushEvent("audiook", JsonStr(name))
+            MicSwitchTo(name, gen)
+            return
+        }
     }
+    if (!CanRoute(name, gen) || deviceOps[name].retryEpoch != epoch || actionEpoch != epoch
+        || deviceOps[name].renderId != renderId || deviceOps[name].state = "retry_cancelled")
+        return
     SetOpState(name, gen, "audio_pending")
     if (left <= 1) {
         if ScheduleKsConnectRetry(name, gen, "audio")
@@ -1360,9 +1437,48 @@ BuildDevicesJson() {
         if (i > 1)
             out .= ","
         ; 单行拼接：v2 跨行 juxtaposition 不会续行，拆行会静默丢内容（踩过）
-        out .= '{"id":' JsonStr(DeviceKey(dev)) ',"name":' JsonStr(dev.name) ',"connected":' (dev.connected ? 'true' : 'false') ',"audioState":' JsonStr(DeviceAudioState(DeviceKey(dev), dev.connected)) ',"apple":' (IsAppleDevice(dev.name) ? 'true' : 'false') '}'
+        out .= '{"id":' JsonStr(DeviceKey(dev)) ',"name":' JsonStr(dev.name) ',"connected":' (dev.connected ? 'true' : 'false') ',"audioState":' JsonStr(DeviceAudioState(DeviceKey(dev), dev.connected)) ',"apple":' (IsAppleDevice(dev.name) ? 'true' : 'false') ',"progress":' DeviceProgressJson(DeviceKey(dev)) '}'
     }
     return out "]"
+}
+
+; This is a current-stage observation, not a percentage of total wall time.
+; Each budget is one bounded wait window; Windows APIs may block longer.
+; Terminal states deliberately return null.
+DeviceProgressJson(name) {
+    global deviceOps, pendingRetryDisconnect, actionEpoch
+    if !deviceOps.Has(name)
+        return "null"
+    ; A cancel accepted while the one target worker is still running has not
+    ; submitted a disconnect yet. Keep that distinction visible until dispatch.
+    if (IsObject(pendingRetryDisconnect) && pendingRetryDisconnect.name = name
+        && pendingRetryDisconnect.epoch = actionEpoch) {
+        elapsed := Max(0, A_TickCount - pendingRetryDisconnect.started)
+        return '{"action":"disconnect","phase":"queued","step":1,"steps":3,"elapsedMs":' elapsed ',"phaseElapsedMs":' elapsed ',"phaseBudgetMs":30000}'
+    }
+    op := deviceOps[name]
+    action := op.action
+    state := op.state
+    phase := "", step := 0, steps := action = "connect" ? 4 : 3, budget := 0
+    if (state = action) {
+        phase := "request", step := 1, budget := 30000
+    } else if (action = "connect") {
+        if (state = "link_pending" || state = "link_up")
+            phase := "link", step := 2, budget := 9600
+        else if (state = "link_retry_wait")
+            phase := "retry_wait", step := 2, budget := 15000
+        else if (state = "link_retrying")
+            phase := "retrying", step := 2, budget := 30000
+        else if (state = "audio_pending")
+            phase := "audio", step := 3, budget := 13500
+    } else if (action = "disconnect" && state = "down_pending") {
+        phase := "down", step := 2, budget := 30000
+    }
+    if (phase = "")
+        return "null"
+    elapsed := Max(0, A_TickCount - op.started)
+    phaseElapsed := Max(0, A_TickCount - op.phaseStarted)
+    return '{"action":' JsonStr(action) ',"phase":' JsonStr(phase) ',"step":' step ',"steps":' steps ',"elapsedMs":' elapsed ',"phaseElapsedMs":' phaseElapsed ',"phaseBudgetMs":' budget '}'
 }
 
 ; ------------------------- Device logic ------------------------------
@@ -1402,15 +1518,13 @@ DoAction(name, action) {
     global busy, actionEpoch, deviceOps, pendingRetryDisconnect
     if (action != "connect" && action != "disconnect")
         return "invalid"
-    queueRetryDisconnect := action = "disconnect" && deviceOps.Has(name)
-        && (deviceOps[name].state = "link_retrying" || (IsObject(pendingRetryDisconnect) && pendingRetryDisconnect.name = name))
-    actionEpoch++
-    for key, op in deviceOps
-        if (op.state = "link_retry_wait" || op.state = "link_retrying")
-            op.state := "retry_cancelled"
     if busy {
-        if queueRetryDisconnect {
-            pendingRetryDisconnect := {name: name, epoch: actionEpoch}
+        ; Rejected clicks must not invalidate the accepted worker's epoch.
+        if (action = "disconnect" && deviceOps.Has(name)
+            && deviceOps[name].state = "link_retrying" && !IsObject(pendingRetryDisconnect)) {
+            actionEpoch++
+            deviceOps[name].state := "retry_cancelled"
+            pendingRetryDisconnect := {name: name, epoch: actionEpoch, started: A_TickCount, scheduled: false}
             LogMsg("KS retry cancellation queued same-target disconnect: '" name "'")
             return "ok"
         }
@@ -1421,6 +1535,15 @@ DoAction(name, action) {
     if !dev
         return "notfound"
     name := DeviceKey(dev)
+    actionEpoch++
+    pendingRetryDisconnect := 0
+    ; A newer user action supersedes only prior connect verifiers. Otherwise
+    ; their timers stop on the epoch while stale progress remains forever.
+    for key, op in deviceOps
+        if (op.action = "connect" && key != name
+            && (op.state = "connect" || op.state = "link_pending" || op.state = "link_up"
+                || op.state = "audio_pending" || op.state = "link_retry_wait" || op.state = "link_retrying"))
+            op.state := "superseded"
     busy := true
     gen := BeginDeviceOp(name, action)
     try {
@@ -1449,6 +1572,7 @@ DoAction(name, action) {
 
 
 StartLinkVerify(name, gen) {
+    SetOpState(name, gen, "link_pending")
     LinkVerifyTick(name, 8, gen)
 }
 
@@ -1461,6 +1585,7 @@ LinkVerifyTick(name, left, gen) {
         SetOpState(name, gen, "link_up")
         LogMsg("link verified (audio still pending): '" name "'")
         PushEvent("linkok", JsonStr(name))
+        SetOpState(name, gen, "audio_pending")
         AudioVerifyTick(name, 9, gen)
         return
     }
@@ -1544,13 +1669,17 @@ DrainRetryDisconnect() {
     if !IsObject(pendingRetryDisconnect)
         return
     queued := pendingRetryDisconnect
-    pendingRetryDisconnect := 0
-    if queued.epoch = actionEpoch
+    if (queued.epoch = actionEpoch && !queued.scheduled) {
+        queued.scheduled := true
         SetTimer(() => RunQueuedRetryDisconnect(queued.name, queued.epoch), -1)
+    }
 }
 
 RunQueuedRetryDisconnect(name, epoch) {
-    global actionEpoch
+    global actionEpoch, pendingRetryDisconnect
+    if (IsObject(pendingRetryDisconnect) && pendingRetryDisconnect.name = name
+        && pendingRetryDisconnect.epoch = epoch)
+        pendingRetryDisconnect := 0
     if actionEpoch != epoch
         return
     if DoAction(name, "disconnect") != "ok" {
@@ -1563,6 +1692,7 @@ StartDownVerify(name, gen) {
     ; One KS disconnect can be accepted well before Windows drops the control link.
     ; A same-clock trace observed ACTIVE->UNPLUGGED->link down over ~25 s.
     ; Wait up to 30 s before calling it a failure; submit no extra request.
+    SetOpState(name, gen, "down_pending")
     DownVerifyTick(name, 26, gen)
 }
 
@@ -1744,12 +1874,24 @@ AtomicWriteText(path, text) {
     }
 }
 
+StateProbeCurrent(name, op, renderId) {
+    global deviceOps, routeOwner
+    return deviceOps.Has(name) && deviceOps[name] = op && op.gen = routeOwner && op.renderId = renderId
+}
+
 DeviceAudioState(name, connected) {
     global deviceOps, routeOwner
     if !deviceOps.Has(name)
         return "unknown"
     if !connected {
-        if (deviceOps[name].state = "link_retry_wait" || deviceOps[name].state = "link_retrying")
+        ; A missing control link during a bounded connect/disconnect operation
+        ; is not its terminal result. Let the verifier finish the same target.
+        if (DeviceProgressJson(name) != "null")
+            return deviceOps[name].state
+        ; A down verifier may fail because an exact audio endpoint remains
+        ; active even after the Bluetooth control link disappears.
+        if (deviceOps[name].state = "disconnect_failed"
+            || (deviceOps[name].action = "disconnect" && deviceOps[name].state = "service_failed"))
             return deviceOps[name].state
         deviceOps[name].state := "disconnected"
         return "disconnected"
@@ -1759,14 +1901,55 @@ DeviceAudioState(name, connected) {
     ; Windows may finish activating the exact stereo route after the bounded
     ; request deadline. Recognize that recovery without another KS request or
     ; changing a newer default-output choice.
-    if (deviceOps[name].state = "audio_failed" && deviceOps[name].gen = routeOwner
-        && ValidEndpointId(deviceOps[name].renderId, 0) && AudioRouteMatchesId(deviceOps[name].renderId)) {
-        deviceOps[name].state := "ready"
-        LogMsg("late audio route verified address=" name)
-        PushEvent("audiook", JsonStr(name))
+    op := deviceOps[name]
+    renderId := op.renderId
+    if (op.state = "audio_failed" && op.gen = routeOwner
+        && ValidEndpointId(renderId, 0) && AudioRouteMatchesId(renderId)) {
+        if !StateProbeCurrent(name, op, renderId)
+            return "unknown"
+        probe := ProbeDeviceRender(name, op.gen)
+        if !StateProbeCurrent(name, op, renderId)
+            return "unknown"
+        if (probe.status = "supported") {
+            op.state := "ready"
+            LogMsg("late shared playback precheck passed address=" name "; actual sound not listened to")
+            PushEvent("audiook", JsonStr(name))
+        } else {
+            state := probe.status = "unsupported" ? "playback_unavailable" : "playback_unverified"
+            if (op.state != state)
+                LogMsg("playback precheck failed address=" name " status=" state " reason=" probe.reason, "WARN")
+            op.state := state
+        }
     }
-    if (deviceOps[name].state = "ready" && !AudioRouteMatchesId(deviceOps[name].renderId))
-        deviceOps[name].state := "audio_lost"
+    if ((op.state = "playback_unavailable" || op.state = "playback_unverified")
+        && op.gen = routeOwner && ValidEndpointId(renderId, 0)) {
+        ; Preflight may have left the user's speaker as default. Reprobe only
+        ; the exact target; never auto-route or announce audiook from here.
+        probe := ProbeDeviceRender(name, op.gen)
+        if !StateProbeCurrent(name, op, renderId)
+            return "unknown"
+        state := probe.status = "unsupported" ? "playback_unavailable" : "playback_unverified"
+        if (op.state != state)
+            LogMsg("playback recheck address=" name " status=" state " reason=" probe.reason "; user action required to route", "WARN")
+        op.state := state
+    }
+    if (op.state = "ready") {
+        routeMatches := AudioRouteMatchesId(renderId)
+        if !StateProbeCurrent(name, op, renderId)
+            return "unknown"
+        if !routeMatches {
+            op.state := "audio_lost"
+            op.probeAt := -1, op.probeId := ""
+        } else {
+            probe := ProbeDeviceRender(name, op.gen)
+            if !StateProbeCurrent(name, op, renderId)
+                return "unknown"
+            if (probe.status != "supported") {
+                op.state := probe.status = "unsupported" ? "playback_unavailable" : "playback_unverified"
+                LogMsg("playback precheck failed address=" name " status=" op.state " reason=" probe.reason, "WARN")
+            }
+        }
+    }
     return deviceOps[name].state
 }
 

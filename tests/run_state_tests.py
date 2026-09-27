@@ -3,7 +3,7 @@ import subprocess,sys
 sys.stdout.reconfigure(encoding='utf-8')
 ROOT=Path(__file__).resolve().parents[1]
 source=(ROOT/'airpods_buddy.ahk').read_text(encoding='utf-8-sig')
-names=['DoAction','BeginDeviceOp','OpCurrent','SetOpState','CanRoute','FindDevByName','ValidEndpointId','AtomicWriteText','SavePriority','LoadPriority','SettingRead','SettingWrite','MicPreferenceSet','Join','SortDevices','DevLess','DeviceSortKey','IsAppleDevice','DeviceAudioState','DeviceKey','DeviceLabel','JsonStr','FinishBluetoothAction','DaysSince','ValidBridgeArgs','AutostartEnabled','AutostartSet','WatchAudioRoutes']
+names=['DoAction','BeginDeviceOp','OpCurrent','SetOpState','CanRoute','ProbeDeviceRender','StateProbeCurrent','FindDevByName','ValidEndpointId','AtomicWriteText','SavePriority','LoadPriority','SettingRead','SettingWrite','MicPreferenceSet','Join','SortDevices','DevLess','DeviceSortKey','IsAppleDevice','DeviceAudioState','DeviceProgressJson','BuildDevicesJson','StartLinkVerify','StartDownVerify','DeviceKey','DeviceLabel','JsonStr','FinishBluetoothAction','DaysSince','ValidBridgeArgs','AutostartEnabled','AutostartSet','WatchAudioRoutes']
 body=r'''
 #Requires AutoHotkey v2.0
 #SingleInstance Off
@@ -13,13 +13,64 @@ OnError((e, mode) => (FileAppend("ERROR " e.Message " line=" e.Line "`n", "*"), 
 SETTINGS_PATH := A_ScriptDir "\settings-test.ini"
 failures := 0, busy := false, loading := false, maxRetries := 1
 routeEvents := []
-linkStarts := 0
+probeResult := "supported", probeCalls := 0, probeSideEffect := ""
+linkStarts := 0, downStarts := 0
 deviceOps := Map(), operationSerial := 0, routeOwner := 0, actionEpoch := 0, pendingRetryDisconnect := 0
 devices := [{name:"A",info:Buffer(560)}]
 result := DoAction("A", "connect")
 Check("backend_exception_returns_failure", result = "fail")
 Check("backend_exception_releases_busy", !busy && !loading)
 Check("failed_task_state_preserved", deviceOps["A"].state = "service_failed")
+Check("no_operation_progress_is_null", DeviceProgressJson("missing") = "null" && DeviceProgressJson("A") = "null")
+busy := true, epochBefore := actionEpoch
+Check("rejected_busy_action_does_not_invalidate_epoch", DoAction("A", "connect") = "busy" && actionEpoch = epochBefore)
+busy := false
+progressGen := BeginDeviceOp("P", "connect")
+Check("connect_request_progress_schema", InStr(DeviceProgressJson("P"), '"action":"connect","phase":"request","step":1,"steps":4,"elapsedMs":') && InStr(DeviceProgressJson("P"), '"phaseBudgetMs":30000}'))
+deviceOps["P"].phaseStarted := 3
+SetOpState("P", progressGen, "connect")
+Check("repeat_state_preserves_phase_clock", deviceOps["P"].phaseStarted = 3)
+StartLinkVerify("P", progressGen)
+Check("link_phase_exposes_bounded_observation", linkStarts = 1 && InStr(DeviceProgressJson("P"), '"phase":"link","step":2,"steps":4') && InStr(DeviceProgressJson("P"), '"phaseBudgetMs":9600}'))
+SetOpState("P", progressGen, "link_retry_wait")
+Check("retry_wait_exposes_15s_window", InStr(DeviceProgressJson("P"), '"phase":"retry_wait"') && InStr(DeviceProgressJson("P"), '"phaseBudgetMs":15000}'))
+SetOpState("P", progressGen, "link_retrying")
+Check("retry_worker_is_explicit_phase", InStr(DeviceProgressJson("P"), '"phase":"retrying"'))
+busy := true, pendingRetryDisconnect := 0, epochBefore := actionEpoch
+Check("retry_cancel_queues_without_claiming_submission", DoAction("P", "disconnect") = "ok" && actionEpoch = epochBefore + 1 && InStr(DeviceProgressJson("P"), '"action":"disconnect","phase":"queued"'))
+epochBefore := actionEpoch
+Check("duplicate_queued_cancel_is_busy_without_epoch_change", DoAction("P", "disconnect") = "busy" && actionEpoch = epochBefore)
+busy := false, pendingRetryDisconnect := 0
+SetOpState("P", progressGen, "audio_pending")
+Check("audio_phase_is_distinct", InStr(DeviceProgressJson("P"), '"phase":"audio","step":3,"steps":4') && InStr(DeviceProgressJson("P"), '"phaseBudgetMs":13500}'))
+Check("poll_does_not_end_active_connect_without_link", DeviceAudioState("P", false) = "audio_pending" && deviceOps["P"].state = "audio_pending")
+savedDevices := devices
+devices := [{id:"P",name:"Progress Headphones",connected:false}]
+Check("device_list_serializes_progress", InStr(BuildDevicesJson(), '"progress":{"action":"connect","phase":"audio"'))
+devices := savedDevices
+SetOpState("P", progressGen - 1, "ready")
+Check("stale_state_cannot_end_progress", InStr(DeviceProgressJson("P"), '"phase":"audio"'))
+SetOpState("P", progressGen, "ready")
+Check("connect_terminal_clears_progress", DeviceProgressJson("P") = "null")
+progressGen := BeginDeviceOp("P", "disconnect")
+Check("disconnect_request_progress_schema", InStr(DeviceProgressJson("P"), '"action":"disconnect","phase":"request","step":1,"steps":3'))
+StartDownVerify("P", progressGen)
+Check("disconnect_down_phase_observed", downStarts = 1 && InStr(DeviceProgressJson("P"), '"phase":"down","step":2,"steps":3') && InStr(DeviceProgressJson("P"), '"phaseBudgetMs":30000}'))
+Check("poll_preserves_down_phase_while_link_up", DeviceAudioState("P", true) = "down_pending" && InStr(DeviceProgressJson("P"), '"phase":"down"'))
+Check("poll_does_not_end_unverified_disconnect", DeviceAudioState("P", false) = "down_pending" && deviceOps["P"].state = "down_pending")
+SetOpState("P", progressGen, "disconnect_failed")
+Check("disconnect_terminal_clears_progress", DeviceProgressJson("P") = "null")
+Check("poll_preserves_strict_disconnect_failure", DeviceAudioState("P", false) = "disconnect_failed")
+SetOpState("P", progressGen, "service_failed")
+Check("poll_preserves_disconnect_worker_failure", DeviceAudioState("P", false) = "service_failed")
+SetOpState("P", progressGen, "disconnected")
+oldGen := BeginDeviceOp("Old", "connect")
+SetOpState("Old", oldGen, "audio_pending")
+devices := [{id:"New",name:"New",info:Buffer(560)}]
+Check("accepted_new_action_ends_superseded_progress", DoAction("New", "connect") = "fail" && DeviceProgressJson("Old") = "null" && deviceOps["Old"].state = "superseded")
+devices := [{name:"A",info:Buffer(560)}]
+routeOwner := deviceOps["A"].gen
+linkStarts := 0
 routeFresh := true
 deviceOps["A"].renderId := "{0.0.0.00000000}.{AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA}"
 deviceOps["A"].state := "ready"
@@ -36,6 +87,32 @@ routeOwner := deviceOps["A"].gen
 before := routeEvents.Length
 Check("late_route_reconciles_exact_current_output", DeviceAudioState("A", true) = "ready" && routeEvents.Length = before + 1 && routeEvents[before + 1] = "audiook")
 Check("late_route_emits_success_once", DeviceAudioState("A", true) = "ready" && routeEvents.Length = before + 1)
+probeResult := "unsupported", deviceOps["A"].probeAt := A_TickCount - 30001
+before := routeEvents.Length
+Check("supported_route_losing_shared_stream_not_ready", DeviceAudioState("A", true) = "playback_unavailable" && routeEvents.Length = before)
+calls := probeCalls
+Check("unsupported_watchdog_uses_cache", DeviceAudioState("A", true) = "playback_unavailable" && probeCalls = calls)
+probeResult := "supported", deviceOps["A"].probeAt := A_TickCount - 30001
+Check("playback_positive_recheck_does_not_announce_ready", DeviceAudioState("A", true) = "playback_unverified" && routeEvents.Length = before)
+routeFresh := false, deviceOps["A"].state := "playback_unavailable", deviceOps["A"].probeAt := A_TickCount - 30001
+calls := probeCalls, before := routeEvents.Length
+Check("negative_preflight_reprobes_without_default_route", DeviceAudioState("A", true) = "playback_unverified" && probeCalls = calls + 1 && routeEvents.Length = before)
+routeFresh := true
+deviceOps["A"].state := "audio_failed", deviceOps["A"].probeAt := -1
+probeResult := "unsupported", before := routeEvents.Length
+Check("late_route_only_cannot_promote_unsupported", DeviceAudioState("A", true) = "playback_unavailable" && routeEvents.Length = before)
+probeResult := "unknown", deviceOps["A"].probeAt := -1
+Check("unknown_probe_remains_unverified", DeviceAudioState("A", true) = "playback_unverified" && routeEvents.Length = before)
+probeResult := "supported", deviceOps["A"].probeAt := -1
+before := routeEvents.Length, probeSideEffect := "new_other", deviceOps["A"].state := "audio_failed"
+Check("late_probe_new_owner_cannot_emit_audiook", DeviceAudioState("A", true) = "unknown" && deviceOps["A"].state = "audio_failed" && routeEvents.Length = before)
+routeOwner := deviceOps["A"].gen
+before := routeEvents.Length, probeSideEffect := "new_other", deviceOps["A"].state := "playback_unavailable", deviceOps["A"].probeAt := -1
+Check("passive_probe_new_owner_cannot_mutate_state", DeviceAudioState("A", true) = "unknown" && deviceOps["A"].state = "playback_unavailable" && routeEvents.Length = before)
+routeOwner := deviceOps["A"].gen
+before := routeEvents.Length, probeSideEffect := "new_other", deviceOps["A"].state := "ready", deviceOps["A"].probeAt := -1
+Check("ready_probe_new_owner_cannot_mutate_state", DeviceAudioState("A", true) = "unknown" && deviceOps["A"].state = "ready" && routeEvents.Length = before)
+routeOwner := deviceOps["A"].gen
 devices.Push({name:"A",info:Buffer(560)})
 Check("duplicate_device_name_rejected", !FindDevByName("A"))
 devices := [{id:"001122334455",name:"Same",info:Buffer(560)},{id:"AABBCCDDEEFF",name:"Same",info:Buffer(560)}]
@@ -56,7 +133,7 @@ FinishBluetoothAction("A", "connect", gen, Map("status", "ok", "backend", "ks", 
 Check("ks_result_saves_exact_ids_before_verify", linkStarts = 1 && deviceOps["A"].renderId = "{0.0.0.00000000}.{AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA}" && deviceOps["A"].captureId != "")
 gen := BeginDeviceOp("A", "connect")
 FinishBluetoothAction("A", "connect", gen, Map("status", "ok", "backend", "ks", "container", "{11111111-1111-1111-1111-111111111111}", "renderId", "{0.0.0.00000000}.{AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA}", "requested", 0))
-Check("healthy_zero_request_still_verifies", linkStarts = 2 && deviceOps["A"].state = "connect")
+Check("healthy_zero_request_still_verifies", linkStarts = 2 && deviceOps["A"].state = "link_pending")
 gen := BeginDeviceOp("A", "connect")
 FinishBluetoothAction("A", "connect", gen, Map("status", "ok", "backend", "ks", "container", "{11111111-1111-1111-1111-111111111111}", "requested", 1))
 Check("missing_render_id_never_starts_verify", linkStarts = 2 && deviceOps["A"].state = "service_failed")
@@ -108,8 +185,15 @@ routeEvents := [], routeFresh := false
 SetOpState("001122334455", gen, "ready")
 WatchAudioRoutes()
 Check("hidden_ui_observes_route_loss", deviceOps["001122334455"].state = "audio_lost" && routeEvents.Length = 1)
+Check("route_loss_event_is_specific", routeEvents[1] = "routelost")
 WatchAudioRoutes()
 Check("route_loss_event_not_repeated", routeEvents.Length = 1)
+routeEvents := [], routeFresh := true, probeResult := "unsupported"
+SetOpState("001122334455", gen, "ready")
+deviceOps["001122334455"].probeAt := -1
+WatchAudioRoutes()
+Check("playback_failure_emits_audioheld_not_routelost", deviceOps["001122334455"].state = "playback_unavailable" && routeEvents.Length = 1 && routeEvents[1] = "audioheld")
+probeResult := "supported"
 devices[1].connected := false
 SetOpState("001122334455", gen, "ready")
 WatchAudioRoutes()
@@ -159,15 +243,25 @@ PushEvent(event, data) {
     global routeEvents
     routeEvents.Push(event)
 }
-StartLinkVerify(*) {
+LinkVerifyTick(*) {
     global linkStarts
     linkStarts++
 }
-StartDownVerify(*) {
+DownVerifyTick(*) {
+    global downStarts
+    downStarts++
 }
 AudioRouteMatchesId(*) {
     global routeFresh
     return routeFresh
+}
+AudioRenderProbe(*) {
+    global probeResult, probeCalls, probeSideEffect
+    probeCalls++
+    effect := probeSideEffect, probeSideEffect := ""
+    if effect = "new_other"
+        BeginDeviceOp("Other", "connect")
+    return {status: probeResult, reason: probeResult = "supported" ? "shared stream initialized" : "injected negative"}
 }
 '''
 for name in names:

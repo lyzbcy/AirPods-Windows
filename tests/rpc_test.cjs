@@ -13,8 +13,10 @@ assert.match(about,/纯文字、不附日志/);
 assert.doesNotMatch(about,/<b>提意见 \/ 反馈问题<\/b>/);
 assert.match(issue,/id="issFile" checked/);
 assert.match(issue,/请确认/);
-assert.match(issue,/先确认 Windows 声音输出设备[\s\S]*关开蓝牙[\s\S]*忘记设备并重新配对[\s\S]*重启电脑/);
+assert.match(issue,/先在 Windows 声音设置确认耳机为默认输出并点「测试」[\s\S]*仅当这副耳机的播放项显示「已停用」时启用它[\s\S]*手动关开电脑蓝牙[\s\S]*只遗忘这副耳机并重新配对[\s\S]*重启电脑/);
 assert.match(issue,/新款型号连接问题/);
+assert.match(html,/\.orb\.warn\{/);
+assert.match(html,/\.st\.warn\{/);
 assert.doesNotMatch(issue,/AirPods 5 等新款/);
 assert.match(html,/AirPods 4\/5、Pro 3：开盖、耳机留在盒内，轻敲盒正面两下至白灯闪烁/);
 assert.match(html,/<summary>了解恢复方式<\/summary>/);
@@ -47,13 +49,18 @@ const rpc=(...args)=>context.rpc(...args),pending=()=>vm.runInContext('Object.ke
   const actionCode=html.slice(html.indexOf('async function doAction('),html.indexOf('/* Link state'));
   const button={innerHTML:'original',className:'act',classList:{add(){},remove(){}}};
   const badge={textContent:''},toasts=[];
-  Object.assign(context,{document:{getElementById:id=>id==='badge'?badge:button},toast:m=>toasts.push(m),refreshList:async()=>{throw Error('refresh failed')}});
+  Object.assign(context,{document:{getElementById:id=>id==='badge'?badge:button,querySelector:()=>null},toast:m=>toasts.push(m),
+    devices:[],deviceName:id=>id,downConfirmed:new Set(),renderProgress:()=>{},refreshList:async()=>{throw Error('refresh failed')}});
   vm.runInContext(actionCode,context);post=()=>{throw Error('disconnected bridge')};
+  context.cancelRequestedId='A';
   await context.doAction(null,'A','connect');assert.equal(button.innerHTML,'original');assert.equal(button.className,'act');assert.equal(badge.textContent,'状态待刷新');
+  assert.equal(context.cancelRequestedId,'');
   console.log('PASS action_exception_restores_ui');
   const pollCode=html.slice(html.indexOf('function sameDeviceState('),html.indexOf('/* ---------- boot ---------- */'));
   let renders=0,pressed=false;
-  Object.assign(context,{devices:[{id:'A',name:'AirPods',connected:true,audioState:'ready',apple:true}],render:()=>renders++,document:{querySelector:q=>q==='.card:hover'?true:(q==='.card:active'?pressed:false)}});
+  Object.assign(context,{devices:[{id:'A',name:'AirPods',connected:true,audioState:'ready',apple:true}],
+    render:()=>renders++,reconcileLocalAction:()=>{},renderProgress:()=>{},
+    document:{querySelector:q=>q==='.card:hover'?true:(q==='.card:active'?pressed:false)}});
   vm.runInContext(pollCode,context);
   context.applyPolledDevices([{id:'A',name:'AirPods',connected:true,audioState:'audio_lost',apple:true}]);
   assert.equal(renders,1);assert.equal(context.devices[0].audioState,'audio_lost');
@@ -65,6 +72,8 @@ const rpc=(...args)=>context.rpc(...args),pending=()=>vm.runInContext('Object.ke
   context.applyPolledDevices(renamed);assert.equal(renders,2);
   pressed=false;context.applyPolledDevices(renamed);assert.equal(renders,3);
   console.log('PASS press_defers_then_refreshes_rename');
+  const progressCode=html.slice(html.indexOf('const progressCopy='),html.indexOf('function isConnecting('));
+  vm.runInContext(progressCode,context);
   const labels=html.slice(html.indexOf('function isConnecting('),html.indexOf('function render(){'));
   vm.runInContext(labels,context);
   for(const state of ['link_retry_wait','link_retrying']){
@@ -76,8 +85,89 @@ const rpc=(...args)=>context.rpc(...args),pending=()=>vm.runInContext('Object.ke
   assert.equal(context.deviceAction({connected:false,audioState:'link_failed'}),'connect');
   assert.equal(context.deviceStatus({connected:false,audioState:'link_failed'}),'未连接');
   console.log('PASS exhausted_retry_restores_manual_connect');
-  assert.equal(context.deviceStatus({connected:true,audioState:'ready'}),'默认音频已确认');
+  assert.equal(context.deviceStatus({connected:true,audioState:'ready'}),'默认输出已切耳机 · 请试听');
   assert.equal(context.deviceAction({connected:true,audioState:'ready'}),'disconnect');
-  console.log('PASS verified_ready_keeps_existing_status');
+  assert.equal(context.deviceStatus({connected:true,audioState:'playback_unavailable'}),'蓝牙已连 · Windows 播放不可用');
+  assert.equal(context.deviceStatus({connected:true,audioState:'playback_unverified'}),'蓝牙已连 · 播放能力未确认');
+  assert.equal(context.orbStatus({connected:true,audioState:'playback_unavailable'}),'播放不可用');
+  assert.equal(context.orbStatus({connected:true,audioState:'playback_unverified'}),'播放待确认');
+  assert.equal(context.isPlaybackWarning({audioState:'playback_unavailable'}),true);
+  assert.equal(context.isPlaybackWarning({audioState:'ready'}),false);
+  console.log('PASS playback_states_do_not_claim_audible_sound');
+  assert.match(html,/id="progressPanel"[^>]*hidden/);
+  assert.match(html,/id="progressTitle"[^>]*aria-live="polite"/);
+  assert.match(html,/prefers-reduced-motion:reduce/);
+  assert.match(html,/\.orb\.inflight::after/);
+  const progressNodes=Object.fromEntries(['progressPanel','progressTitle','progressStep','progressWhy','progressTime','progressMarks']
+    .map(id=>[id,{hidden:true,dataset:{},textContent:'',innerHTML:''}]));
+  Object.assign(context,{document:{getElementById:id=>progressNodes[id],querySelector:()=>false},
+    progressSnapshotAt:Date.now(),localAction:null,lastActiveProgress:null,progressOutcome:null,cancelRequestedId:'',downConfirmed:new Set()});
+  const connect={id:'A',name:'AirPods',connected:false,audioState:'link_retry_wait',apple:true,
+    progress:{action:'connect',phase:'retry_wait',step:2,steps:4,elapsedMs:18000,phaseElapsedMs:4000,phaseBudgetMs:15000}};
+  context.devices=[connect];context.renderProgress();
+  assert.equal(progressNodes.progressPanel.hidden,false);
+  assert.match(progressNodes.progressTitle.textContent,/等待一次有界重试/);
+  assert.equal(progressNodes.progressStep.textContent,'第 2 / 4 步');
+  assert.match(progressNodes.progressTime.textContent,/已等待 18 秒/);
+  assert.match(progressNodes.progressTime.textContent,/非整体完成倒计时/);
+  assert.equal((progressNodes.progressMarks.innerHTML.match(/<i/g)||[]).length,4);
+  let clockRenders=0;context.render=()=>clockRenders++;
+  const later={...connect,progress:{...connect.progress,elapsedMs:22000,phaseElapsedMs:8000}};
+  context.applyPolledDevices([later]);
+  assert.equal(clockRenders,0);assert.equal(context.devices[0].progress.elapsedMs,22000);
+  assert.match(progressNodes.progressTime.textContent,/已等待 22 秒/);
+  assert.equal(context.sameDeviceState([connect],[later]),true);
+  const audio={...later,connected:true,audioState:'audio_pending',
+    progress:{action:'connect',phase:'audio',step:3,steps:4,elapsedMs:45000,phaseElapsedMs:16000,phaseBudgetMs:13500}};
+  context.applyPolledDevices([audio]);assert.equal(clockRenders,1);
+  context.renderProgress();
+  assert.match(progressNodes.progressTitle.textContent,/正在确认耳机播放/);
+  assert.match(progressNodes.progressTime.textContent,/仍在核实/);
+  assert.doesNotMatch(progressNodes.progressTime.textContent,/约剩 0 秒/);
+  context.devices=[{...audio,audioState:'ready',progress:null}];context.renderProgress();
+  assert.match(progressNodes.progressTitle.textContent,/连接检查完成 · 请试听/);
+  assert.match(progressNodes.progressWhy.textContent,/实际听到声音才算有声/);
+  console.log('PASS progress_clock_does_not_rebuild_device_cards');
+  const disconnect={...connect,connected:true,audioState:'down_pending',
+    progress:{action:'disconnect',phase:'down',step:2,steps:3,elapsedMs:12000,phaseElapsedMs:6000,phaseBudgetMs:30000}};
+  context.devices=[disconnect];context.renderProgress();
+  assert.equal(context.isDisconnecting(disconnect),true);
+  assert.equal(context.isConnecting(disconnect),false);
+  assert.equal(context.deviceStatus(disconnect),'正在断开 · 等待 Windows 核实');
+  assert.match(progressNodes.progressTitle.textContent,/正在确认完全断开/);
+  assert.equal(progressNodes.progressStep.textContent,'第 2 / 3 步');
+  const queued={...disconnect,connected:false,audioState:'retry_cancelled',
+    progress:{action:'disconnect',phase:'queued',step:1,steps:3,elapsedMs:2000,phaseElapsedMs:2000,phaseBudgetMs:30000}};
+  context.devices=[queued];context.renderProgress();
+  assert.match(progressNodes.progressTitle.textContent,/正在排队取消连接/);
+  assert.match(progressNodes.progressWhy.textContent,/结束后才会对这副耳机提交断开/);
+  assert.equal(context.deviceAction(queued),'disconnect');
+  assert.match(context.deviceStatus(queued),/取消已排队/);
+  assert.equal(context.deviceActionTitle(queued),'取消已排队');
+  context.devices=[{...disconnect,audioState:'disconnected',connected:false,progress:null}];
+  context.renderProgress();assert.equal(progressNodes.progressPanel.hidden,false);
+  assert.match(progressNodes.progressTitle.textContent,/断开状态待确认/);
+  context.downConfirmed.add('A');context.lastActiveProgress={id:'A',action:'disconnect'};context.progressOutcome=null;
+  context.renderProgress();
+  assert.match(progressNodes.progressTitle.textContent,/已确认断开/);
+  assert.equal(progressNodes.progressPanel.dataset.mode,'outcome');
+  context.devices=[{...disconnect,audioState:'ready',connected:true,progress:null}];
+  context.renderProgress();assert.equal(progressNodes.progressPanel.hidden,true);
+  const orbCode=html.slice(html.indexOf('function orbTarget('),html.indexOf('function parseList('));
+  vm.runInContext(orbCode,context);
+  context.devices=[{id:'first',connected:false,audioState:'disconnected'},disconnect];
+  assert.equal(context.orbTarget().id,'A');
+  console.log('PASS connect_disconnect_progress_and_terminal_outcome');
+  const heldCode=html.slice(html.indexOf('async function onAudioHeld('),html.indexOf('let delTarget='));
+  const heldToasts=[];
+  Object.assign(context,{refreshList:async()=>{},toast:m=>heldToasts.push(m),
+    devices:[{id:'A',audioState:'playback_unavailable'}]});
+  vm.runInContext(heldCode,context);
+  await context.onAudioHeld('A');
+  assert.match(heldToasts.at(-1),/Windows 播放端点不可用/);
+  context.devices=[{id:'A',audioState:'playback_unverified'}];
+  await context.onAudioHeld('A');
+  assert.match(heldToasts.at(-1),/播放能力尚未确认/);
+  console.log('PASS audioheld_distinguishes_playback_failure');
   console.log('RESULT failures=0');
 })().catch(e=>{console.error(e);process.exitCode=1});

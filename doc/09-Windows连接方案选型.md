@@ -1,10 +1,16 @@
 # 09 · Windows 优先：蓝牙连接方案选型
 
-现状：KS 后端已接入 v1.9.20 候选并真机执行；连续重连尚未通过，原始失败证据保留。用户已明确接受披露此问题后发正式版；验收事实不随发布政策改变。
+现状：KS 后端已接入 v1.9.20 候选并真机执行；连续重连尚未通过，且最新默认输出无声 P0 阻断正式发布。用户已明确接受披露连接问题后发正式版；验收事实不随发布政策改变。
 负责人：当前维护 Agent。
 最后更新：2026-09-27。
 
 ## 结论
+
+### P0 音频真相与候选边界（2026-09-27，优先于历史段落）
+
+此前旧安装版在 `link=1`、目标 render ACTIVE、三个默认输出角色均指向 AirPods 时，用户确认默认输出清晰提示音「完全没听到」；Windows 原生「测试」答复「完全没听到／系统报错」，后者不能用于判定具体错误码。独立 C# Core Audio 探针对该 AirPods 端点自己返回的 mix format 调用 `IsFormatSupported(shared)` 得 `0x88890008`，Realtek 对照得 `0x00000000`（`verification/2026-09-27-coreaudio-readonly/RESULT.txt`）。这与用户无声一致，但不足以断言驱动、缓存或蓝牙栈根因。
+
+**候选工作树已实现**在切用户默认输出之前，对精确目标 render 做无声 `GetMixFormat → IsFormatSupported → Initialize(shared)`；阴性保持现有默认输出、不标 `ready`/`audiook`、不补 KS 请求，反馈 `playback_unavailable`/`playback_unverified`。阳性只证明当前无声预检，没有播放或听音证明。离线 `OFFLINE_PASS assertions=337 suites=20`、AHK build-only 编译通过；新候选 15:11 已部署、15:12 启动检查通过，但尚未完成用户听音。正式 Release v1.9.20 仍是草稿；main/tag 与 GitHub 草稿资产属旧候选；本地新 ZIP 与新安装 exe 一致，仍须更新远端资产、复验与重新绑定哈希，不能按旧资产发版。本节不声称修复 Windows 端点根因或 AirPods 5 真机兼容。
 
 2026-09-27 发布政策：可在最终安装版听音、反馈入口、离线/CI、发布包一致性独立验证后，以明确的“已知问题”正式发布，不再把五轮失败伪装为通过。用户手动恢复依次检查默认播放、电脑蓝牙关开、仅目标耳机遗忘重配、重启；程序不自动执行全局恢复。AirPods 5 仅有口头反馈，Apple 规格未注明 LE Audio，现有 Classic 枚举/KS 端点方案不能推出 LE-only 兼容或失败根因。
 

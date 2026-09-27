@@ -1,5 +1,9 @@
 # v1.9.20（2026-09-27，Windows 正式版准备；已知连接问题公开披露）
 
+- 连接/断开进度（v1.9.20 最新安装候选，15:49 已部署）：页面新增与原有小宠物、圆形主按钮统一的持续加载动效和分阶段面板，展示真实请求、链路、一次有界重试、播放核实或断开核实状态，以及第 N / M 步、已等待时间和当前阶段观察窗口；观察窗口不是整体完成倒计时或百分比。操作结束后保留结果说明，播放预检通过仍提示用户试听；支持 `prefers-reduced-motion`，连接中可取消，断开核实中禁用重复点击，后端 `busy` 拒绝重复请求。前后端完整离线 `OFFLINE_PASS assertions=364 suites=20`，连接/断开 460×600 截图已视觉检查。用户此前反馈对应先前安装候选；本轮安装 exe SHA256 `59F859CA5A4A9A27E18245FE3785919072A3848BDFA33383E816F7FC99202D3A`、本地 ZIP SHA256 `4E6AC4F14E7ADC8C95248FB4B9FAE2EEEC68974EB70421A24B9E4684EC009AC9` 且内部 exe 一致，15:49 经正常启动并读回页面导航/list RPC；新界面实际连接与最终默认输出听音仍待用户确认。GitHub Release 仍是草稿。
+
+- P0 音频真相（发版阻断）：此前旧安装版在蓝牙 `link=1`、目标播放端点 ACTIVE、三个默认输出角色指向 AirPods 时，清晰的默认输出测试音仍被用户确认「完全没听到」；Windows 原生「测试」也被用户回答「完全没听到／系统报错」（无法据此区分无声与报错）。独立 Core Audio 探针读取同一 AirPods 端点自身 mix format 后，`IsFormatSupported(shared, mix)=0x88890008`，Realtek 对照为 `0x00000000`。根因未定；旧路由读回不能冒充可播放。**当前候选工作树已实现**精确 render 的无声 `GetMixFormat → IsFormatSupported → Initialize(shared)` 预检，阴性不切默认、不标 `ready`/`audiook`、不补 KS，显示 `playback_unavailable`/`playback_unverified`；阳性也不等于用户听音。候选离线 `OFFLINE_PASS assertions=337 suites=20`、AHK build-only 编译通过；15:11 新候选部署成功，15:12 正常启动且 boot/navigation/list RPC 通过；新安装 exe SHA256 `080C6A1CA39D91D18BA444B3F363C8F3F4F4E7CB7306439B87F7719651725BEB`。尚无新候选真实听音。v1.9.20 正式 Release 仍是草稿；main/tag 与 GitHub 草稿资产仍指旧候选；本地新 ZIP 与已安装 exe 一致，仍须更新远端资产并复验，不能沿用旧验收回执发版。
+
 - 2026-09-27 发版决策更新：用户明确选择正式 Release 并在说明中披露偶发连接/路由失效，而非预发布。此为接受已知问题的发布方式变更，不把失败的五轮验收写成通过；发布前仍须最终源码/构建/资产一致、安装版反馈入口及默认输出听音验收、远端 CI 通过。手动恢复顺序为核对实际输出、手动关开电脑蓝牙、仅此耳机遗忘重配、最后重启。程序不自动操作整机蓝牙或其他设备。
 
 - AirPods 5 兼容性表述更正：Apple 技术规格只列 Bluetooth 5.3，不支持旧文档的“已证实支持 LE Audio / 双模及 LE 协商是根因”断言。只有粉丝口头反馈，无准确 Windows 设备名称、原始日志和 AirPods 5 真机。经典蓝牙已配对设备的名称兜底发现可改进，但 LE-only 不在现有枚举/KS 后端范围内；配对指引按 Apple 官方盒体正面双击步骤更新。问题反馈优先附日志，页脚移除独立「提意见」，轻意见仍在「关于捞鱼」内。

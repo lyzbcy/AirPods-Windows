@@ -64,6 +64,21 @@ Check("capture_drop_restores_prior_defaults", api.defaults[1] = "old0" && api.de
 api := MockAudio("render_drops_after_readback")
 api.defaults := ["{target}", "{target}", "{target}"]
 Check("route_watch_rechecks_active_after_readback", !AudioRouteMatchesId("{target}", api) && api.endpointChecks = 2 && api.lastEndpointReadCount = 3)
+Check("shared_hresult_s_ok_supported", AudioSharedFormatStatus(0) = "supported")
+Check("shared_hresult_unsupported", AudioSharedFormatStatus(0x88890008) = "unsupported")
+Check("shared_hresult_s_false_unknown", AudioSharedFormatStatus(1) = "unknown")
+api := MockAudio()
+Check("silent_probe_exact_render_supported", AudioRenderProbe("{target}", api).status = "supported" && api.probeCalls = 1)
+Check("silent_probe_wrong_id_not_opened", AudioRenderProbe("{other}", api).status = "unknown" && api.probeCalls = 1)
+api := MockAudio("probe_unsupported")
+Check("silent_probe_unsupported_not_ready", AudioRenderProbe("{target}", api).status = "unsupported")
+if AudioRenderProbe("{target}", api).status = "supported"
+    RenderSwitchToId("{target}", api)
+Check("negative_probe_keeps_other_defaults", api.setCalls = 0 && api.defaults[1] = "old0" && api.defaults[2] = "old1" && api.defaults[3] = "old2")
+api := MockAudio("probe_s_false")
+Check("silent_probe_s_false_unverified", AudioRenderProbe("{target}", api).status = "unknown")
+api := MockAudio("probe_throw")
+Check("silent_probe_exception_unverified", AudioRenderProbe("{target}", api).status = "unknown")
 FileAppend("RESULT failures=" failures "`n", "*")
 ExitApp(failures ? 1 : 0)
 
@@ -83,7 +98,7 @@ class MockAudio {
         this.mode := mode, this.defaults := ["old0", "old1", "old2"]
         this.setCalls := 0, this.readCalls := 0
         this.renderState := 1, this.captureState := 1
-        this.endpointChecks := 0, this.lastEndpointReadCount := -1
+        this.endpointChecks := 0, this.lastEndpointReadCount := -1, this.probeCalls := 0
     }
     Endpoints(flow, states := 1) {
         this.endpointChecks++, this.lastEndpointReadCount := this.readCalls
@@ -114,5 +129,15 @@ class MockAudio {
         if (id = "{capture}" && role = 2 && this.mode = "capture_drops_after_set")
             this.captureState := 8
         return 0
+    }
+    ProbeRender(id) {
+        this.probeCalls++
+        if this.mode = "probe_throw"
+            throw Error("injected COM failure")
+        if this.mode = "probe_unsupported"
+            return {status: AudioSharedFormatStatus(0x88890008), reason: "IsFormatSupported(shared) HRESULT=88890008"}
+        if this.mode = "probe_s_false"
+            return {status: AudioSharedFormatStatus(1), reason: "IsFormatSupported(shared) HRESULT=00000001"}
+        return {status: AudioSharedFormatStatus(0), reason: "shared stream initialized; playback not listened to"}
     }
 }

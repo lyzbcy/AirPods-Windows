@@ -30,7 +30,7 @@ body = r'''
 #Warn All, StdOut
 OnError((e, mode) => (FileAppend("ERROR " e.Message " line=" e.Line "`n", "*"), ExitApp(2)))
 failures := 0, deviceOps := Map(), operationSerial := 0, routeOwner := 0, actionEpoch := 0, pendingRetryDisconnect := 0
-busy := false, linkUp := false, renderActive := false, endpointOff := true, micSetting := "0", jobCount := 0, audioChecks := 0, events := [], lastPayload := ""
+busy := false, linkUp := false, renderActive := false, endpointOff := true, micSetting := "0", jobCount := 0, audioChecks := 0, events := [], lastPayload := "", probeResult := "supported"
 devices := [{id: "AABBCCDDEEFF", info: Buffer(560)}, {id: "112233445566", info: Buffer(560)}]
 NumPut("uint64", 0xAABBCCDDEEFF, devices[1].info, 8)
 NumPut("uint64", 0x112233445566, devices[2].info, 8)
@@ -41,11 +41,14 @@ deviceOps["AABBCCDDEEFF"].renderId := "{0.0.0.00000000}.{AAAAAAAA-AAAA-AAAA-AAAA
 LinkVerifyTick("AABBCCDDEEFF", 1, gen)
 Check("successful_ks_no_link_enters_one_wait", deviceOps["AABBCCDDEEFF"].state = "link_retry_wait" && deviceOps["AABBCCDDEEFF"].retryCount = 1 && jobCount = 0)
 Check("ui_poll_keeps_retry_wait", DeviceAudioState("AABBCCDDEEFF", false) = "link_retry_wait")
+Check("retry_wait_progress_is_not_terminal", InStr(DeviceProgressJson("AABBCCDDEEFF"), '"phase":"retry_wait"'))
 TryKsConnectRetry("AABBCCDDEEFF", gen, deviceOps["AABBCCDDEEFF"].retryEpoch)
 Check("one_same_target_worker_only", jobCount = 1 && InStr(lastPayload, '"AABBCCDDEEFF"') && deviceOps["AABBCCDDEEFF"].state = "link_retrying")
 Check("ui_poll_keeps_retry_inflight", DeviceAudioState("AABBCCDDEEFF", false) = "link_retrying")
+Check("retry_worker_progress_is_not_terminal", InStr(DeviceProgressJson("AABBCCDDEEFF"), '"phase":"retrying"'))
 FinishKsConnectRetry("AABBCCDDEEFF", gen, actionEpoch, Map("status", "fail", "error", "HRESULT 80004005"))
 Check("failed_retry_is_terminal", deviceOps["AABBCCDDEEFF"].state = "service_failed" && !busy && jobCount = 1)
+Check("failed_retry_progress_is_null", DeviceProgressJson("AABBCCDDEEFF") = "null")
 LinkVerifyTick("AABBCCDDEEFF", 1, gen)
 Check("retry_limit_one", deviceOps["AABBCCDDEEFF"].state = "link_failed" && jobCount = 1)
 
@@ -77,9 +80,9 @@ LinkVerifyTick("AABBCCDDEEFF", 1, gen)
 epoch := deviceOps["AABBCCDDEEFF"].retryEpoch
 Check("new_other_device_action_starts", DoAction("112233445566", "disconnect") = "ok")
 TryKsConnectRetry("AABBCCDDEEFF", gen, epoch)
-Check("new_other_device_action_cancels_retry", jobCount = 2 && deviceOps["AABBCCDDEEFF"].state = "retry_cancelled")
+Check("new_other_device_action_cancels_retry", jobCount = 2 && deviceOps["AABBCCDDEEFF"].state = "superseded" && DeviceProgressJson("AABBCCDDEEFF") = "null")
 LinkVerifyTick("AABBCCDDEEFF", 1, gen)
-Check("old_link_timer_does_not_overwrite_cancel", deviceOps["AABBCCDDEEFF"].state = "retry_cancelled")
+Check("old_link_timer_does_not_overwrite_cancel", deviceOps["AABBCCDDEEFF"].state = "superseded")
 busy := false
 
 gen := BeginDeviceOp("AABBCCDDEEFF", "connect")
@@ -88,7 +91,7 @@ deviceOps["AABBCCDDEEFF"].address := "AABBCCDDEEFF"
 Check("other_disconnect_before_wait_starts", DoAction("112233445566", "disconnect") = "ok")
 busy := false
 LinkVerifyTick("AABBCCDDEEFF", 1, gen)
-Check("new_action_before_deadline_prevents_retry", deviceOps["AABBCCDDEEFF"].state = "connect" && deviceOps["AABBCCDDEEFF"].retryCount = 0)
+Check("new_action_before_deadline_prevents_retry", deviceOps["AABBCCDDEEFF"].state = "superseded" && deviceOps["AABBCCDDEEFF"].retryCount = 0)
 
 gen := BeginDeviceOp("AABBCCDDEEFF", "connect")
 deviceOps["AABBCCDDEEFF"].backend := "ks"
@@ -101,6 +104,19 @@ TryKsConnectRetry("AABBCCDDEEFF", gen, deviceOps["AABBCCDDEEFF"].retryEpoch)
 Check("link_up_render_inactive_resends_ks", jobCount = 4 && deviceOps["AABBCCDDEEFF"].state = "link_retrying")
 FinishKsConnectRetry("AABBCCDDEEFF", gen, actionEpoch, Map("status", "fail", "error", "HRESULT 80004005"))
 Check("audio_retry_failure_is_terminal", deviceOps["AABBCCDDEEFF"].state = "service_failed" && deviceOps["AABBCCDDEEFF"].retryCount = 1)
+checksBefore := audioChecks
+renderActive := true, probeResult := "unsupported"
+gen := BeginDeviceOp("AABBCCDDEEFF", "connect")
+deviceOps["AABBCCDDEEFF"].renderId := "{0.0.0.00000000}.{AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA}"
+beforeJobs := jobCount
+AudioVerifyTick("AABBCCDDEEFF", 1, gen)
+Check("unsupported_playback_does_not_submit_second_ks", deviceOps["AABBCCDDEEFF"].state = "playback_unavailable" && jobCount = beforeJobs)
+probeResult := "unknown"
+gen := BeginDeviceOp("AABBCCDDEEFF", "connect")
+deviceOps["AABBCCDDEEFF"].renderId := "{0.0.0.00000000}.{AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA}"
+AudioVerifyTick("AABBCCDDEEFF", 1, gen)
+Check("unverified_playback_does_not_submit_second_ks", deviceOps["AABBCCDDEEFF"].state = "playback_unverified" && jobCount = beforeJobs)
+renderActive := false, probeResult := "supported", audioChecks := checksBefore
 linkUp := false
 
 gen := BeginDeviceOp("AABBCCDDEEFF", "connect")
@@ -110,7 +126,7 @@ deviceOps["AABBCCDDEEFF"].renderId := "{0.0.0.00000000}.{AAAAAAAA-AAAA-AAAA-AAAA
 Check("active_audio_wait_scheduled", ScheduleKsConnectRetry("AABBCCDDEEFF", gen, "audio"))
 linkUp := true, renderActive := true
 TryKsConnectRetry("AABBCCDDEEFF", gen, deviceOps["AABBCCDDEEFF"].retryEpoch)
-Check("link_and_render_active_skip_second_request", jobCount = 4 && audioChecks = 3)
+Check("link_and_render_active_skip_second_request", jobCount = 4 && audioChecks = 2)
 linkUp := false, renderActive := false
 
 gen := BeginDeviceOp("AABBCCDDEEFF", "connect")
@@ -120,10 +136,11 @@ LinkVerifyTick("AABBCCDDEEFF", 1, gen)
 TryKsConnectRetry("AABBCCDDEEFF", gen, deviceOps["AABBCCDDEEFF"].retryEpoch)
 Check("retry_worker_inflight", busy && jobCount = 5)
 Check("busy_disconnect_queues_target_only", DoAction("AABBCCDDEEFF", "disconnect") = "ok" && deviceOps["AABBCCDDEEFF"].state = "retry_cancelled" && IsObject(pendingRetryDisconnect) && pendingRetryDisconnect.name = "AABBCCDDEEFF")
-Check("repeat_cancel_keeps_latest_disconnect", DoAction("AABBCCDDEEFF", "disconnect") = "ok" && pendingRetryDisconnect.epoch = actionEpoch)
+epochBeforeCancelRepeat := actionEpoch
+Check("repeat_cancel_keeps_latest_disconnect", DoAction("AABBCCDDEEFF", "disconnect") = "busy" && pendingRetryDisconnect.epoch = actionEpoch && actionEpoch = epochBeforeCancelRepeat)
 FinishKsConnectRetry("AABBCCDDEEFF", gen, actionEpoch - 1, Map("status", "ok"))
 Sleep(50)
-Check("cancelled_worker_result_does_not_verify", audioChecks = 3 && jobCount = 6 && InStr(lastPayload, '"disconnect"'))
+Check("cancelled_worker_result_does_not_verify", audioChecks = 2 && jobCount = 6 && InStr(lastPayload, '"disconnect"'))
 busy := false
 
 gen := BeginDeviceOp("AABBCCDDEEFF", "connect")
@@ -163,7 +180,7 @@ Check("unknown_link_audio_phase_does_not_route_or_retry", deviceOps["AABBCCDDEEF
 gen := BeginDeviceOp("AABBCCDDEEFF", "connect")
 linkUp := 1, micSetting := "1"
 MicSwitchTick("AABBCCDDEEFF", 1, gen)
-Check("missing_target_microphone_reports_without_changing_default", events[events.Length].name = "toast" && audioChecks = 3)
+Check("missing_target_microphone_reports_without_changing_default", events[events.Length].name = "toast" && audioChecks = 2)
 micSetting := "0", linkUp := 0
 FileAppend("RESULT failures=" failures "`n", "*")
 ExitApp(failures ? 1 : 0)
@@ -210,6 +227,10 @@ AudioEndpointIdActive(*) {
     global renderActive
     return renderActive
 }
+AudioRenderProbe(*) {
+    global probeResult
+    return {status: probeResult, reason: "injected " probeResult}
+}
 StartBackgroundJob(kind, payload, callback, timeout) {
     global jobCount, lastPayload
     jobCount++, lastPayload := payload
@@ -232,7 +253,7 @@ SettingRead(*) {
     return micSetting
 }
 '''
-for name in ["BeginDeviceOp", "OpCurrent", "CanRoute", "SetOpState", "DoAction", "LinkVerifyTick", "ScheduleKsConnectRetry", "TryKsConnectRetry", "FinishKsConnectRetry", "DrainRetryDisconnect", "RunQueuedRetryDisconnect", "AudioVerifyTick", "MicSwitchTick", "StartDownVerify", "DownVerifyTick", "FinishBluetoothAction", "ValidEndpointId", "DeviceAudioState", "JsonStr"]:
+for name in ["BeginDeviceOp", "OpCurrent", "CanRoute", "SetOpState", "ProbeDeviceRender", "DoAction", "LinkVerifyTick", "ScheduleKsConnectRetry", "TryKsConnectRetry", "FinishKsConnectRetry", "DrainRetryDisconnect", "RunQueuedRetryDisconnect", "AudioVerifyTick", "MicSwitchTick", "StartDownVerify", "DownVerifyTick", "FinishBluetoothAction", "ValidEndpointId", "DeviceAudioState", "DeviceProgressJson", "JsonStr"]:
     body += function(name)
 with tempfile.TemporaryDirectory(prefix="apb_ks_retry_") as directory:
     script = Path(directory) / "retry_test.ahk"

@@ -84,14 +84,49 @@
   .orb.on{color:#14351F;background:linear-gradient(180deg,#79B78E 0%,#5F9E77 100%);
     box-shadow:0 8px 20px rgba(70,50,0,.12)}
   .orb.on::after{animation:none;opacity:0}
+  .orb.warn{color:#593D19;background:linear-gradient(180deg,#F6D58C 0%,#E9B96D 100%);
+    box-shadow:0 8px 20px rgba(100,64,15,.12)}
+  .orb.warn::after{animation:none;opacity:0}
   .orb.busy{pointer-events:none;opacity:.85;animation:none}
   .orb.busy::after{animation:none;opacity:0}
+  .orb.inflight::after{inset:-8px;opacity:1;box-shadow:none;border:2px solid rgba(255,197,61,.18);
+    border-top-color:#E0A800;border-right-color:#F5B935;animation:loadOrbit 1.35s linear infinite}
+  .orb.inflight.on::after{border-top-color:var(--sage);border-right-color:#9DCEAD}
   .orb svg{width:32px;height:32px}
   .orb svg g{stroke:#3D2F00}
   .orb.on svg g{stroke:#14351F}
   .orb .oname{font-size:12.5px;font-weight:700;max-width:104px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .orb .ost{font-size:10.5px;opacity:.62}
+  .orb .ost{max-width:100px;font-size:10.5px;line-height:1.2;text-align:center;opacity:.75}
   .ohint{font-size:11px;color:var(--sub);margin-top:10px;letter-spacing:.2px}
+  /* Inline operation companion: real milestones, not a fabricated percent bar. */
+  .progress-panel{width:100%;max-width:380px;margin-top:11px;padding:11px 12px;display:flex;gap:10px;
+    border:1px solid rgba(224,168,0,.22);border-radius:14px;background:rgba(255,255,255,.91);
+    box-shadow:0 6px 18px rgba(70,50,0,.07);animation:progressEnter .25s var(--ease) both}
+  .progress-panel[hidden]{display:none}
+  @keyframes progressEnter{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+  .progress-pet{width:37px;height:37px;flex:none;display:grid;place-items:center;border-radius:12px;
+    background:var(--yellow-soft);border:1px solid rgba(224,168,0,.15);position:relative}
+  .progress-pet img{width:29px;height:29px;object-fit:contain;animation:petWait 2.1s ease-in-out infinite}
+  .progress-pet::after{content:'';position:absolute;right:-2px;top:-2px;width:8px;height:8px;border-radius:50%;
+    background:var(--yellow);box-shadow:0 0 0 3px var(--yellow-tint);animation:waitDot 1.5s ease-in-out infinite}
+  @keyframes petWait{50%{transform:translateY(-2px) rotate(-4deg)}}
+  @keyframes waitDot{50%{opacity:.45;transform:scale(.75)}}
+  .progress-body{min-width:0;flex:1}
+  .progress-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .progress-title{font-size:12px;font-weight:700;color:var(--ink);line-height:1.35}
+  .progress-step{font-size:10px;font-weight:700;color:var(--yellow-deep);white-space:nowrap}
+  .progress-why{font-size:10.5px;color:#6F6554;line-height:1.45;margin-top:3px}
+  .progress-time{font-size:10px;color:var(--sub);line-height:1.4;margin-top:5px}
+  .progress-marks{display:flex;gap:4px;margin-top:7px}
+  .progress-marks i{height:3px;flex:1;border-radius:999px;background:#EDE6D6}
+  .progress-marks i.done{background:var(--sage)}
+  .progress-marks i.current{background:linear-gradient(90deg,var(--yellow-deep),var(--yellow-l),var(--yellow-deep));
+    background-size:200% 100%;animation:markFlow 1.5s linear infinite}
+  .progress-panel[data-mode="outcome"] .progress-pet img,.progress-panel[data-mode="outcome"] .progress-pet::after{animation:none}
+  @keyframes markFlow{to{background-position:-200% 0}}
+  @keyframes loadOrbit{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){.orb.inflight::after,.progress-panel,.progress-pet img,
+    .progress-pet::after,.progress-marks i.current,.spin{animation:none!important}}
 
   /* 分区标题 */
   .sec{display:flex;align-items:center;margin:8px 0 10px;gap:8px}
@@ -136,8 +171,10 @@
 
   .st{display:flex;align-items:center;gap:5px;margin-top:3px;font-size:11px;color:#6F6A5F}
   .st.ok{color:var(--sage-d);font-weight:600}
+  .st.warn{color:#9B622B;font-weight:600}
   .dot{width:7px;height:7px;border-radius:50%;background:#CFC8BB;flex:none}
   .dot.on{background:var(--sage)}
+  .dot.warn{background:#D68A3A}
 
   /* 悬停弹出：▲▼ 优先级面板与删除静息若隐若现，移入卡片/键盘聚焦时弹出（评审 P3） */
   .prio{display:flex;flex-direction:column;gap:6px;flex:none;
@@ -162,9 +199,10 @@
   .act.on{background:linear-gradient(180deg,#79B78E 0%,#5F9E77 100%);
     box-shadow:0 2px 8px rgba(70,50,0,.10)}
   .act.busy{pointer-events:none;opacity:.85}
-  .spin{width:15px;height:15px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;
-    border-radius:50%;display:inline-block;animation:rot .7s linear infinite}
-  @keyframes rot{to{transform:rotate(360deg)}}
+  .spin{width:18px;height:18px;border-radius:50%;display:inline-block;position:relative;
+    border:2px solid rgba(61,47,0,.18);border-top-color:#705100;border-right-color:#B98A00;
+    animation:loadOrbit 1.15s linear infinite}
+  .act[disabled]{pointer-events:none;opacity:.75}
 
   .del{width:28px;height:28px;border:none;border-radius:9px;background:transparent;color:#B3AC9E;
     cursor:pointer;flex:none;display:flex;align-items:center;justify-content:center;
@@ -402,6 +440,16 @@
         <span class="ost">正在获取设备…</span>
       </button>
       <div class="ohint" id="ohint">点大按钮按优先级连接</div>
+      <div class="progress-panel" id="progressPanel" aria-label="操作进度" hidden>
+        <div class="progress-pet" aria-hidden="true"><img alt=""></div>
+        <div class="progress-body">
+          <div class="progress-head"><span class="progress-title" id="progressTitle" role="status" aria-live="polite" aria-atomic="true"></span>
+            <span class="progress-step" id="progressStep"></span></div>
+          <div class="progress-why" id="progressWhy"></div>
+          <div class="progress-time" id="progressTime" aria-live="off"></div>
+          <div class="progress-marks" id="progressMarks" aria-hidden="true"></div>
+        </div>
+      </div>
     </div>
 
     <div class="sec">
@@ -530,7 +578,7 @@
       <button class="tchip" data-t="新款型号连接问题">🆕 新款型号连接问题</button>
       <button class="tchip" data-t="界面或托盘显示异常">🖥 界面/托盘</button>
     </div>
-    <details class="iss-recovery"><summary>蓝牙已连接但没声音？手动排查顺序</summary><p>先确认 Windows 声音输出设备选中了耳机；仍无声再关开蓝牙；再不行就忘记设备并重新配对；最后重启电脑。</p></details>
+    <details class="iss-recovery"><summary>蓝牙已连接但没声音？手动排查顺序</summary><p>先在 Windows 声音设置确认耳机为默认输出并点「测试」；若输出列表没有耳机，在「更多声音设置 → 播放」中显示已禁用的设备，仅当这副耳机的播放项显示「已停用」时启用它。仍无声再手动关开电脑蓝牙；再不行只遗忘这副耳机并重新配对；最后重启电脑。应用不会自动重置整机蓝牙。</p></details>
     <div class="iss-sec">② 补充说明（可选）：什么时候开始、做了什么操作</div>
     <textarea id="issText" maxlength="500" rows="3" placeholder="不选类型、直接写也行；新款耳机请写准确型号…"></textarea>
     <input id="issContact" maxlength="60" placeholder="📞 联系方式（选填）：留个邮箱/QQ，排查好了回你">
@@ -619,6 +667,8 @@ document.querySelectorAll('.dlg').forEach(dlg=>{
   const footer=[...dlg.children].find(n=>n.classList.contains('row'));
   content.forEach(n=>body.appendChild(n));dlg.insertBefore(body,sticky[0]||footer||null);
 });
+/* Reuse the already loaded brand image; do not embed the same PNG twice in the EXE. */
+document.querySelector('.progress-pet img').src=document.querySelector('.appicon').src;
 const SEP='\x1F'; let seq=0; const pending={};
 function rpc(cmd,...args){
   const id=++seq;
@@ -636,9 +686,9 @@ window.__event=(name,data)=>{if(name==='update')showUpdate(data);if(name==='star
   if(name==='toast')toast(data);if(name==='audioheld')onAudioHeld(data);
   if(name==='routelost'){toast('之前确认的耳机音频路由已失效，请检查当前连接和声音输出。');refreshList()}
   if(name==='linkok'){toast('蓝牙链路已连接，正在确认音频…');refreshList()}
-  if(name==='audiook'){toast('耳机播放端点及三个默认输出角色已确认');refreshList()}
-  if(name==='linkdown'){toast('已核实断开：'+deviceName(data));refreshList()}
-  if(name==='downfail'){toast('尚未断开：'+deviceName(data));refreshList()}
+  if(name==='audiook'){toast('耳机已设为默认输出，播放格式检查通过；请试听确认是否有声');refreshList()}
+  if(name==='linkdown'){downConfirmed.add(data);toast('已核实断开：'+deviceName(data));refreshList()}
+  if(name==='downfail'){downConfirmed.delete(data);toast('尚未断开：'+deviceName(data));refreshList()}
   if(name==='linkfail'){toast('未确认连接成功，请检查耳机状态或查看日志');refreshList()}};
 /* forward JS errors to the AHK-side log */
 window.addEventListener('error',e=>{try{chrome.webview.postMessage('jserror'+SEP+'0'+SEP+((e.message||'unknown')+' @ '+(e.filename||'inline')+':'+(e.linno||e.lineno||0)))}catch(_){}});
@@ -689,8 +739,11 @@ const stopSvg='<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColo
 
 /* ---------- rendering ---------- */
 let devices=[];
+let progressSnapshotAt=Date.now(),localAction=null,lastActiveProgress=null,progressOutcome=null,cancelRequestedId='',legacyProgressTick=null;
+const downConfirmed=new Set();
 function deviceName(id){return devices.find(d=>d.id===id)?.name||id}
-function orbTarget(){for(const d of devices)if(!d.connected)return d;return devices[0]||null}
+function orbTarget(){for(const d of devices)if(d.progress||isLegacyBusy(d))return d;
+  for(const d of devices)if(!d.connected)return d;return devices[0]||null}
 function parseList(r){
   try{return JSON.parse(r||'[]')}
   catch(e){
@@ -707,20 +760,157 @@ async function refreshList(){
       `<div class="empty"><p>获取设备失败</p><p style="margin-top:8px"><u style="cursor:pointer;color:var(--honey-d)" onclick="refreshList()">点我重试</u></p></div>`;
     return;
   }
-  devices=d;
+  devices=d;progressSnapshotAt=Date.now();
+  reconcileLocalAction();
   render();
 }
-function isConnecting(d){return ['connect','link_pending','link_retry_wait','link_retrying'].includes(d.audioState)}
-function deviceAction(d){return d.connected||isConnecting(d)?'disconnect':'connect'}
-function deviceActionTitle(d){return isConnecting(d)?'取消连接':(d.connected?'断开':'连接')}
+const progressCopy={
+  request:{connect:['正在向 Windows 请求连接','驱动正在处理这副耳机的连接请求，请稍等。'],
+    disconnect:['正在向 Windows 请求断开','驱动正在处理这副耳机的断开请求，请稍等。']},
+  queued:{disconnect:['正在排队取消连接','当前连接请求还在执行；结束后才会对这副耳机提交断开。']},
+  link:{connect:['正在确认蓝牙链路','连接请求已提交，等待链路稳定；此时暂不切换声音输出。']},
+  retry_wait:{connect:['等待一次有界重试','链路暂未就绪，等待后只对这副耳机再试一次；可点取消连接。']},
+  retrying:{connect:['正在重试这副耳机','仅补发一次连接请求，不会重置电脑的蓝牙。']},
+  audio:{connect:['正在确认耳机播放','蓝牙已连，正在检查播放端点和声音路由；完成后请试听。']},
+  down:{disconnect:['正在确认完全断开','等待链路和这副耳机的音频端点都结束，避免过早显示成功。']}
+};
+function isLegacyBusy(d){return ['connect','link_pending','link_retry_wait','link_retrying','audio_pending','disconnect','down_pending'].includes(d.audioState)}
+function progressFor(d){
+  const p=d.progress;
+  if(p&&['connect','disconnect'].includes(p.action)&&progressCopy[p.phase]?.[p.action]){
+    const steps=p.action==='connect'?4:3;
+    return {action:p.action,phase:p.phase,step:Math.max(1,Math.min(steps,Number(p.step)||1)),
+      steps,elapsedMs:Math.max(0,Number(p.elapsedMs)||0),phaseElapsedMs:Math.max(0,Number(p.phaseElapsedMs)||0),
+      phaseBudgetMs:Math.max(0,Number(p.phaseBudgetMs)||0)};
+  }
+  // A previous app backend may omit progress; do not leave its visible busy state silent.
+  const phase={connect:'request',link_pending:'link',link_retry_wait:'retry_wait',
+    link_retrying:'retrying',audio_pending:'audio',disconnect:'request',down_pending:'down'}[d.audioState];
+  if(!phase)return null;
+  const action=['disconnect','down_pending'].includes(d.audioState)?'disconnect':'connect';
+  const key=String(d.id)+'|'+String(d.audioState);
+  if(legacyProgressTick?.key!==key)legacyProgressTick={key,started:Date.now()};
+  const elapsed=Math.max(0,Date.now()-legacyProgressTick.started);
+  return {action,phase,step:action==='connect'?(phase==='request'?1:phase==='audio'?3:2):(phase==='request'?1:2),
+    steps:action==='connect'?4:3,elapsedMs:elapsed,phaseElapsedMs:elapsed,phaseBudgetMs:0};
+}
+function currentProgress(){
+  for(const d of devices)if(d.progress){const p=progressFor(d);if(p)return {device:d,progress:p,source:'backend'}}
+  for(const d of devices)if(isLegacyBusy(d))return {device:d,progress:progressFor(d),source:'legacy'};
+  if(localAction&&Date.now()-localAction.started<8000){
+    const d=devices.find(x=>x.id===localAction.id)||{id:localAction.id,name:localAction.name};
+    const ms=Date.now()-localAction.started;
+    return {device:d,progress:{action:localAction.action,phase:'request',step:1,
+      steps:localAction.action==='connect'?4:3,elapsedMs:ms,phaseElapsedMs:ms,phaseBudgetMs:30000},source:'local'};
+  }
+  return null;
+}
+function reconcileLocalAction(){
+  if(!localAction)return;
+  const d=devices.find(x=>x.id===localAction.id);
+  if(d?.progress||Date.now()-localAction.started>8000 ||
+    (d&&localAction.action==='connect'&&d.connected&&d.audioState==='ready'))localAction=null;
+}
+function completedProgress(last){
+  const d=devices.find(x=>x.id===last.id);
+  if(!d)return null;
+  let title='',why='';
+  if(last.action==='disconnect'){
+    if(!d.connected&&d.audioState==='disconnected'&&downConfirmed.has(last.id)){
+      title=cancelRequestedId===last.id?'已取消连接':'已确认断开';
+      why='Windows 已核实蓝牙链路和这副耳机的音频端点都已断开。';
+    }else{
+      title='断开状态待确认';why='Windows 尚未给出明确断开结果；请查看设备状态，避免重复操作。';
+    }
+  }else if(d.connected&&d.audioState==='ready'){
+    title='连接检查完成 · 请试听';
+    why='耳机已设为默认输出，播放格式预检通过；实际听到声音才算有声。';
+  }else if(d.connected&&d.audioState==='playback_unavailable'){
+    title='蓝牙已连，播放不可用';why='Windows 播放端点不可用；可在声音设置里检查或附日志反馈。';
+  }else if(d.connected&&d.audioState==='playback_unverified'){
+    title='蓝牙已连，播放待确认';why='Windows 播放能力尚未确认；请在声音设置里测试。';
+  }else if(['link_failed','audio_failed'].includes(d.audioState)){
+    title='连接未完成';why='这次连接没有通过系统核实；请查看设备状态或附日志反馈。';
+  }else{
+    title='连接结果待确认';why='Windows 仍可能在处理；请等下一次状态刷新，不要连续点击。';
+  }
+  cancelRequestedId='';
+  return {id:d.id,name:d.name,state:d.audioState,connected:d.connected,title,why};
+}
+function renderProgress(){
+  const panel=document.getElementById('progressPanel'),active=currentProgress();
+  if(!panel)return;
+  if(!active){
+    if(lastActiveProgress){progressOutcome=completedProgress(lastActiveProgress);lastActiveProgress=null}
+    const d=devices.find(x=>x.id===progressOutcome?.id);
+    if(!d||d.audioState!==progressOutcome.state||d.connected!==progressOutcome.connected){
+      progressOutcome=null;panel.hidden=true;panel.dataset.key='';return;
+    }
+    panel.hidden=false;panel.dataset.mode='outcome';
+    const key='outcome|'+d.id+'|'+progressOutcome.title;
+    if(panel.dataset.key!==key){
+      panel.dataset.key=key;
+      document.getElementById('progressTitle').textContent=progressOutcome.title+' · '+d.name;
+      document.getElementById('progressWhy').textContent=progressOutcome.why;
+      document.getElementById('progressStep').textContent='结果';
+      document.getElementById('progressMarks').innerHTML='';
+      document.getElementById('progressTime').textContent='状态以 Windows 当前读回为准';
+    }
+    return;
+  }
+  const {device,progress:p}=active,copy=progressCopy[p.phase]?.[p.action];
+  if(!copy){panel.hidden=true;return}
+  lastActiveProgress={id:device.id,action:p.action};progressOutcome=null;
+  panel.hidden=false;panel.dataset.mode='active';
+  const key=String(device.id)+'|'+p.action+'|'+p.phase+'|'+p.step;
+  if(panel.dataset.key!==key){
+    panel.dataset.key=key;
+    document.getElementById('progressTitle').textContent=copy[0]+' · '+device.name;
+    document.getElementById('progressWhy').textContent=copy[1];
+    document.getElementById('progressStep').textContent='第 '+p.step+' / '+p.steps+' 步';
+    document.getElementById('progressMarks').innerHTML=Array.from({length:p.steps},(_,i)=>
+      '<i class="'+(i+1<p.step?'done':i+1===p.step?'current':'')+'"></i>').join('');
+  }
+  const drift=['local','legacy'].includes(active.source)?0:Math.max(0,Date.now()-progressSnapshotAt);
+  const elapsed=Math.max(0,p.elapsedMs+drift),phaseElapsed=Math.max(0,p.phaseElapsedMs+drift);
+  let estimate='Windows 正在处理，耗时可能因设备而异';
+  if(p.phaseBudgetMs>0){
+    const remaining=Math.ceil(Math.max(0,p.phaseBudgetMs-phaseElapsed)/1000);
+    estimate=remaining>0?(p.phase==='retry_wait'?`约 ${remaining} 秒后再次核实`:
+      `本阶段约剩 ${remaining} 秒观察窗口，实际以 Windows 为准`):'仍在核实；Windows 响应可能较慢';
+  }
+  const elapsedLabel=active.source==='legacy'?'本阶段已等待':'已等待';
+  document.getElementById('progressTime').textContent=`${elapsedLabel} ${Math.floor(elapsed/1000)} 秒 · ${estimate}（非整体完成倒计时）`;
+}
+function isConnecting(d){return d.progress?.action==='connect'||['connect','link_pending','link_retry_wait','link_retrying','audio_pending'].includes(d.audioState)}
+function isDisconnecting(d){return d.progress?.action==='disconnect'||['disconnect','down_pending'].includes(d.audioState)}
+function connectRequestBusy(d){return isConnecting(d)&&(d.progress?.phase==='request'||(!d.progress&&d.audioState==='connect'))}
+function isPlaybackWarning(d){return ['playback_unavailable','playback_unverified'].includes(d.audioState)}
+function deviceAction(d){return d.connected||isConnecting(d)||isDisconnecting(d)?'disconnect':'connect'}
+function deviceActionTitle(d){return d.progress?.phase==='queued'?'取消已排队':(isDisconnecting(d)?'正在断开':(connectRequestBusy(d)?'正在提交连接请求':(isConnecting(d)?'取消连接':(d.connected?'断开':'连接'))))}
 function deviceStatus(d){
+  if(d.progress?.phase==='queued')return '取消已排队 · 等待当前请求结束';
+  if(isDisconnecting(d))return '正在断开 · 等待 Windows 核实';
   if(d.audioState==='link_retry_wait')return '链路未就绪 · 等待一次重试（可取消）';
   if(d.audioState==='link_retrying')return '正在重试连接（仅一次，可取消）';
+  if(d.audioState==='playback_unavailable')return '蓝牙已连 · Windows 播放不可用';
+  if(d.audioState==='playback_unverified')return '蓝牙已连 · 播放能力未确认';
+  if(connectRequestBusy(d))return '正在提交连接请求 · 请稍候';
   if(isConnecting(d))return '正在连接（可取消）';
-  return d.connected?(d.audioState==='ready'?'默认音频已确认':'蓝牙已连接 · 音频未确认'):'未连接';
+  return d.connected?(d.audioState==='ready'?'默认输出已切耳机 · 请试听':'蓝牙已连接 · 音频未确认'):'未连接';
+}
+function orbStatus(d){
+  if(d.progress?.phase==='queued')return '取消已排队';
+  if(isDisconnecting(d))return '正在断开';
+  if(isConnecting(d))return '正在连接';
+  if(!d.connected)return '点按连接';
+  if(d.audioState==='playback_unavailable')return '播放不可用';
+  if(d.audioState==='playback_unverified')return '播放待确认';
+  return d.audioState==='ready'?'请试听确认':'音频未确认';
 }
 function render(){
   renderOrb();
+  renderProgress();
   const box=document.getElementById('devices');
   document.getElementById('cnt').textContent=devices.length?('· '+devices.length):'';
   if(!devices.length){
@@ -731,7 +921,8 @@ function render(){
   }
   const on=devices.filter(d=>d.connected).length;
   const bd=document.getElementById('badge');
-  bd.textContent=devices.some(isConnecting)?'正在连接…':(on?('蓝牙已连 '+on+' 台'):'未连接');
+  bd.textContent=devices.some(d=>d.progress?.phase==='queued')?'等待取消…':devices.some(isDisconnecting)?'正在断开…':
+    (devices.some(isConnecting)?'正在连接…':(on?('蓝牙已连 '+on+' 台'):'未连接'));
   bd.classList.toggle('on',on>0);
   box.innerHTML=devices.map((d,i)=>`
     <div class="card" style="animation-delay:${i*60}ms">
@@ -739,14 +930,14 @@ function render(){
       <div class="info">
         <div class="name" title="${esc(d.name)}"><span class="txt">${esc(d.name)}</span>
           <span class="prio-mark">优先 ${i+1}</span></div>
-        <div class="st ${d.connected?'ok':''}" data-st="${esc(d.id)}"><span class="dot ${d.connected?'on':''}"></span>${deviceStatus(d)}</div>
+        <div class="st ${isPlaybackWarning(d)?'warn':(d.connected?'ok':'')}" data-st="${esc(d.id)}"><span class="dot ${isPlaybackWarning(d)?'warn':(d.connected?'on':'')}"></span>${deviceStatus(d)}</div>
       </div>
       <div class="prio">
         <button class="pbtn" data-up="${i}" ${i===0?'disabled':''} title="提高优先级">▲</button>
         <button class="pbtn" data-down="${i}" ${i===devices.length-1?'disabled':''} title="降低优先级">▼</button>
       </div>
-      <button class="act ${d.connected?'on':''}" data-act="${deviceAction(d)}" data-name="${esc(d.id)}" title="${deviceActionTitle(d)}">
-        ${deviceAction(d)==='disconnect'?stopSvg:playSvg}</button>
+      <button class="act ${d.connected?'on':''}" data-act="${deviceAction(d)}" data-name="${esc(d.id)}" title="${deviceActionTitle(d)}" ${(isDisconnecting(d)||connectRequestBusy(d))?'disabled aria-disabled="true"':''}>
+        ${(isDisconnecting(d)||connectRequestBusy(d))?'<span class="spin" aria-hidden="true"></span>':(deviceAction(d)==='disconnect'?stopSvg:playSvg)}</button>
       <button class="del" data-del="${esc(d.id)}" title="删除">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
           <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
@@ -766,11 +957,13 @@ function renderOrb(){
   }
   orb.classList.remove('busy');
   const t=orbTarget();
-  orb.className='orb'+(t.connected?' on':'');
-  orb.innerHTML=`${art(kindOf(t.name))}<span class="oname">${esc(t.name)}</span>
-    <span class="ost">${isConnecting(t)?deviceStatus(t)+' · 点按取消':(t.connected?'蓝牙已连接 · 点按断开':'未连接 · 点按连接')}</span>`;
-  orb.onclick=()=>doAction(null,t.id,deviceAction(t));
-  hint.textContent=t.connected?('「'+t.name+'」蓝牙已连接'):('下一步将连接「'+t.name+'」');
+  orb.className='orb'+(isPlaybackWarning(t)?' warn':(t.connected?' on':''))+
+    ((isConnecting(t)||isDisconnecting(t))?' inflight':'')+((isDisconnecting(t)||connectRequestBusy(t))?' busy':'');
+  orb.innerHTML=`${(isDisconnecting(t)||connectRequestBusy(t))?'<span class="spin" aria-hidden="true"></span>':art(kindOf(t.name))}<span class="oname">${esc(t.name)}</span>
+    <span class="ost">${orbStatus(t)}</span>`;
+  orb.onclick=(isDisconnecting(t)||connectRequestBusy(t))?null:()=>doAction(null,t.id,deviceAction(t));
+  hint.textContent=t.progress?.phase==='queued'?'当前连接请求结束后提交断开':isDisconnecting(t)?'请稍等，Windows 正在核实断开状态':connectRequestBusy(t)?'连接请求提交中，完成后可取消':isConnecting(t)?'点按圆按钮取消连接':
+    (t.connected?('「'+t.name+'」蓝牙已连接；点按圆按钮断开'):('下一步将连接「'+t.name+'」'));
 }
 async function movePrio(i,dir){
   const j=i+dir;
@@ -784,25 +977,46 @@ async function movePrio(i,dir){
 function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
 
 async function doAction(btn,name,act){
+  if(document.querySelector('.requesting'))return;
   name=name??btn.dataset.name;act=act??btn.dataset.act;
   const b=btn||document.getElementById('orb');
   const restore=b.innerHTML,cls=b.className;
-  b.classList.add('busy');b.innerHTML='<span class="spin"></span>';
+  downConfirmed.delete(name);
+  if(act==='disconnect'&&devices.some(d=>d.id===name&&isConnecting(d)))cancelRequestedId=name;
+  localAction={id:name,name:deviceName(name),action:act,started:Date.now()};
+  renderProgress();
+  b.classList.add('busy','requesting');b.innerHTML='<span class="spin" aria-hidden="true"></span>';
   document.getElementById('badge').textContent=(act==='connect'?'连接中…':'断开中…');
   try{
     const r=await rpc(act,name);
     if(r==='ok')toast(act==='connect'?'连接请求已提交，等待音频确认…':'断开请求已提交，等待链路确认…');
-    else toast(r==='busy'?'上一个操作仍在进行中':'操作未完成，请查看日志');
-  }catch(e){toast(e.message||'请求失败')}
-  finally{b.classList.remove('busy');b.className=cls;b.innerHTML=restore;}
+    else{
+      localAction=null;lastActiveProgress=null;cancelRequestedId='';
+      const d=devices.find(x=>x.id===name);
+      progressOutcome=d?{id:name,name:d.name,state:d.audioState,connected:d.connected,
+        title:r==='busy'?'上一个操作仍在进行中':'请求未提交',why:'请等状态刷新后再操作；若持续失败，可附日志反馈。'}:null;
+      renderProgress();toast(r==='busy'?'上一个操作仍在进行中':'操作未完成，请查看日志');
+    }
+  }catch(e){
+    localAction=null;lastActiveProgress=null;cancelRequestedId='';
+    const d=devices.find(x=>x.id===name);
+    progressOutcome=d?{id:name,name:d.name,state:d.audioState,connected:d.connected,
+      title:'请求状态待确认',why:'界面未收到请求结果；Windows 仍可能在处理，请等状态刷新。'}:null;
+    renderProgress();toast(e.message||'请求失败');
+  }
   try{await refreshList()}catch(e){document.getElementById('badge').textContent='状态待刷新';toast(e.message)}
+  finally{b.classList.remove('busy','requesting');b.className=cls;b.innerHTML=restore;}
 }
 
-/* Link state and verified audio route are distinct. */
-function onAudioHeld(name){
-  toast('蓝牙已连接，但播放端点或默认输出尚未就绪；原因尚未确认，请查看 Windows 声音设置。');
-  const st=document.querySelector('[data-st="'+CSS.escape(name)+'"]');
-  if(st) st.innerHTML='<span class="dot on"></span>蓝牙已连接 · 音频未就绪';
+/* Link state and verified audio route are distinct. Neither proves audible sound. */
+async function onAudioHeld(name){
+  try{await refreshList()}catch(_){/* Keep the current card if status RPC fails. */}
+  const state=devices.find(d=>d.id===name)?.audioState;
+  if(state==='playback_unavailable')
+    toast('蓝牙已连接，但 Windows 播放端点不可用；请在声音设置点「测试」，仍失败可在「问题反馈」附日志。');
+  else if(state==='playback_unverified')
+    toast('蓝牙已连接，但播放能力尚未确认；请在 Windows 声音设置测试，仍失败可附日志反馈。');
+  else toast('蓝牙已连接，但播放端点或默认输出尚未就绪；请查看 Windows 声音设置。');
 }
 
 let delTarget='';
@@ -1026,13 +1240,17 @@ function starGo(){rpc('openrepo');rpc('stardone');closeModal('mStar');toast('谢
 function starLater(){rpc('stardone');closeModal('mStar')}
 /* ---------- poll reconciliation ---------- */
 function sameDeviceState(a,b){
-  return a.length===b.length && a.every((x,i)=>['id','name','connected','audioState','apple'].every(k=>x[k]===b[i][k]));
+  return a.length===b.length && a.every((x,i)=>
+    ['id','name','connected','audioState','apple'].every(k=>x[k]===b[i][k])&&
+    ['action','phase','step','steps'].every(k=>x.progress?.[k]===b[i].progress?.[k]));
 }
 function applyPolledDevices(d){
-  if(d===null || sameDeviceState(d,devices))return;
+  if(d===null)return;
+  const same=sameDeviceState(d,devices);
   // Only an actual press or in-flight action defers rebuilding. Hover is not a lock.
-  if(document.querySelector('.card:active')||document.querySelector('.busy'))return;
-  devices=d;render();
+  if(!same&&(document.querySelector('.card:active')||document.querySelector('.requesting')))return;
+  devices=d;progressSnapshotAt=Date.now();reconcileLocalAction();
+  if(same)renderProgress();else render();
 }
 /* ---------- boot ---------- */
 (async()=>{
@@ -1042,6 +1260,7 @@ function applyPolledDevices(d){
   refreshList();
   setInterval(()=>rpc('statuspoll').then(r=>applyPolledDevices(parseList(r)))
     .catch(()=>{document.getElementById('badge').textContent='状态待刷新'}),4000);
+  setInterval(renderProgress,1000);
 })();
 </script>
 </body>
