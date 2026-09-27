@@ -18,9 +18,9 @@ def function(name: str) -> str:
 checks = {
     "no_fixed_timeout_for_active_operation": "if name != \"\" {\n        SetTimer(PetProgressTick, 500)" in source,
     "old_hide_timer_cancelled": "SetTimer(PetFade, 0), SetTimer(PetHideNow, 0), SetTimer(PetProgressTick, 0)" in source,
-    "accepted_action_starts_pet": 'PetShow(action = "connect" ? "connecting" : "disconnecting", name, gen, fromBatch)' in source,
+    "accepted_action_starts_pet": 'PetSchedule(action = "connect" ? "connecting" : "disconnecting", name, gen, fromBatch)' in source,
     "tray_disconnect_batch": "PetStartBatch(queue)" in source,
-    "new_direct_action_invalidates_batch": 'if (name != "" && !preserveBatch)' in source and "petBatchTicket++" in function("PetShow"),
+    "new_direct_action_invalidates_batch": 'if (name != "" && !preserveBatch)' in source and "petBatchTicket++" in function("PetSchedule"),
     "old_unsynchronized_terminal_calls_removed": not any(
         call in source for call in ('PetUpdate("ok")', 'PetUpdate("off")', 'PetUpdate("fail")')
     ),
@@ -90,7 +90,7 @@ DisconnectQueue(queue, 7)
 Check("superseded_batch_cannot_disconnect_next_device", queue.Length = 1 && batchCalls = 0)
 
 petBatch := ["A", "B"], petBatchGen := Map("A", 3), petBatchTicket := 10
-PetShow("connecting", "A", 5)
+PetSchedule("connecting", "A", 5)
 Check("same_name_connect_clears_disconnect_batch", petBatch.Length = 0 && petBatchTicket = 11)
 DisconnectQueue(["B"], 10)
 Check("old_batch_timer_cannot_run_after_new_connect", batchCalls = 0)
@@ -143,8 +143,10 @@ PetHideNow() {
 }
 PetApply(state) {
 }
+PetRunScheduled(*) {
+}
 '''
-for name in ("PetBatchContains", "PetShow", "PetPhaseText", "PetProgressTick", "DisconnectQueue"):
+for name in ("PetBatchContains", "PetSchedule", "PetShow", "PetPhaseText", "PetProgressTick", "DisconnectQueue"):
     body += function(name)
 
 with tempfile.TemporaryDirectory(prefix="apb_pet_lifecycle_") as directory:

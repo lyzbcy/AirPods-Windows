@@ -468,6 +468,9 @@ petBatchGen := Map()
 petBatchFailed := Map()
 petBatchStarted := 0
 petBatchTicket := 0
+petControllerReady := false
+petShowSeq := 0
+petDeferred := ""
 
 PetOnMsg(core, args) {
     global petReady, petPending
@@ -477,6 +480,7 @@ PetOnMsg(core, args) {
         m := args.TryGetWebMessageAsString()
         if (m = "petready") {
             petReady := true
+            LogMsg("petready received")
             ; IsSet 守卫：/testpet 在 auto-exec 前段就调用 Pet 系列，
             ; 此时顶层 pet* 全局初始化(见下方)还没执行到，直接读会 UnsetError
             if (IsSet(petPending) && IsObject(petPending)) {
@@ -502,10 +506,13 @@ PetApply(state, detail := "") {
 }
 
 PetEnsure() {
-    global petGui, petWvc, petWv, wvDll, appRoot, wv2Fallback
+    global petGui, petWvc, petWv, wvDll, appRoot, wv2Fallback, wv
+    global petControllerReady, petDeferred
+    ; WebView2.create awaits while pumping messages. A reentrant action can see
+    ; the GUI before the controller exists, so the GUI alone is not readiness.
+    if (IsSet(petGui) && IsObject(petGui))
+        return IsSet(petControllerReady) && petControllerReady && IsSet(petWvc) && IsObject(petWvc)
     EnsureResources()
-    if (IsSet(petGui) && petGui != 0)
-        return true
     p := A_IsCompiled ? (appRoot "\pet_built.html") : (A_ScriptDir "\webui\pet_built.html")
     if (A_IsCompiled && !FileExist(p)) {
         try {
@@ -520,6 +527,8 @@ PetEnsure() {
         LogMsg("pet html missing: " p, "WARN")
         return false
     }
+    petControllerReady := false
+    started := A_TickCount
     petGui := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x08000000", "AirPodsPet")
     petGui.MarginX := 0, petGui.MarginY := 0
     petGui.BackColor := "000000"   ; Gui 底色黑 = 颜色键色；webview 透明处露出黑再被挖穿
@@ -531,29 +540,41 @@ PetEnsure() {
     ex := DllCall("user32\GetWindowLongW", "ptr", petGui.Hwnd, "int", -20, "int")
     LogMsg("pet transcolor 000000 hwnd=" petGui.Hwnd " exstyle=" Format("0x{:X}", ex))
     try {
-        petWvc := WebView2.create(petGui.Hwnd,, 0, EnvGet("LOCALAPPDATA") "\AirPodsBuddy_webview", wv2Fallback, 0, wvDll)
+        ; Reuse the already-running main controller's environment instead of
+        ; opening a second profile environment from inside a UI action.
+        sharedEnv := 0
+        if (IsSet(wv) && IsObject(wv)) {
+            try sharedEnv := wv.Environment
+        }
+        petWvc := WebView2.create(petGui.Hwnd,, sharedEnv, EnvGet("LOCALAPPDATA") "\AirPodsBuddy_webview", wv2Fallback, 0, wvDll)
+        if !IsObject(petWvc)
+            throw Error("pet controller did not return an object")
+        petWv := petWvc.CoreWebView2
+        try {
+            petWvc.DefaultBackgroundColor := 0x00000000
+            LogMsg("pet bg readback=" Format("{:08X}", petWvc.DefaultBackgroundColor))
+        }
+        try {
+            petWv.Settings.AreDevToolsEnabled := false
+            petWv.Settings.AreDefaultContextMenusEnabled := false
+        }
+        petWv.add_NavigationStarting((core, args) => (args.Cancel := args.Uri != "https://app.airpods.local/pet_built.html"))
+        petWv.add_NewWindowRequested((core, args) => (args.Handled := true))
+        petWv.add_WebMessageReceived(PetOnMsg)
+        petWv.SetVirtualHostNameToFolderMapping("app.airpods.local", A_IsCompiled ? appRoot : A_ScriptDir "\webui", 0)
+        petWv.Navigate("https://app.airpods.local/pet_built.html")
+        petGui.OnEvent("Close", (*) => petGui.Hide())
+        petControllerReady := true
+        LogMsg("pet controller ready elapsedMs=" (A_TickCount - started))
+        if IsObject(petDeferred)
+            SetTimer(PetResumeDeferred, -1)
+        return true
     } catch as e {
         LogMsg("pet webview create failed: " e.Message, "WARN")
         try petGui.Destroy()
-        petGui := 0
+        petGui := 0, petWvc := 0, petWv := 0, petControllerReady := false
         return false
     }
-    petWv := petWvc.CoreWebView2
-    try {
-        petWvc.DefaultBackgroundColor := 0x00000000   ; webview 真透明（有效，旧版验证过）
-        LogMsg("pet bg readback=" Format("{:08X}", petWvc.DefaultBackgroundColor))
-    }
-    try {
-        petWv.Settings.AreDevToolsEnabled := false
-        petWv.Settings.AreDefaultContextMenusEnabled := false
-    }
-    petWv.add_NavigationStarting((core, args) => (args.Cancel := args.Uri != "https://app.airpods.local/pet_built.html"))
-    petWv.add_NewWindowRequested((core, args) => (args.Handled := true))
-    petWv.add_WebMessageReceived(PetOnMsg)
-    petWv.SetVirtualHostNameToFolderMapping("app.airpods.local", A_IsCompiled ? appRoot : A_ScriptDir "\webui", 0)
-    petWv.Navigate("https://app.airpods.local/pet_built.html")
-    petGui.OnEvent("Close", (*) => petGui.Hide())
-    return true
 }
 
 PetBatchContains(name) {
@@ -572,7 +593,7 @@ PetStartBatch(queue) {
     petBatch := queue.Clone()
     petBatchGen := Map(), petBatchFailed := Map()
     petBatchStarted := A_TickCount
-    try PetShow("disconnecting", queue[1], 0, true)
+    try PetSchedule("disconnecting", queue[1], 0, true)
     catch as e
         LogMsg("pet batch display failed: " e.Message, "WARN")
     return petBatchTicket
@@ -584,26 +605,64 @@ PetBatchFail(name) {
         petBatchFailed[name] := true
 }
 
-PetShow(state, name := "", gen := 0, fromBatch := false) {
-    global petGui, petWvc, petVisible, petOpName, petOpAction, petOpGen
-    global petBatch, petBatchGen, petBatchFailed, petBatchTicket
+PetSchedule(state, name := "", gen := 0, fromBatch := false) {
+    global petBatch, petBatchGen, petBatchFailed, petBatchTicket, petShowSeq
     if !IsSet(petBatch)
         petBatch := [], petBatchGen := Map(), petBatchFailed := Map()
     if !IsSet(petBatchTicket)
         petBatchTicket := 0
-    ; A newly accepted direct action supersedes a pending tray-disconnect queue,
-    ; even if the popup itself cannot be rendered. Its deferred timer must stop.
+    if !IsSet(petShowSeq)
+        petShowSeq := 0
+    ; The old disconnect queue is invalidated synchronously at acceptance, not
+    ; when the deferred display timer happens to run.
     preserveBatch := fromBatch && state = "disconnecting" && PetBatchContains(name)
     if (name != "" && !preserveBatch) {
         petBatch := [], petBatchGen := Map(), petBatchFailed := Map()
         petBatchTicket++
     }
-    if !PetEnsure()
+    if (preserveBatch && gen)
+        petBatchGen[name] := gen
+    petShowSeq++
+    seq := petShowSeq
+    ; Never create a second WebView2 controller inside the main WebMessage RPC.
+    SetTimer(() => PetRunScheduled(state, name, gen, fromBatch, seq), -1)
+}
+
+PetRunScheduled(state, name, gen, fromBatch, seq) {
+    global petShowSeq
+    if seq != petShowSeq
+        return
+    try PetShow(state, name, gen, fromBatch, seq)
+    catch as e
+        LogMsg("pet display failed: " e.Message, "WARN")
+}
+
+PetResumeDeferred() {
+    global petDeferred, petShowSeq
+    if !IsSet(petDeferred) || !IsObject(petDeferred)
+        return
+    request := petDeferred
+    petDeferred := ""
+    if request.seq = petShowSeq
+        PetRunScheduled(request.state, request.name, request.gen, request.fromBatch, request.seq)
+}
+
+PetShow(state, name := "", gen := 0, fromBatch := false, seq := 0) {
+    global petGui, petWvc, petVisible, petOpName, petOpAction, petOpGen
+    global petShowSeq, petDeferred
+    if (seq && seq != petShowSeq)
+        return
+    if !PetEnsure() {
+        if seq && seq = petShowSeq
+            petDeferred := {state: state, name: name, gen: gen, fromBatch: fromBatch, seq: seq}
+        return
+    }
+    ; Controller creation can pump messages, so an older accepted action must
+    ; not replace a newer popup when the first initialization finally returns.
+    if (seq && seq != petShowSeq)
         return
     ; A previous operation's delayed fade must never hide a new operation.
     SetTimer(PetFade, 0), SetTimer(PetHideNow, 0), SetTimer(PetProgressTick, 0)
-    if (preserveBatch && gen)
-        petBatchGen[name] := gen
     petOpName := name, petOpAction := state = "disconnecting" ? "disconnect" : "connect", petOpGen := gen
     ; DPI 陷阱：A_ScreenWidth 是物理像素，Gui.Show 的 x/y 是逻辑坐标（会被
     ; 系统再缩放），直接相减会把窗口摆出屏幕。这里全部走物理坐标链：
@@ -1672,7 +1731,7 @@ DoAction(name, action, fromBatch := false) {
             deviceOps[name].state := "retry_cancelled"
             pendingRetryDisconnect := {name: name, epoch: actionEpoch, started: A_TickCount, scheduled: false}
             LogMsg("KS retry cancellation queued same-target disconnect: '" name "'")
-            try PetShow("disconnecting", name, deviceOps[name].gen, fromBatch)
+            try PetSchedule("disconnecting", name, deviceOps[name].gen, fromBatch)
             catch as e
                 LogMsg("pet queued display failed: " e.Message, "WARN")
             return "ok"
@@ -1705,7 +1764,7 @@ DoAction(name, action, fromBatch := false) {
         payload := '{"address":' JsonStr(deviceOps[name].address) ',"action":' JsonStr(action) ',"mic":' (deviceOps[name].micRequested ? "true" : "false") ',"micRestore":' (deviceOps[name].micRestore ? "true" : "false") '}'
         if !StartBackgroundJob("bluetooth", payload, (result, job) => FinishBluetoothAction(name, action, gen, result), 30000)
             throw Error("Bluetooth worker launch failed")
-        try PetShow(action = "connect" ? "connecting" : "disconnecting", name, gen, fromBatch)
+        try PetSchedule(action = "connect" ? "connecting" : "disconnecting", name, gen, fromBatch)
         catch as e
             LogMsg("pet display failed: " e.Message, "WARN")
         return "ok"

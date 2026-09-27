@@ -251,7 +251,7 @@ StartBackgroundJob(*) {
         throw Error("injected worker launch failure")
     return true
 }
-PetShow(state, *) {
+PetSchedule(state, *) {
     global petStates, petFails
     petStates.Push(state)
     if petFails

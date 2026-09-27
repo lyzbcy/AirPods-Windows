@@ -55,6 +55,8 @@ PetFade() {
     global fadeCount
     fadeCount++
 }
+LogMsg(*) {
+}
 JsonStr(s) {
     return s
 }

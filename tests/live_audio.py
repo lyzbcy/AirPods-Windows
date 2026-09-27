@@ -108,7 +108,7 @@ SetTrayLoading(*) {
 }
 PetUpdate(*) {
 }
-PetShow(*) {
+PetSchedule(*) {
 }
 TrayTip(*) {
 }

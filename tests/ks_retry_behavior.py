@@ -194,7 +194,7 @@ LogMsg(*) {
 }
 PetUpdate(*) {
 }
-PetShow(*) {
+PetSchedule(*) {
 }
 PushEvent(event, data) {
     global events

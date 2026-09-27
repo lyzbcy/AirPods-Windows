@@ -29,6 +29,7 @@ commands = [
     ('pet_popup', ['node', 'tests/pet_popup_test.cjs']),
     ('pet_lifecycle', ['python', 'tests/pet_lifecycle_test.py']),
     ('pet_ready_race', ['python', 'tests/pet_ready_race_test.py']),
+    ('pet_reentrancy', ['python', 'tests/pet_reentrancy_test.py']),
 ]
 for name, script in [('windows','windows_regression.ps1'), ('update_health','update_health_test.ps1'), ('ks_backend','ks_backend_test.ps1'), ('mic_migration','mic_migration_test.ps1')]:
     commands.append((name, ['powershell','-NoProfile','-ExecutionPolicy','Bypass','-File','tests/'+script]))
