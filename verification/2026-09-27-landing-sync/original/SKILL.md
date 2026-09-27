@@ -9,21 +9,19 @@ description: AirPods 小助手接力开发入口
 Windows 托盘工具采用 AutoHotkey v2 与 WebView2；Mac 菜单栏工具采用 Swift。
 
 ## 目录地图
-`airpods_buddy.ahk` 是 Windows 主程序；`webui/` 是前端；`mac/` 是 Mac 版；`doc/` 是知识库；`tools/` 是本机构建工具。公开产品页 `https://lyzbcy.github.io/airpods-buddy.html` 的源码在独立仓库 `lyzbcy/lyzbcy.github.io` 的 `main/airpods-buddy.html`；该仓库的 `pages-deploy.yml` 自动构建并发布到 `gh-pages`。
+`airpods_buddy.ahk` 是 Windows 主程序；`webui/` 是前端；`mac/` 是 Mac 版；`doc/` 是知识库；`tools/` 是本机构建工具。
 
 ## 文档索引
 先读 `AGENTS.md`。Windows连接路线选型与“不影响用户”的验收门槛读 `doc/09-Windows连接方案选型.md`。当前审计修复读 `doc/07-审计修复清单.md`。Windows 开发读 `doc/02-架构与原理.md`；排障读 `doc/05-已知问题与踩坑记录.md`；进度读 `doc/04-项目进度.md`；技术方案读 `doc/03-技术方案.md`；Mac 开发读 `doc/06-Mac版方案.md`。
 
 ## 开发流程
-只在本仓库改应用源码。Windows 先运行 `webui/build_ui.ps1`，再用 `tools/ahk2exe_stable/Ahk2Exe.exe` 编译。改代码后同步 `doc/04-项目进度.md` 与 `CHANGELOG.md`，核实日志与实际运行行为。
-
-**每次正式 GitHub Release 发布后，产品页同步是发版闭环的必做项，不能因应用 ZIP 与 Release 已上线而省略。**在 `lyzbcy/lyzbcy.github.io` 的 `main/airpods-buddy.html` 同步首页版本/发布日期、两处下载地址、更新日志、功能与已知问题文案；页面每次改动递增 `PAGE_VER`。提交并推送网站 `main`，等待 `pages-deploy.yml` 成功和 `gh-pages` 更新，再从公网重新请求 `https://lyzbcy.github.io/airpods-buddy.html`（含无缓存参数）核对新版本、下载链接、已知问题；下载目标须与本次 Release 的资产和 SHA256 对上。把页面部署 run、公网页面读回、Release 资产核对结果记入发布证据。若公网未更新，发版工作仍未闭环。详细步骤见 `doc/08-更新与后台任务.md`。
+只在本仓库改源码。Windows 先运行 `webui/build_ui.ps1`，再用 `tools/ahk2exe_stable/Ahk2Exe.exe` 编译。改代码后同步 `doc/04-项目进度.md` 与 `CHANGELOG.md`，核实日志与实际运行行为。
 
 ## 用户反馈取证
 先看用户常驻目录 `C:\Users\24676\Desktop\AirPodsBuddy\logs\app-YYYY-MM-DD.log`。本机企业微信反馈可按 `E:\共享\工作\微盛\.agents\skills\lyzbcy-daily-note-summarizer\SKILL.md` 的缓存方法读取：先运行其 `scripts/wecom_chat_export.py --date YYYY-M-D --root E:\共享\工作\微盛`，再只看 `E:\共享\工作\微盛\每日笔记\wecom-cache\YYYY.M.DD.md` 中「软件反馈群」的相关消息。导出命令可能打印密钥，不复制到报告；缓存中的文件传输占位不是日志正文。以用户运行目录的原始日志交叉核对，不把无关群聊带入项目记录。
 
 ## 当前状态与版本
-正式发布状态（2026-09-27 16:38）：Windows v1.9.20 已公开为 GitHub Latest Release，地址 `https://github.com/lyzbcy/AirPods-Windows/releases/tag/v1.9.20`；发布 tag/Release target 均为 `e15fb9046056768eec9948883f6d7a633895fdc3`；main 后续只追加发布记录文档，不改变该版本资产，唯一 ZIP 资产 SHA256 `4E6AC4F14E7ADC8C95248FB4B9FAE2EEEC68974EB70421A24B9E4684EC009AC9`，与本地验收包一致。最终提交的 Windows CI `36306464529` 成功；本次遗漏的产品页同步另见 `verification/2026-09-27-landing-sync/VERIFICATION.txt`。下文 15:11、15:49 的候选状态是发布前历史快照，不代表当前仍为草稿。
+正式发布状态（2026-09-27 16:38）：Windows v1.9.20 已公开为 GitHub Latest Release，地址 `https://github.com/lyzbcy/AirPods-Windows/releases/tag/v1.9.20`；发布 tag/Release target 均为 `e15fb9046056768eec9948883f6d7a633895fdc3`；main 后续只追加发布记录文档，不改变该版本资产，唯一 ZIP 资产 SHA256 `4E6AC4F14E7ADC8C95248FB4B9FAE2EEEC68974EB70421A24B9E4684EC009AC9`，与本地验收包一致。最终提交的 Windows CI `36306464529` 成功；下文 15:11、15:49 的候选状态是发布前历史快照，不代表当前仍为草稿。
 
 连接/断开进度最新安装候选（2026-09-27，15:49 已部署）：后端已按真实操作阶段提供 `progress`，前端已加入小宠物/圆形主按钮持续动画、阶段说明、第 N / M 步、已等待时间和当前阶段观察窗口（非整体完成倒计时或百分比），终态结果持留、连接中取消、断开中防重复点击及减少动态效果。完整离线 `OFFLINE_PASS assertions=364 suites=20`，460×600 连接/断开截图已检查。此前用户反馈只适用于 15:11 的旧候选，不是这次进度 UI 的真机验收；新安装 exe SHA256 `59F859CA5A4A9A27E18245FE3785919072A3848BDFA33383E816F7FC99202D3A`、本地 ZIP SHA256 `4E6AC4F14E7ADC8C95248FB4B9FAE2EEEC68974EB70421A24B9E4684EC009AC9`，15:49 正常启动与 navigation/list RPC 已读回。用户在新安装版一次真实连接后明确确认 Windows 默认输出从 AirPods 听到声音，Windows CI `36304899963` 已通过；历史五轮失败仍按已知问题披露。版本号维持 v1.9.20，发布资产以最终哈希回执和 GitHub Release 为准。实现见 `doc/02-架构与原理.md`，进度与证据见 `doc/04-项目进度.md`、`verification/2026-09-27-progress-frontend/`、`verification/2026-09-27-progress-backend/`。
 

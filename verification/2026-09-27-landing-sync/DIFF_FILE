@@ -1,0 +1,192 @@
+diff --git a/airpods-buddy.html b/airpods-buddy.html
+index 4003ce6..7062727 100644
+--- a/airpods-buddy.html
++++ b/airpods-buddy.html
+@@ -4,9 +4,9 @@
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <title>AirPods 小助手 · 点一下，AirPods 就连上</title>
+-<meta name="description" content="给 Windows 的一口甜：一键连接 AirPods、优先级、三态托盘图标、星星布丁小宠物。单文件 3.4MB，纯本地零上传。">
++<meta name="description" content="AirPods 小助手 Windows v1.9.20：一键连接、可见的连接进度、三态托盘图标和星星布丁小宠物。默认本地运行，反馈日志由你确认后发送。">
+ <meta property="og:title" content="AirPods 小助手 · 点一下，AirPods 就连上">
+-<meta property="og:description" content="给 Windows 的一口甜：一键连接、三态托盘图标、星星布丁小宠物。单文件 3.4MB，纯本地零上传。">
++<meta property="og:description" content="Windows v1.9.20：一键连接 AirPods，等待时看得到阶段和原因。默认本地运行，反馈日志由你确认后发送。">
+ <meta property="og:image" content="https://lyzbcy.github.io/assets/img/airpods-buddy/logo-192.png">
+ <link rel="icon" type="image/png" href="assets/img/airpods-buddy/logo-192.png">
+ <style>
+@@ -299,14 +299,14 @@
+   <h1>AirPods 小助手<span class="en">AIRPODS&nbsp;BUDDY</span></h1>
+   <p class="tagline">给 Windows 的一口甜：<b>点一下，AirPods 就连上。</b></p>
+   <div class="chips">
+-    <span class="chip">🍪 单文件 3.4MB</span><span class="chip">🔓 免安装</span>
+-    <span class="chip">🔒 纯本地零上传</span><span class="chip">🆓 免费开源 MIT</span>
++    <span class="chip">🍪 解压即用</span><span class="chip">🔓 免安装</span>
++    <span class="chip">🔒 默认本地运行</span><span class="chip">🆓 免费开源 MIT</span>
+   </div>
+   <div class="cta-row">
+-    <a class="cta" href="https://github.com/lyzbcy/AirPods-Windows/releases/latest/download/AirPodsBuddy-Windows.zip">⬇️ 免费下载</a>
++    <a class="cta" href="https://github.com/lyzbcy/AirPods-Windows/releases/download/v1.9.20/AirPodsBuddy-Windows.zip">⬇️ 下载 v1.9.20</a>
+     <a class="cta ghost" href="https://github.com/lyzbcy/AirPods-Windows">⭐ GitHub 源码</a>
+   </div>
+-  <p class="ver-line">v<b>1.8.4</b> · 2026-08-25 发布 · 解压即用，耳机配对过一次就行</p>
++  <p class="ver-line">v<b>1.9.20</b> · 2026-09-27 发布 · <a href="https://github.com/lyzbcy/AirPods-Windows/releases/tag/v1.9.20">查看更新与已知问题</a></p>
+ </header>
+ 
+ <section class="wrap rv">
+@@ -318,7 +318,7 @@
+     <tr><td>连接</td><td>设置 → 蓝牙 → 找设备 → 点连接（4~5 步）</td><td class="good">单击托盘图标 / 点一下大圆钮（1 步）</td></tr>
+     <tr><td>多副耳机</td><td>每次自己找哪个是哪个</td><td class="good">按你的优先级自动挑（▲▼ 排序）</td></tr>
+     <tr><td>断开</td><td>再进设置点断开</td><td class="good">右键托盘 → 一键断开全部</td></tr>
+-    <tr><td>音质</td><td>容易连成低音质通话模式</td><td class="good">默认 A2DP+HFP 完整模式</td></tr>
++    <tr><td>声音</td><td>显示已连接，也可能仍从扬声器播放</td><td class="good">切换前预检播放端点；请以实际试听为准</td></tr>
+     <tr><td>常驻</td><td>无</td><td class="good">托盘常驻 + 开机自启</td></tr>
+   </table>
+ </section>
+@@ -394,7 +394,7 @@
+             <span class="big-lb" id="appBigLb">点我连接</span>
+           </button>
+         </div>
+-        <div class="app-foot"><span>A2DP + HFP 完整音质</span><span>v1.8.4 · 纯本地</span></div>
++        <div class="app-foot"><span>连接状态以实际试听为准</span><span>交互示意 · 非实际截图</span></div>
+       </div>
+       <figcaption class="win-cap">↑ 前端模拟演示（可点击）· 设备名均为虚构</figcaption>
+     </figure>
+@@ -418,18 +418,28 @@
+ 
+ <section class="wrap rv">
+   <span class="eyebrow">ALL · 小而全</span>
+-  <h2>3.4MB 单文件，零依赖零后台</h2>
+-  <p class="sub">不上传任何数据，唯一网络行为是检查新版本。</p>
++  <h2>解压即用，连接过程看得见</h2>
++  <p class="sub">设备操作默认在本地完成；检查更新和你主动提交问题反馈时才会联网。</p>
+   <div class="grid">
+     <div class="f"><div class="ico">🚀</div><b>一键连接 / 断开</b><p>左键单击托盘直接切换；界面大圆钮一点即连。</p></div>
+     <div class="f"><div class="ico">🥇</div><b>设备优先级</b><p>苹果设备默认排前，其他耳机不捣乱，▲▼ 随心调序。</p></div>
+     <div class="f"><div class="ico">🧚</div><b>星星布丁小宠物</b><p>连接时从右下角弹出，全帧动画陪你等，连上撒 💕。</p></div>
+     <div class="f"><div class="ico">🎨</div><b>Apple 风界面</b><p>奶油黄白+蜂蜜金，macOS 级克制质感，长名字优雅截断。</p></div>
+-    <div class="f"><div class="ico">🔒</div><b>纯本地</b><p>不联网上传任何数据，日志全记在本地可审计。</p></div>
++    <div class="f"><div class="ico">🔒</div><b>反馈可控</b><p>日志保存在本地；只有你确认附日志并提交反馈时才会发送。</p></div>
+     <div class="f"><div class="ico">🔄</div><b>自动更新</b><p>有新版弹窗一键升级；缺 WebView2 运行时会自动装好。</p></div>
+   </div>
+ </section>
+ 
++<section class="wrap rv">
++  <div class="note">
++    <b>ℹ️ v1.9.20 使用提示：</b>连接或断开耗时较长时，界面会显示当前阶段与已等待时间；“已连接”仍请以实际试听为准。
++    少数 Windows 蓝牙环境可能显示已连接但没有耳机播放端点。先检查 Windows 声音输出；系统连接也失败时，可手动关开电脑蓝牙，仍失败再尝试重新配对或重启。
++    应用不会自动重置整机蓝牙或删除配对。AirPods 5 的部分已配对名称识别已改进，但该型号尚未完成真机验证，LE-only 连接暂不支持。
++    遇到问题请在应用首页使用“问题反馈（可附日志）”，帮助我们定位。
++    <a href="https://github.com/lyzbcy/AirPods-Windows/releases/tag/v1.9.20">查看完整发布说明</a>。
++  </div>
++</section>
++
+ <section class="wrap rv">
+   <div class="note">
+     <b>ℹ️ 关于降噪/通透切换：</b>Windows 用户态无法访问 Apple 的控制通道（需要内核驱动，
+@@ -442,14 +452,14 @@
+   <span class="eyebrow">READY · 准备好了吗</span>
+   <h2>三步上手，一劳永逸</h2>
+   <div class="steps">
+-    <div class="step"><span class="n">1</span><b>⬇️ 下载</b><p>一个 2.4MB 的 zip，GitHub 直链</p></div>
++    <div class="step"><span class="n">1</span><b>⬇️ 下载</b><p>从 GitHub 下载 v1.9.20 ZIP</p></div>
+     <div class="step"><span class="n">2</span><b>📂 解压双击</b><p>免安装，即刻常驻托盘</p></div>
+     <!-- SmartScreen 提示 -->
+     <div class="step" style="grid-column:1/-1;background:#FFF9EC"><span class="n" style="background:#8A9BB8">🛡</span><b>首次运行提示？</b><p>若 Windows 弹蓝色「已保护你的电脑」：点<b>更多信息</b> → <b>仍要运行</b> 即可（开源软件，代码全部可审计）</p></div>
+     <div class="step"><span class="n">3</span><b>🎧 点一下就连</b><p>从此告别翻设置</p></div>
+   </div>
+   <div class="dl-row">
+-    <a class="cta" href="https://github.com/lyzbcy/AirPods-Windows/releases/latest/download/AirPodsBuddy-Windows.zip">⬇️ 免费下载 AirPodsBuddy</a>
++    <a class="cta" href="https://github.com/lyzbcy/AirPods-Windows/releases/download/v1.9.20/AirPodsBuddy-Windows.zip">⬇️ 下载 AirPodsBuddy v1.9.20</a>
+     <p class="ver-line" style="margin-top:14px">觉得好用的话，<a href="https://github.com/lyzbcy/AirPods-Windows" target="_blank" rel="noopener">去 GitHub 给个 ⭐ star</a> 呗，这对捞鱼很有帮助 🥺</p>
+   </div>
+ </section>
+@@ -476,9 +486,10 @@
+    规则：每次改页面必须更新 PAGE_VER。
+    打开页面时核对远端版本号，不一致则本会话内自动强刷一次；
+    用 sessionStorage 防重复刷新（刷完仍不一致就不再刷，杜绝死循环）。 */
+-const PAGE_VER="2.2.4";
++const PAGE_VER="2.2.6";
+ const PAGE_LOG=[
+-  {v:"2.2.4",d:"09-21",t:"应用 v1.9.12 上线：连不上时蓝牙自动自救（自动重启电脑蓝牙再重试）；连接后自动把默认麦克风切到耳机；断开自动核实真断开（被拽着会自动补关）；「连不上 / 断不开 / 麦克风不切换」三类老问题对症修复——全部由真实用户日志实证驱动"},
++  {v:"2.2.6",d:"09-27",t:"应用 v1.9.20 正式版：连接/断开阶段和等待原因可见，减少无声时误报可播放；首页统一问题反馈并可由用户确认附日志。偶发 Windows 蓝牙连接/播放异常及 AirPods 5 未完整验证已公开说明；应用不再自动关开整机蓝牙。"},
++  {v:"2.2.4",d:"09-21",t:"应用 v1.9.12 上线：曾加入蓝牙自动自救、麦克风切换和断开核实；自动关开整机蓝牙的旧行为已在 v1.9.20 取消。"},
+   {v:"2.2.3",d:"09-21",t:"应用 v1.9.10 上线：全新「问题反馈」（选类型+说明，完整日志文件直达开发者群）与「提意见」分家；AirPods 5（LE 音频）连接指引；二维码点击放大；弹窗滚动；设置保存修复"},
+   {v:"2.2.2",d:"09-06",t:"新增 SmartScreen 首次运行提示说明（更多信息→仍要运行）；应用 v1.9.5 带设置项上线"},
+   {v:"2.2.1",d:"08-27",t:"修复：一次误发布把本页覆盖成了简化版（静态截图），已整体回滚——恢复可交互应用界面模拟演示（连接三态/优先级排序/宠物动画/托盘演示）"},
+@@ -523,7 +534,7 @@ document.getElementById('frRefresh').addEventListener('click',async function(){
+     const html=await res.text();
+     const m=html.match(/PAGE_VER\s*=\s*"([^"]+)"/);
+     if(!m||m[1]===PAGE_VER)return;                 /* 版本一致，无需刷新 */
+-    const key='ab_autorefreshed';
++    const key='ab_autorefreshed_'+m[1];
+     if(sessionStorage.getItem(key))return;         /* 本会话已自动刷过仍不一致：不再刷，防死循环 */
+     sessionStorage.setItem(key,'1');
+     frToast('🆕 检测到新版本 v'+m[1]+'，正在刷新…');
+diff --git a/AGENTS.md b/AGENTS.md
+index 4783aca..47ffa70 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -58,6 +58,7 @@ swift build -c release        # 需要 macOS 13+ 和 Xcode CLT
+    v1.9.1 两版，被用户严厉指出）。2026-09-27 用户已明确同意 v1.9.20 正式
+    Release 并披露偶发蓝牙/音频失效；仅对这一版、在最终资产和安装版验收完成后适用。
+    五轮失败不得写成通过，后续版本仍须另行取得同意。
++   **Release 发布后还必须同步公开产品页**：按项目根 `SKILL.md` 与 `doc/08-更新与后台任务.md` 更新 `lyzbcy/lyzbcy.github.io` 的 `main/airpods-buddy.html`，递增 `PAGE_VER`，等待 Pages 部署成功并从公网核对版本、下载资产和已知问题；仅 Release 上线不算闭环。
+ 6. **AI 沙箱 shell 拉起的进程带受限令牌**（对既有 exe 只有 RX）——要启动
+    用户侧应用，用 `explorer.exe <path>` 中转或让用户自己启动；沙箱直接
+    Start-Process 的应用连自更新都会静默失败（swapper 继承受限令牌）。
+diff --git a/SKILL.md b/SKILL.md
+index c775364..0f938d2 100644
+--- a/SKILL.md
++++ b/SKILL.md
+@@ -9,19 +9,21 @@ description: AirPods 小助手接力开发入口
+ Windows 托盘工具采用 AutoHotkey v2 与 WebView2；Mac 菜单栏工具采用 Swift。
+ 
+ ## 目录地图
+-`airpods_buddy.ahk` 是 Windows 主程序；`webui/` 是前端；`mac/` 是 Mac 版；`doc/` 是知识库；`tools/` 是本机构建工具。
++`airpods_buddy.ahk` 是 Windows 主程序；`webui/` 是前端；`mac/` 是 Mac 版；`doc/` 是知识库；`tools/` 是本机构建工具。公开产品页 `https://lyzbcy.github.io/airpods-buddy.html` 的源码在独立仓库 `lyzbcy/lyzbcy.github.io` 的 `main/airpods-buddy.html`；该仓库的 `pages-deploy.yml` 自动构建并发布到 `gh-pages`。
+ 
+ ## 文档索引
+ 先读 `AGENTS.md`。Windows连接路线选型与“不影响用户”的验收门槛读 `doc/09-Windows连接方案选型.md`。当前审计修复读 `doc/07-审计修复清单.md`。Windows 开发读 `doc/02-架构与原理.md`；排障读 `doc/05-已知问题与踩坑记录.md`；进度读 `doc/04-项目进度.md`；技术方案读 `doc/03-技术方案.md`；Mac 开发读 `doc/06-Mac版方案.md`。
+ 
+ ## 开发流程
+-只在本仓库改源码。Windows 先运行 `webui/build_ui.ps1`，再用 `tools/ahk2exe_stable/Ahk2Exe.exe` 编译。改代码后同步 `doc/04-项目进度.md` 与 `CHANGELOG.md`，核实日志与实际运行行为。
++只在本仓库改应用源码。Windows 先运行 `webui/build_ui.ps1`，再用 `tools/ahk2exe_stable/Ahk2Exe.exe` 编译。改代码后同步 `doc/04-项目进度.md` 与 `CHANGELOG.md`，核实日志与实际运行行为。
++
++**每次正式 GitHub Release 发布后，产品页同步是发版闭环的必做项，不能因应用 ZIP 与 Release 已上线而省略。**在 `lyzbcy/lyzbcy.github.io` 的 `main/airpods-buddy.html` 同步首页版本/发布日期、两处下载地址、更新日志、功能与已知问题文案；页面每次改动递增 `PAGE_VER`。提交并推送网站 `main`，等待 `pages-deploy.yml` 成功和 `gh-pages` 更新，再从公网重新请求 `https://lyzbcy.github.io/airpods-buddy.html`（含无缓存参数）核对新版本、下载链接、已知问题；下载目标须与本次 Release 的资产和 SHA256 对上。把页面部署 run、公网页面读回、Release 资产核对结果记入发布证据。若公网未更新，发版工作仍未闭环。详细步骤见 `doc/08-更新与后台任务.md`。
+ 
+ ## 用户反馈取证
+ 先看用户常驻目录 `C:\Users\24676\Desktop\AirPodsBuddy\logs\app-YYYY-MM-DD.log`。本机企业微信反馈可按 `E:\共享\工作\微盛\.agents\skills\lyzbcy-daily-note-summarizer\SKILL.md` 的缓存方法读取：先运行其 `scripts/wecom_chat_export.py --date YYYY-M-D --root E:\共享\工作\微盛`，再只看 `E:\共享\工作\微盛\每日笔记\wecom-cache\YYYY.M.DD.md` 中「软件反馈群」的相关消息。导出命令可能打印密钥，不复制到报告；缓存中的文件传输占位不是日志正文。以用户运行目录的原始日志交叉核对，不把无关群聊带入项目记录。
+ 
+ ## 当前状态与版本
+-正式发布状态（2026-09-27 16:38）：Windows v1.9.20 已公开为 GitHub Latest Release，地址 `https://github.com/lyzbcy/AirPods-Windows/releases/tag/v1.9.20`；发布 tag/Release target 均为 `e15fb9046056768eec9948883f6d7a633895fdc3`；main 后续只追加发布记录文档，不改变该版本资产，唯一 ZIP 资产 SHA256 `4E6AC4F14E7ADC8C95248FB4B9FAE2EEEC68974EB70421A24B9E4684EC009AC9`，与本地验收包一致。最终提交的 Windows CI `36306464529` 成功；下文 15:11、15:49 的候选状态是发布前历史快照，不代表当前仍为草稿。
++正式发布状态（2026-09-27 16:38）：Windows v1.9.20 已公开为 GitHub Latest Release，地址 `https://github.com/lyzbcy/AirPods-Windows/releases/tag/v1.9.20`；发布 tag/Release target 均为 `e15fb9046056768eec9948883f6d7a633895fdc3`；main 后续只追加发布记录文档，不改变该版本资产，唯一 ZIP 资产 SHA256 `4E6AC4F14E7ADC8C95248FB4B9FAE2EEEC68974EB70421A24B9E4684EC009AC9`，与本地验收包一致。最终提交的 Windows CI `36306464529` 成功；本次遗漏的产品页同步另见 `verification/2026-09-27-landing-sync/VERIFICATION.txt`。下文 15:11、15:49 的候选状态是发布前历史快照，不代表当前仍为草稿。
+ 
+ 连接/断开进度最新安装候选（2026-09-27，15:49 已部署）：后端已按真实操作阶段提供 `progress`，前端已加入小宠物/圆形主按钮持续动画、阶段说明、第 N / M 步、已等待时间和当前阶段观察窗口（非整体完成倒计时或百分比），终态结果持留、连接中取消、断开中防重复点击及减少动态效果。完整离线 `OFFLINE_PASS assertions=364 suites=20`，460×600 连接/断开截图已检查。此前用户反馈只适用于 15:11 的旧候选，不是这次进度 UI 的真机验收；新安装 exe SHA256 `59F859CA5A4A9A27E18245FE3785919072A3848BDFA33383E816F7FC99202D3A`、本地 ZIP SHA256 `4E6AC4F14E7ADC8C95248FB4B9FAE2EEEC68974EB70421A24B9E4684EC009AC9`，15:49 正常启动与 navigation/list RPC 已读回。用户在新安装版一次真实连接后明确确认 Windows 默认输出从 AirPods 听到声音，Windows CI `36304899963` 已通过；历史五轮失败仍按已知问题披露。版本号维持 v1.9.20，发布资产以最终哈希回执和 GitHub Release 为准。实现见 `doc/02-架构与原理.md`，进度与证据见 `doc/04-项目进度.md`、`verification/2026-09-27-progress-frontend/`、`verification/2026-09-27-progress-backend/`。
+ 
+diff --git "a/doc/08-\346\233\264\346\226\260\344\270\216\345\220\216\345\217\260\344\273\273\345\212\241.md" "b/doc/08-\346\233\264\346\226\260\344\270\216\345\220\216\345\217\260\344\273\273\345\212\241.md"
+index 17a82b5..c160844 100644
+--- "a/doc/08-\346\233\264\346\226\260\344\270\216\345\220\216\345\217\260\344\273\273\345\212\241.md"
++++ "b/doc/08-\346\233\264\346\226\260\344\270\216\345\220\216\345\217\260\344\273\273\345\212\241.md"
+@@ -1,9 +1,21 @@
+ # 08 · 更新事务与后台任务
+ 
+-现状：v1.9.19 已验证更新事务与真实部署回滚；v1.9.20 用户已同意在公开披露偶发蓝牙/音频失效后发正式 Release，最终资产和安装版验收仍需完成。
++现状：v1.9.19 已验证更新事务与真实部署回滚；v1.9.20 已按用户同意公开正式 Release，并在发布说明披露偶发蓝牙/音频失效。产品页必须在每次 Release 后独立同步和公网验收。
+ 负责人：项目维护者与当前 Agent。
+ 最后更新：2026-09-27。
+ 
++## Release 后的公开产品页同步
++
++产品页是 `https://lyzbcy.github.io/airpods-buddy.html`，不是应用仓库根目录 `index.html`。其源码在 `lyzbcy/lyzbcy.github.io` 的 `main/airpods-buddy.html`；推送网站 `main` 后由 `.github/workflows/pages-deploy.yml` 构建并推到 `gh-pages`。不要只改本地文件或手工覆盖 `gh-pages`。
++
++每次正式 Release 发布后执行：
++1. 读回本次 Release 的 tag、发布日期、资产名称/大小/SHA256 与已知问题，确保它们与实际发布资产一致。
++2. 更新产品页的首页版本与发布日期、顶部和底部下载链接、功能描述、隐私/反馈说明、更新日志和已知问题；旧版历史日志如与现行行为冲突，标明已变更；每次改页面递增 `PAGE_VER`。下载链接使用本次 tag 的精确资产 URL，避免页面版本与 `latest` 漂移。
++3. 本地检查 HTML/JS、链接和页面版本；只提交网站 `main` 源码并推送。等待该 commit 对应的 `pages-deploy.yml` 成功，再读回 `gh-pages` 文件和公网页面（含无缓存参数）确认已部署。
++4. 从公网核对首页版本、`PAGE_VER`、两处下载链接、已知问题及 Release 页面；核对下载资产 digest。记录网站 commit、部署 run 和公网读回结果；全部通过才宣布发布页闭环。网页可能有缓存，强刷按钮不能替代服务器端源码和公网验证。
++
++v1.9.20 的补同步证据见 `verification/2026-09-27-landing-sync/VERIFICATION.txt`。
++
+ ## 公开发布前的离线预检
+ 
+ 有两个显式档位，绝不可混淆。下段是**严格五轮通过档位**：只有真实五轮完成才能生成 `gate-pass.json`。2026-09-27 用户选择的 v1.9.20 是**接受已知问题档位**，下方另述；该档位不生成/不借用五轮通过回执，历史失败仍作为失败保留。

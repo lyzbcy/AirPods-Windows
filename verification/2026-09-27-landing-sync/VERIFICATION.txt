@@ -1,0 +1,79 @@
+AirPodsBuddy v1.9.20 landing-page / release-skill synchronization
+Date: 2026-09-27 (Asia/Shanghai)
+
+CHANGED BRANCH / FIELD
+- Website repo lyzbcy/lyzbcy.github.io: main/airpods-buddy.html, PAGE_VER 2.2.4 -> 2.2.6; homepage version v1.8.4 -> v1.9.20; both CTAs now point to the v1.9.20 asset; release/known-issue, AirPods 5, audio and user-confirmed feedback copy corrected. Main commit 803ad650af04a029ee738454fb12ad2d30ca8bd6 (preceded by f823cfe55f12c4f3291eb9cb8c847385c0591975). Deployment workflow builds main and pushes gh-pages; no manual gh-pages edit.
+- App repo lyzbcy/AirPods-Windows: fix/audit-20260926 (remote main receives the docs/evidence commit), SKILL.md release gate, AGENTS.md cross-reference, doc/08-更新与后台任务.md step-by-step public-page checklist. Application binary/tag/ZIP were not changed.
+
+FOUR REQUIRED ARTIFACTS (reopened and read after creation)
+MODIFIED_FILE=E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-landing-sync\MODIFIED_FILE
+DIFF_FILE=E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-landing-sync\DIFF_FILE
+VERIFICATION.txt=E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-landing-sync\VERIFICATION.txt
+ROLLBACK.sh=E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-landing-sync\ROLLBACK.sh
+MODIFIED_FILE is a byte-for-byte copy of changed website source at E:\共享\创业\_airpods_pages_release_sync\airpods-buddy.html; SHA256 95E3C088E1B82D9036257E610781CE76116AC098E590E0DBA5F1FDDE18ECCDA1. DIFF_FILE contains the website diff from f4749e1 through 803ad65 and the app-document changes. ROLLBACK.sh has a shebang and passed Git Bash test -x.
+
+ORIGINALS PRESERVED
+original/airpods-buddy.html SHA256 9B9AC16A9BB3AF2D9D02181DE3C3C3E863387A97F05E9A0DD8158062EBE684C5
+original/SKILL.md SHA256 065275E45FB75F9235D7A1B011CBF3B0AF28DCC912B174283BE77ABC75212583
+original/AGENTS.md SHA256 9C146563EAD7EB0C2FE5EE2888A359BE70A100BCA408D97D33FE66A51B328F6C
+original/08-更新与后台任务.md SHA256 52FCA91D9B34FB9E0BA023BD11220D29252F2F4BE277A5E7D0FF98E292A302B5
+
+BASELINE
+cwd=E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-landing-sync
+command=python .\verify_landing_sync.py baseline .\original\airpods-buddy.html .\original\SKILL.md
+input=preserved original website HTML and original app SKILL.md
+literal output:
+old_home_version=PASS
+old_page_version=PASS
+missing_skill_release_gate=PASS
+BASELINE_RESULT=PASS checks=3
+exit status=0
+meaning=public-page source still advertised v1.8.4 / PAGE_VER 2.2.4, and the skill omitted the landing-page release gate.
+
+MODIFIED
+cwd=E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-landing-sync
+command=python .\verify_landing_sync.py modified E:\共享\创业\_airpods_pages_release_sync\airpods-buddy.html E:\共享\创业\BluetoothDeviceConnector\SKILL.md
+input=changed website source and live app SKILL.md
+literal output:
+home_version=PASS
+page_version=PASS
+download_links=PASS
+release_notes_link=PASS
+known_issue=PASS
+airpods5_caveat=PASS
+controlled_feedback=PASS
+no_stale_claims=PASS
+refresh_key_per_version=PASS
+skill_release_gate=PASS
+MODIFIED_RESULT=PASS checks=10
+exit status=0
+additional command=node --check E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-landing-sync\page-inline.js
+additional result=(no stdout), exit status=0
+additional command=python -m unittest discover -s test -p 'test_*.py' (cwd website repo)
+additional literal output=Ran 6 tests in 0.003s / OK; exit status=0
+
+ROLLBACK ON A SEPARATE COPY
+cwd=E:\共享\创业\BluetoothDeviceConnector\verification\2026-09-27-landing-sync
+input=rollback-test/ copies of the four modified files, not the live working files
+command=D:\Program Files\Git\bin\bash.exe .\ROLLBACK.sh .\rollback-test\airpods-buddy.html .\rollback-test\SKILL.md .\rollback-test\AGENTS.md .\rollback-test\08-更新与后台任务.md
+literal output=ROLLBACK_PASS files=4 hashes=restored
+exit status=0
+restored check command=python .\verify_landing_sync.py baseline .\rollback-test\airpods-buddy.html .\rollback-test\SKILL.md
+restored literal output:
+old_home_version=PASS
+old_page_version=PASS
+missing_skill_release_gate=PASS
+BASELINE_RESULT=PASS checks=3
+restored check exit status=0
+restored behavior/status=all four rollback-test copies match preserved originals byte-for-byte; old page version and missing old skill gate reappear only in rollback-test. The live MODIFIED_FILE, website working source and live SKILL.md remain changed; post-rollback modified test still reports MODIFIED_RESULT=PASS checks=10, exit 0.
+
+PUBLICATION / REAL URL
+- website main commit: 803ad650af04a029ee738454fb12ad2d30ca8bd6
+- Pages deploy: https://github.com/lyzbcy/lyzbcy.github.io/actions/runs/36308112362 ; API literal result {"conclusion":"success","headSha":"803ad650af04a029ee738454fb12ad2d30ca8bd6","status":"completed"}; gh-pages airpods-buddy.html blob 70627270410623ea1e117ca215c39cb319ca4c45, size 42743.
+- public command=Invoke-WebRequest 'https://lyzbcy.github.io/airpods-buddy.html?v=2.2.6&verify=final' -UseBasicParsing -Headers @{'Cache-Control'='no-cache'} (proxy environment cleared)
+literal result=PUBLIC_HTTP=200; PUBLIC_HOME_V1920=True; PUBLIC_PAGE_VER_226=True; PUBLIC_DOWNLOAD_LINKS=2; PUBLIC_KNOWN_ISSUE=True; PUBLIC_AIRPODS5_CAVEAT=True; PUBLIC_AUDIO_COPY=True; PUBLIC_EXIT=0.
+- exact asset download URL=https://github.com/lyzbcy/AirPods-Windows/releases/download/v1.9.20/AirPodsBuddy-Windows.zip
+- direct download literal result=DOWNLOAD_HTTP=200; DOWNLOAD_BYTES=2548240; DOWNLOAD_SHA256=4E6AC4F14E7ADC8C95248FB4B9FAE2EEEC68974EB70421A24B9E4684EC009AC9; MATCH_RELEASE=True. Release API says tag v1.9.20, draft=false, prerelease=false, same asset/digest.
+- Visual read: Edge headless screenshot of modified local page at landing-desktop.png, exit 0; inspected rendered hero/version/CTA and layout.
+
+Rollback script restores local files only when passed explicit target paths. To roll back a deployed page if needed, revert the website main commit and wait for the Pages workflow/public URL, then run the public checks again. No remote rollback was performed because the new page passed verification.

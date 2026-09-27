@@ -58,7 +58,6 @@ swift build -c release        # 需要 macOS 13+ 和 Xcode CLT
    v1.9.1 两版，被用户严厉指出）。2026-09-27 用户已明确同意 v1.9.20 正式
    Release 并披露偶发蓝牙/音频失效；仅对这一版、在最终资产和安装版验收完成后适用。
    五轮失败不得写成通过，后续版本仍须另行取得同意。
-   **Release 发布后还必须同步公开产品页**：按项目根 `SKILL.md` 与 `doc/08-更新与后台任务.md` 更新 `lyzbcy/lyzbcy.github.io` 的 `main/airpods-buddy.html`，递增 `PAGE_VER`，等待 Pages 部署成功并从公网核对版本、下载资产和已知问题；仅 Release 上线不算闭环。
 6. **AI 沙箱 shell 拉起的进程带受限令牌**（对既有 exe 只有 RX）——要启动
    用户侧应用，用 `explorer.exe <path>` 中转或让用户自己启动；沙箱直接
    Start-Process 的应用连自更新都会静默失败（swapper 继承受限令牌）。

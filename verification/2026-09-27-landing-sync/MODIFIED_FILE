@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AirPods 小助手 · 点一下，AirPods 就连上</title>
+<meta name="description" content="AirPods 小助手 Windows v1.9.20：一键连接、可见的连接进度、三态托盘图标和星星布丁小宠物。默认本地运行，反馈日志由你确认后发送。">
+<meta property="og:title" content="AirPods 小助手 · 点一下，AirPods 就连上">
+<meta property="og:description" content="Windows v1.9.20：一键连接 AirPods，等待时看得到阶段和原因。默认本地运行，反馈日志由你确认后发送。">
+<meta property="og:image" content="https://lyzbcy.github.io/assets/img/airpods-buddy/logo-192.png">
+<link rel="icon" type="image/png" href="assets/img/airpods-buddy/logo-192.png">
+<style>
+  :root{
+    --bg:#FAF6EF; --card:#FFFFFF; --ink:#2E2A24; --sub:#8A7F73;
+    --honey:#BE8A48; --honey-d:#A8763B; --honey-l:#DCA85F;
+    --sage:#5E9A73; --sage-l:#EAF4EE;
+    --line:rgba(46,42,36,.08); --line-2:rgba(46,42,36,.05);
+    --shadow-s:0 1px 3px rgba(46,42,36,.05), 0 1px 2px rgba(46,42,36,.03);
+    --shadow-m:0 6px 24px rgba(46,42,36,.07), 0 2px 6px rgba(46,42,36,.04);
+    --shadow-l:0 18px 48px rgba(120,86,40,.16), 0 4px 12px rgba(120,86,40,.08);
+    --r-l:22px; --r-m:16px; --r-s:11px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{font-family:-apple-system,"SF Pro Display","Segoe UI Variable Display","Segoe UI","Microsoft YaHei UI",system-ui,sans-serif;
+    color:var(--ink);background:
+    radial-gradient(1100px 480px at 88% -120px, rgba(220,168,95,.16), transparent 65%),
+    radial-gradient(820px 420px at -6% 16%, rgba(220,168,95,.09), transparent 60%),
+    radial-gradient(900px 520px at 50% 118%, rgba(94,154,115,.07), transparent 62%),
+    var(--bg);
+    line-height:1.7;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:960px;margin:0 auto;padding:0 24px}
+  a{color:var(--honey)}
+  ::selection{background:rgba(220,168,95,.35)}
+
+  /* ===== 顶部：强制刷新组件 ===== */
+  .fr-widget{position:fixed;top:14px;right:14px;z-index:99;display:flex;gap:8px;align-items:flex-start}
+  .fr-pill{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--ink);
+    background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:999px;padding:7px 13px;
+    box-shadow:var(--shadow-s);cursor:pointer;backdrop-filter:blur(8px);transition:box-shadow .2s,transform .2s}
+  .fr-pill:hover{box-shadow:var(--shadow-m);transform:translateY(-1px)}
+  .fr-dot{width:7px;height:7px;border-radius:50%;background:var(--sage);box-shadow:0 0 0 3px rgba(94,154,115,.18)}
+  .fr-refresh{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:#fff;
+    background:linear-gradient(180deg,var(--honey-l),var(--honey));border:none;border-radius:999px;padding:8px 14px;
+    box-shadow:0 4px 14px rgba(190,138,72,.35);cursor:pointer;transition:transform .15s,box-shadow .2s}
+  .fr-refresh:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(190,138,72,.45)}
+  .fr-refresh:active{transform:scale(.96)}
+  .fr-refresh.spin{animation:frspin .8s linear}
+  @keyframes frspin{to{transform:rotate(360deg)}}
+  .fr-panel{position:absolute;top:44px;right:0;width:290px;background:#fff;border:1px solid var(--line);
+    border-radius:var(--r-m);box-shadow:var(--shadow-l);padding:16px 16px 12px;font-size:13px}
+  .fr-panel b{display:block;font-size:13.5px;margin-bottom:8px}
+  .fr-panel ul{list-style:none}
+  .fr-panel li{padding:7px 0;border-top:1px solid var(--line-2);color:var(--sub);line-height:1.55}
+  .fr-panel li:first-child{border-top:none}
+  .fr-panel li .v{display:inline-block;font-size:11px;font-weight:700;color:var(--honey);
+    background:rgba(220,168,95,.14);border-radius:6px;padding:1px 7px;margin-right:7px}
+  .fr-panel li .d{color:#B8AE9F;font-size:11.5px;margin-left:2px}
+  .fr-hint{margin-top:10px;padding-top:9px;border-top:1px dashed var(--line);font-size:11.5px;color:#B8AE9F;line-height:1.6}
+  .fr-toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,16px);z-index:100;
+    background:rgba(46,42,36,.92);color:#fff;font-size:13px;font-weight:600;border-radius:999px;
+    padding:9px 20px;box-shadow:0 10px 30px rgba(0,0,0,.25);opacity:0;pointer-events:none;
+    transition:opacity .25s,transform .25s}
+  .fr-toast.show{opacity:1;transform:translate(-50%,0)}
+
+  /* ===== hero ===== */
+  header{padding:88px 0 56px;text-align:center;position:relative}
+  .logo{width:104px;height:104px;border-radius:28px;box-shadow:var(--shadow-l);
+    border:4px solid #fff;margin-bottom:24px;animation:bounceIn .7s cubic-bezier(.25,.9,.3,1.2)}
+  @keyframes bounceIn{0%{transform:scale(.3);opacity:0}60%{transform:scale(1.06)}100%{transform:scale(1);opacity:1}}
+  h1{font-size:42px;font-weight:800;letter-spacing:-1px;line-height:1.25}
+  h1 .en{display:block;font-size:13px;font-weight:600;color:#B8AE9F;letter-spacing:4px;margin-top:8px}
+  .tagline{margin:20px 0 4px;font-size:20px}
+  .tagline b{color:var(--honey);background:linear-gradient(180deg,transparent 62%,rgba(220,168,95,.32) 62%)}
+  .chips{display:flex;gap:9px;justify-content:center;flex-wrap:wrap;margin:18px 0 32px}
+  .chip{font-size:12.5px;font-weight:500;background:#fff;border:1px solid var(--line);border-radius:999px;
+    padding:6px 15px;color:var(--sub);box-shadow:var(--shadow-s)}
+  .cta{display:inline-flex;align-items:center;gap:10px;background:linear-gradient(180deg,var(--honey-l),var(--honey));
+    color:#fff;font-size:16.5px;font-weight:700;border-radius:999px;padding:15px 38px;
+    box-shadow:0 12px 30px rgba(190,138,72,.4), inset 0 1px 0 rgba(255,255,255,.45);
+    transition:transform .2s cubic-bezier(.25,.1,.25,1),box-shadow .2s;text-decoration:none}
+  .cta:hover{transform:translateY(-2px);box-shadow:0 16px 38px rgba(190,138,72,.5), inset 0 1px 0 rgba(255,255,255,.5);color:#fff}
+  .cta:active{transform:scale(.97)}
+  .cta.ghost{background:#fff;color:var(--ink);border:1px solid var(--line);box-shadow:var(--shadow-s);font-weight:600}
+  .cta.ghost:hover{box-shadow:var(--shadow-m);color:var(--ink)}
+  .cta-row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+  .ver-line{margin-top:18px;font-size:12.5px;color:#B8AE9F}
+  .ver-line b{color:var(--honey);font-weight:700}
+
+  /* ===== sections ===== */
+  section{padding:56px 0}
+  .eyebrow{display:block;text-align:center;font-size:12px;font-weight:700;letter-spacing:2.5px;
+    color:var(--honey);margin-bottom:10px}
+  h2{font-size:28px;font-weight:800;text-align:center;letter-spacing:-.5px;margin-bottom:10px}
+  .sub{text-align:center;color:var(--sub);font-size:14.5px;margin-bottom:38px}
+  .sub b{color:var(--ink)}
+
+  /* 滚动渐入 */
+  .rv{opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s ease}
+  .rv.in{opacity:1;transform:none}
+  @media (prefers-reduced-motion:reduce){
+    .rv{opacity:1;transform:none;transition:none}
+    .logo{animation:none}
+    html{scroll-behavior:auto}
+  }
+
+  /* ===== 对比表 ===== */
+  table{width:100%;border-collapse:separate;border-spacing:0;background:#fff;border:1px solid var(--line);
+    border-radius:var(--r-m);overflow:hidden;box-shadow:var(--shadow-m);font-size:14.5px}
+  th{background:linear-gradient(180deg,#FBF4E7,#F6EEDD);text-align:left;padding:14px 18px;font-weight:700;color:var(--ink);font-size:13.5px}
+  td{padding:14px 18px;border-top:1px solid var(--line-2);color:var(--sub);vertical-align:top}
+  td:first-child{color:var(--ink);font-weight:700;width:96px;white-space:nowrap}
+  td.good{color:var(--sage);font-weight:600}
+  td.good::before{content:"✓ ";font-weight:800}
+  th .win{opacity:.55;font-weight:600}
+
+  /* ===== 宠物演示（桌面 mock） ===== */
+  .desk{position:relative;border-radius:var(--r-l);overflow:hidden;border:1px solid var(--line);
+    box-shadow:var(--shadow-l);background:linear-gradient(135deg,#F3E2C2 0%,#EAD2A8 38%,#D9B98C 72%,#C7A276 100%);height:430px}
+  .desk::before{content:"";position:absolute;inset:0;
+    background:radial-gradient(360px 220px at 78% 18%,rgba(255,255,255,.5),transparent 70%),
+               radial-gradient(300px 300px at 14% 66%,rgba(255,236,200,.4),transparent 70%)}
+  .desk .sun{position:absolute;top:34px;right:52px;width:56px;height:56px;border-radius:50%;
+    background:radial-gradient(circle at 38% 34%,#FFF3D6,#F4CE8B 62%,#E7B365);
+    box-shadow:0 0 44px 14px rgba(255,224,168,.55)}
+  .desk .cloud{position:absolute;background:rgba(255,255,255,.78);border-radius:999px;filter:blur(1px)}
+  .desk .c1{width:120px;height:26px;top:64px;left:64px}
+  .desk .c2{width:76px;height:18px;top:110px;left:150px;opacity:.7}
+  .desk .c3{width:92px;height:20px;top:52px;left:236px;opacity:.55}
+  .taskbar{position:absolute;left:0;right:0;bottom:0;height:44px;display:flex;align-items:center;
+    padding:0 14px;gap:16px;background:rgba(28,26,23,.62);backdrop-filter:blur(14px);z-index:3}
+  .tb-start{color:#fff;font-size:16px;opacity:.92}
+  .tb-apps{display:flex;gap:14px;color:rgba(255,255,255,.85);font-size:14.5px}
+  .tb-right{margin-left:auto;display:flex;align-items:center;gap:12px;color:rgba(255,255,255,.92);font-size:12px}
+  .tb-clock{text-align:right;line-height:1.3}
+  .tb-tray{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;cursor:pointer;transition:background .15s}
+  .tb-tray:hover{background:rgba(255,255,255,.14)}
+  .tb-tray img{width:17px;height:17px;object-fit:contain}
+  .pet-stage{position:absolute;right:26px;bottom:52px;z-index:2}
+  .pet-card{display:flex;flex-direction:column;align-items:center;
+    transform:translateY(56px) scale(.5);opacity:0;
+    transition:transform .5s cubic-bezier(.34,1.56,.64,1),opacity .3s}
+  .pet-stage.in .pet-card{transform:translateY(0) scale(1);opacity:1}
+  .pet-stage.out .pet-card{transform:translateY(30px) scale(.76);opacity:0;transition:transform .3s ease-in,opacity .25s}
+  .pet-sprite{width:120px;height:130px;background-repeat:no-repeat;background-size:960px 780px;
+    filter:drop-shadow(0 8px 12px rgba(90,60,20,.28))}
+  .pet-bubble{margin-top:6px;font-size:13.5px;font-weight:700;color:#fff;letter-spacing:.5px;
+    background:rgba(40,32,28,.66);border-radius:999px;padding:6px 16px;white-space:nowrap;
+    box-shadow:0 4px 14px rgba(0,0,0,.18)}
+  .pet-bubble.dots::after{content:"";animation:petdots 1.2s steps(4,end) infinite}
+  @keyframes petdots{0%{content:""}25%{content:"·"}50%{content:"· ·"}75%{content:"· · ·"}}
+  .pet-heart{position:absolute;font-size:17px;animation:pethert 1.4s ease-out forwards;pointer-events:none}
+  @keyframes pethert{from{transform:translateY(0) scale(.6);opacity:1}to{transform:translateY(-58px) scale(0);opacity:0}}
+  .desk-hint{position:absolute;left:22px;top:18px;z-index:2;font-size:12px;font-weight:600;color:rgba(90,62,24,.62);
+    background:rgba(255,255,255,.5);border-radius:999px;padding:4px 12px;backdrop-filter:blur(4px)}
+  .pet-ctl{display:flex;gap:9px;justify-content:center;flex-wrap:wrap;margin-top:20px}
+  .pet-btn{font-size:13px;font-weight:600;color:var(--ink);background:#fff;border:1px solid var(--line);
+    border-radius:999px;padding:8px 17px;cursor:pointer;box-shadow:var(--shadow-s);
+    transition:transform .15s,box-shadow .2s,border-color .2s}
+  .pet-btn:hover{transform:translateY(-1px);box-shadow:var(--shadow-m)}
+  .pet-btn.on{border-color:var(--honey);color:var(--honey);background:rgba(220,168,95,.1)}
+  .pet-btn.auto.on::before{content:"● ";font-size:9px;vertical-align:1px}
+
+  /* ===== 界面窗口 + 三态托盘 ===== */
+  .duo{display:grid;grid-template-columns:auto 1fr;gap:26px;align-items:start}
+  .win{background:#fff;border:1px solid var(--line);border-radius:var(--r-m);overflow:hidden;
+    box-shadow:var(--shadow-l);width:316px}
+  .win-bar{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;
+    background:linear-gradient(180deg,#FBF4E7,#F6EEDD);border-bottom:1px solid var(--line-2);font-size:12px;color:var(--sub)}
+  .win-bar .glyphs{display:flex;gap:12px;color:#B8AE9F;font-size:11px}
+  .win img{display:block;width:100%}
+  /* ===== 应用界面·前端模拟演示 ===== */
+  .app{background:linear-gradient(180deg,#FDFAF4,#FBF7EE);padding:14px 16px 12px;font-size:13px}
+  .app-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .app-title{font-weight:700;font-size:13.5px}
+  .app-refresh{border:none;background:rgba(220,168,95,.14);color:var(--honey);width:26px;height:26px;
+    border-radius:8px;cursor:pointer;font-size:14px;line-height:1;transition:transform .5s,background .2s}
+  .app-refresh:hover{background:rgba(220,168,95,.25)}
+  .app-refresh.spin{transform:rotate(360deg)}
+  .app-list{list-style:none;display:flex;flex-direction:column;gap:7px}
+  .app-list .dev{display:flex;align-items:center;gap:9px;background:#fff;border:1px solid var(--line-2);
+    border-radius:12px;padding:9px 12px;transition:opacity .25s}
+  .app-list .dev.ghosted{opacity:.35}
+  .dev .dot{width:9px;height:9px;border-radius:50%;background:#D6CCBB;flex:none;transition:background .3s,box-shadow .3s}
+  .dev.on .dot{background:var(--sage);box-shadow:0 0 0 3px rgba(94,154,115,.18)}
+  .dev-name{flex:1;min-width:0;font-weight:600;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dev-ops{display:flex;gap:2px}
+  .dev-ops .op{border:none;background:transparent;color:#C4BBA9;font-size:9px;padding:3px 4px;cursor:pointer;border-radius:5px;
+    transition:color .15s,background .15s}
+  .dev-ops .op:hover{color:var(--honey);background:rgba(220,168,95,.12)}
+  .dev-st{font-size:11px;color:#B8AE9F;font-weight:600;flex:none}
+  .dev.on .dev-st{color:var(--sage)}
+  .app-cta{display:flex;justify-content:center;padding:16px 0 10px}
+  .bigbtn{position:relative;width:92px;height:92px;border-radius:50%;border:none;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    font-family:inherit;transition:transform .2s cubic-bezier(.25,.1,.25,1),box-shadow .3s,background .3s}
+  .bigbtn:hover{transform:translateY(-2px)}
+  .bigbtn:active{transform:scale(.95)}
+  .bigbtn.off{background:linear-gradient(180deg,var(--honey-l),var(--honey));color:#fff;
+    box-shadow:0 10px 26px rgba(190,138,72,.42), inset 0 1px 0 rgba(255,255,255,.45)}
+  .bigbtn.off:hover{box-shadow:0 14px 32px rgba(190,138,72,.5), inset 0 1px 0 rgba(255,255,255,.5)}
+  .bigbtn.loading{background:#fff;color:var(--honey);border:2px solid rgba(220,168,95,.5)}
+  .bigbtn.on{background:linear-gradient(180deg,#71BB8C,var(--sage));color:#fff;
+    box-shadow:0 10px 26px rgba(94,154,115,.42), inset 0 1px 0 rgba(255,255,255,.4)}
+  .big-ico{font-size:26px;line-height:1}
+  .bigbtn.loading .big-ico{display:none}
+  .big-lb{font-size:11px;font-weight:700;letter-spacing:.5px}
+  .big-ring{position:absolute;inset:-2px;border-radius:50%;display:none}
+  .bigbtn.loading .big-ring{display:block;border:2.5px solid rgba(220,168,95,.22);border-top-color:var(--honey);
+    animation:bigring .8s linear infinite}
+  @keyframes bigring{to{transform:rotate(360deg)}}
+  .app-foot{display:flex;justify-content:space-between;font-size:10.5px;color:#C4BBA9;margin-top:8px}
+  .win-cap{text-align:center;font-size:12.5px;color:var(--sub);padding:11px 8px;border-top:1px solid var(--line-2)}
+  .tray-wrap{display:flex;flex-direction:column;gap:13px}
+  .tray-item{display:flex;align-items:center;gap:14px;background:#fff;border:1px solid var(--line);
+    border-radius:var(--r-m);padding:13px 17px;box-shadow:var(--shadow-s);transition:transform .2s,box-shadow .2s}
+  .tray-item:hover{transform:translateY(-2px);box-shadow:var(--shadow-m)}
+  .tray-ico{position:relative;width:44px;height:44px;border-radius:12px;display:grid;place-items:center;
+    background:linear-gradient(180deg,rgba(220,168,95,.13),rgba(220,168,95,.05));flex:none}
+  .tray-ico img{width:29px;height:29px;object-fit:contain}
+  .tray-ico .ring{position:absolute;inset:-4px;border-radius:16px;border:2px solid #4CAF7D;opacity:0;transform:scale(.7);transition:.25s}
+  .tray-item.on .ring{opacity:1;transform:scale(1)}
+  .tray-txt b{display:block;font-size:14.5px}
+  .tray-txt p{font-size:12.5px;color:var(--sub);margin-top:1px}
+  .tray-note{font-size:12.5px;color:#B8AE9F;text-align:center;margin-top:4px}
+
+  /* ===== 功能网格 ===== */
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(268px,1fr));gap:16px}
+  .f{background:#fff;border:1px solid var(--line);border-radius:var(--r-m);padding:24px 22px;
+    box-shadow:var(--shadow-s);transition:transform .25s cubic-bezier(.25,.1,.25,1),box-shadow .25s}
+  .f:hover{transform:translateY(-4px);box-shadow:var(--shadow-m)}
+  .f .ico{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-size:21px;
+    background:linear-gradient(180deg,rgba(220,168,95,.16),rgba(220,168,95,.06));margin-bottom:13px}
+  .f b{display:block;font-size:15.5px;margin-bottom:6px}
+  .f p{font-size:13.5px;color:var(--sub)}
+
+  /* ===== note ===== */
+  .note{background:linear-gradient(180deg,#FFFDF8,#FFF);border:1px solid var(--line);border-left:4px solid var(--honey);
+    border-radius:var(--r-s);padding:19px 22px;font-size:14px;color:var(--sub)}
+  .note b{color:var(--ink)}
+
+  /* ===== 下载三步 ===== */
+  .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;counter-reset:step;margin:34px 0}
+  .step{position:relative;background:#fff;border:1px solid var(--line);border-radius:var(--r-m);
+    padding:20px 18px 18px;box-shadow:var(--shadow-s);text-align:left}
+  .step .n{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;font-weight:800;font-size:14px;
+    color:#fff;background:linear-gradient(180deg,var(--honey-l),var(--honey));box-shadow:0 4px 10px rgba(190,138,72,.35);margin-bottom:10px}
+  .step b{display:block;font-size:15px}
+  .step p{font-size:12.5px;color:var(--sub);margin-top:3px}
+  .dl-row{text-align:center}
+
+  /* ===== 作者入口 ===== */
+  .author{display:flex;align-items:center;gap:20px;background:#fff;border:1px solid var(--line);
+    border-radius:var(--r-l);padding:24px 28px;box-shadow:var(--shadow-m);flex-wrap:wrap}
+  .author img{width:64px;height:64px;border-radius:50%;border:3px solid #fff;box-shadow:var(--shadow-m);object-fit:cover}
+  .author .who{flex:1;min-width:220px}
+  .author .who b{font-size:16.5px}
+  .author .who p{font-size:13px;color:var(--sub);margin-top:2px}
+  .author .who .studio{display:inline-block;font-size:11px;font-weight:700;color:var(--honey);
+    background:rgba(220,168,95,.13);border-radius:6px;padding:2px 9px;margin-left:8px;vertical-align:2px}
+  .author .go{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;font-weight:700;color:var(--honey);
+    background:rgba(220,168,95,.1);border:1px solid rgba(190,138,72,.25);border-radius:999px;padding:10px 20px;
+    text-decoration:none;transition:transform .2s,box-shadow .2s}
+  .author .go:hover{transform:translateY(-2px);box-shadow:var(--shadow-m)}
+
+  footer{padding:44px 0 60px;text-align:center;font-size:13px;color:var(--sub)}
+  footer .hearts{color:var(--honey)}
+  footer a{color:inherit}
+  footer a:hover{color:var(--honey)}
+  footer .fine{margin-top:8px;font-size:11.5px;color:#C4BBA9}
+
+  @media (max-width:720px){
+    h1{font-size:31px}
+    table{font-size:12.5px}
+    th,td{padding:11px 12px}
+    .duo{grid-template-columns:1fr;justify-items:center}
+    .desk{height:400px}
+    .fr-widget{right:10px;top:10px}
+    .fr-panel{width:min(290px,calc(100vw - 20px))}
+  }
+</style>
+</head>
+<body>
+
+<!-- 强制刷新组件（右上一级入口：更新日志 + 一键刷新） -->
+<div class="fr-widget">
+  <button class="fr-pill" id="frLogBtn" aria-expanded="false"><span class="fr-dot"></span><span id="frLabel">更新日志</span></button>
+  <button class="fr-refresh" id="frRefresh" title="静态页面常有缓存，点了就能拿到最新版">⚡ 一键刷新</button>
+  <div class="fr-panel" id="frPanel" hidden>
+    <b>📋 更新日志</b>
+    <ul id="frList"></ul>
+    <p class="fr-hint">💛 静态页面常有缓存，为获取最新内容，请勤点旁边「一键刷新」。</p>
+  </div>
+</div>
+<div class="fr-toast" id="frToast"></div>
+
+<header class="wrap">
+  <img class="logo" src="assets/img/airpods-buddy/logo-192.png" alt="AirPods 小助手">
+  <h1>AirPods 小助手<span class="en">AIRPODS&nbsp;BUDDY</span></h1>
+  <p class="tagline">给 Windows 的一口甜：<b>点一下，AirPods 就连上。</b></p>
+  <div class="chips">
+    <span class="chip">🍪 解压即用</span><span class="chip">🔓 免安装</span>
+    <span class="chip">🔒 默认本地运行</span><span class="chip">🆓 免费开源 MIT</span>
+  </div>
+  <div class="cta-row">
+    <a class="cta" href="https://github.com/lyzbcy/AirPods-Windows/releases/download/v1.9.20/AirPodsBuddy-Windows.zip">⬇️ 下载 v1.9.20</a>
+    <a class="cta ghost" href="https://github.com/lyzbcy/AirPods-Windows">⭐ GitHub 源码</a>
+  </div>
+  <p class="ver-line">v<b>1.9.20</b> · 2026-09-27 发布 · <a href="https://github.com/lyzbcy/AirPods-Windows/releases/tag/v1.9.20">查看更新与已知问题</a></p>
+</header>
+
+<section class="wrap rv">
+  <span class="eyebrow">WHY · 为什么需要它</span>
+  <h2>iPhone 是弹窗，Windows 是翻箱倒柜</h2>
+  <p class="sub">iPhone 连 AirPods：开盖弹窗点一下。Windows：<b>没有弹窗</b>，每次都要翻设置。</p>
+  <table>
+    <tr><th></th><th><span class="win">Windows 原生</span></th><th>AirPods 小助手</th></tr>
+    <tr><td>连接</td><td>设置 → 蓝牙 → 找设备 → 点连接（4~5 步）</td><td class="good">单击托盘图标 / 点一下大圆钮（1 步）</td></tr>
+    <tr><td>多副耳机</td><td>每次自己找哪个是哪个</td><td class="good">按你的优先级自动挑（▲▼ 排序）</td></tr>
+    <tr><td>断开</td><td>再进设置点断开</td><td class="good">右键托盘 → 一键断开全部</td></tr>
+    <tr><td>声音</td><td>显示已连接，也可能仍从扬声器播放</td><td class="good">切换前预检播放端点；请以实际试听为准</td></tr>
+    <tr><td>常驻</td><td>无</td><td class="good">托盘常驻 + 开机自启</td></tr>
+  </table>
+</section>
+
+<section class="wrap rv">
+  <span class="eyebrow">CUTE · 她还会陪你等连接</span>
+  <h2>点一下托盘，星星布丁弹出来 🧚</h2>
+  <p class="sub">下面是<b>应用里真实的精灵图动画</b>——桌面级透明、逐帧手绘，等待、撒花、拜拜样样都会。</p>
+
+  <div class="desk" id="desk">
+    <span class="desk-hint">🖱 试试下面的按钮，或点右下角托盘</span>
+    <div class="sun"></div>
+    <div class="cloud c1"></div><div class="cloud c2"></div><div class="cloud c3"></div>
+    <div class="pet-stage" id="petStage">
+      <div class="pet-card" id="petCard">
+        <div class="pet-sprite" id="petSprite"></div>
+        <div class="pet-bubble" id="petBubble">我在呢</div>
+      </div>
+    </div>
+    <div class="taskbar">
+      <span class="tb-start">⊞</span>
+      <span class="tb-apps"><span>⌕</span><span>📁</span><span>🎵</span></span>
+      <span class="tb-right">
+        <span class="tb-tray" id="deskTray" title="点我连接 AirPods"><img id="deskTrayImg" src="assets/img/airpods-buddy/tray-off.png" alt="托盘图标"></span>
+        <span class="tb-clock">14:32<br>2026/08/26</span>
+      </span>
+    </div>
+  </div>
+
+  <div class="pet-ctl">
+    <button class="pet-btn" data-state="connecting">🔌 连接中</button>
+    <button class="pet-btn" data-state="ok">🎉 连上啦</button>
+    <button class="pet-btn" data-state="off">👋 已断开</button>
+    <button class="pet-btn" data-state="fail">😢 没连上</button>
+    <button class="pet-btn auto on" id="petAutoBtn">▶ 自动演示</button>
+  </div>
+</section>
+
+<section class="wrap rv">
+  <span class="eyebrow">LOOK · 长这样</span>
+  <h2>奶油黄白界面 · 三态托盘图标</h2>
+  <p class="sub">Apple 风的克制质感，托盘图标会替你<b>「看脸色」</b>。</p>
+  <div class="duo">
+    <figure class="win">
+      <div class="win-bar"><span>AirPods 小助手</span><span class="glyphs"><span>─</span><span>▢</span><span>✕</span></span></div>
+      <div class="app" id="appMock">
+        <div class="app-head">
+          <span class="app-title">🎧 我的设备</span>
+          <button class="app-refresh" id="appRefresh" title="刷新设备列表">⟳</button>
+        </div>
+        <ul class="app-list" id="appList">
+          <li class="dev" id="dev1">
+            <span class="dot" id="dev1Dot"></span>
+            <span class="dev-name">🧚 星星布丁的 AirPods Pro</span>
+            <span class="dev-ops">
+              <button class="op" data-mv="up" title="优先级上移">▲</button><button class="op" data-mv="dn" title="优先级下移">▼</button>
+            </span>
+            <span class="dev-st" id="dev1St">未连接</span>
+          </li>
+          <li class="dev" id="dev2">
+            <span class="dot"></span>
+            <span class="dev-name">🎧 捞鱼的头戴耳机</span>
+            <span class="dev-ops">
+              <button class="op" data-mv="up" title="优先级上移">▲</button><button class="op" data-mv="dn" title="优先级下移">▼</button>
+            </span>
+            <span class="dev-st">未连接</span>
+          </li>
+        </ul>
+        <div class="app-cta">
+          <button class="bigbtn off" id="appBigBtn" aria-label="一键连接或断开">
+            <span class="big-ring"></span>
+            <span class="big-ico" id="appBigIco">🔌</span>
+            <span class="big-lb" id="appBigLb">点我连接</span>
+          </button>
+        </div>
+        <div class="app-foot"><span>连接状态以实际试听为准</span><span>交互示意 · 非实际截图</span></div>
+      </div>
+      <figcaption class="win-cap">↑ 前端模拟演示（可点击）· 设备名均为虚构</figcaption>
+    </figure>
+    <div class="tray-wrap">
+      <div class="tray-item" id="trayDemo1">
+        <span class="tray-ico"><img src="assets/img/airpods-buddy/tray-off.png" alt="未连接图标"><span class="ring"></span></span>
+        <span class="tray-txt"><b>可爱脸 · 未连接</b><p>安静的圆脸等着你翻牌</p></span>
+      </div>
+      <div class="tray-item" id="trayDemo2">
+        <span class="tray-ico"><img id="trayLoadingImg" src="assets/img/airpods-buddy/tray-loading-0.png" alt="连接中图标"><span class="ring"></span></span>
+        <span class="tray-txt"><b>加油脸 · 旋转弧 · 连接中</b><p>正在牵线，马上就好</p></span>
+      </div>
+      <div class="tray-item on" id="trayDemo3">
+        <span class="tray-ico"><img src="assets/img/airpods-buddy/tray-on.png" alt="已连接图标"><span class="ring"></span></span>
+        <span class="tray-txt"><b>心动脸 + 绿环 · 已连接</b><p>耳机在线，音乐开响 🎧</p></span>
+      </div>
+      <p class="tray-note">↑ 图标为应用内置原图，以上就是全部三种状态</p>
+    </div>
+  </div>
+</section>
+
+<section class="wrap rv">
+  <span class="eyebrow">ALL · 小而全</span>
+  <h2>解压即用，连接过程看得见</h2>
+  <p class="sub">设备操作默认在本地完成；检查更新和你主动提交问题反馈时才会联网。</p>
+  <div class="grid">
+    <div class="f"><div class="ico">🚀</div><b>一键连接 / 断开</b><p>左键单击托盘直接切换；界面大圆钮一点即连。</p></div>
+    <div class="f"><div class="ico">🥇</div><b>设备优先级</b><p>苹果设备默认排前，其他耳机不捣乱，▲▼ 随心调序。</p></div>
+    <div class="f"><div class="ico">🧚</div><b>星星布丁小宠物</b><p>连接时从右下角弹出，全帧动画陪你等，连上撒 💕。</p></div>
+    <div class="f"><div class="ico">🎨</div><b>Apple 风界面</b><p>奶油黄白+蜂蜜金，macOS 级克制质感，长名字优雅截断。</p></div>
+    <div class="f"><div class="ico">🔒</div><b>反馈可控</b><p>日志保存在本地；只有你确认附日志并提交反馈时才会发送。</p></div>
+    <div class="f"><div class="ico">🔄</div><b>自动更新</b><p>有新版弹窗一键升级；缺 WebView2 运行时会自动装好。</p></div>
+  </div>
+</section>
+
+<section class="wrap rv">
+  <div class="note">
+    <b>ℹ️ v1.9.20 使用提示：</b>连接或断开耗时较长时，界面会显示当前阶段与已等待时间；“已连接”仍请以实际试听为准。
+    少数 Windows 蓝牙环境可能显示已连接但没有耳机播放端点。先检查 Windows 声音输出；系统连接也失败时，可手动关开电脑蓝牙，仍失败再尝试重新配对或重启。
+    应用不会自动重置整机蓝牙或删除配对。AirPods 5 的部分已配对名称识别已改进，但该型号尚未完成真机验证，LE-only 连接暂不支持。
+    遇到问题请在应用首页使用“问题反馈（可附日志）”，帮助我们定位。
+    <a href="https://github.com/lyzbcy/AirPods-Windows/releases/tag/v1.9.20">查看完整发布说明</a>。
+  </div>
+</section>
+
+<section class="wrap rv">
+  <div class="note">
+    <b>ℹ️ 关于降噪/通透切换：</b>Windows 用户态无法访问 Apple 的控制通道（需要内核驱动，
+    可用 <a href="https://github.com/steam3d/MagicPods-Windows">MagicPods</a> 方案），
+    菜单内已诚实说明并指路。<b>Mac 版</b>不存在此限制——防自动跳走看门狗开发中。
+  </div>
+</section>
+
+<section class="wrap rv" style="text-align:center">
+  <span class="eyebrow">READY · 准备好了吗</span>
+  <h2>三步上手，一劳永逸</h2>
+  <div class="steps">
+    <div class="step"><span class="n">1</span><b>⬇️ 下载</b><p>从 GitHub 下载 v1.9.20 ZIP</p></div>
+    <div class="step"><span class="n">2</span><b>📂 解压双击</b><p>免安装，即刻常驻托盘</p></div>
+    <!-- SmartScreen 提示 -->
+    <div class="step" style="grid-column:1/-1;background:#FFF9EC"><span class="n" style="background:#8A9BB8">🛡</span><b>首次运行提示？</b><p>若 Windows 弹蓝色「已保护你的电脑」：点<b>更多信息</b> → <b>仍要运行</b> 即可（开源软件，代码全部可审计）</p></div>
+    <div class="step"><span class="n">3</span><b>🎧 点一下就连</b><p>从此告别翻设置</p></div>
+  </div>
+  <div class="dl-row">
+    <a class="cta" href="https://github.com/lyzbcy/AirPods-Windows/releases/download/v1.9.20/AirPodsBuddy-Windows.zip">⬇️ 下载 AirPodsBuddy v1.9.20</a>
+    <p class="ver-line" style="margin-top:14px">觉得好用的话，<a href="https://github.com/lyzbcy/AirPods-Windows" target="_blank" rel="noopener">去 GitHub 给个 ⭐ star</a> 呗，这对捞鱼很有帮助 🥺</p>
+  </div>
+</section>
+
+<section class="wrap rv">
+  <div class="author">
+    <img src="https://s41.ax1x.com/2025/12/05/pZmPZPH.png" alt="捞鱼的头像">
+    <div class="who">
+      <b>🐟 捞鱼<span class="studio">捞鱼工作室</span></b>
+      <p>一个弱小但有梦想的开发者 · 本页与应用由 <b>捞鱼工作室</b> 用爱发电制作</p>
+    </div>
+    <a class="go" href="airpods-buddy-about.html">🏠 了解更多关于捞鱼 →</a>
+  </div>
+</section>
+
+<footer class="wrap">
+  <p>由 <span class="hearts">捞鱼 &amp; 星星布丁</span> 用爱发电 💕 ·
+    <a href="https://github.com/lyzbcy/AirPods-Windows">GitHub</a> · MIT</p>
+  <p class="fine">致谢：ChromuSx/BluetoothDeviceConnector · thqby/WebView2-AHK · librepods</p>
+</footer>
+
+<script>
+/* ================= 强制刷新组件 =================
+   规则：每次改页面必须更新 PAGE_VER。
+   打开页面时核对远端版本号，不一致则本会话内自动强刷一次；
+   用 sessionStorage 防重复刷新（刷完仍不一致就不再刷，杜绝死循环）。 */
+const PAGE_VER="2.2.6";
+const PAGE_LOG=[
+  {v:"2.2.6",d:"09-27",t:"应用 v1.9.20 正式版：连接/断开阶段和等待原因可见，减少无声时误报可播放；首页统一问题反馈并可由用户确认附日志。偶发 Windows 蓝牙连接/播放异常及 AirPods 5 未完整验证已公开说明；应用不再自动关开整机蓝牙。"},
+  {v:"2.2.4",d:"09-21",t:"应用 v1.9.12 上线：曾加入蓝牙自动自救、麦克风切换和断开核实；自动关开整机蓝牙的旧行为已在 v1.9.20 取消。"},
+  {v:"2.2.3",d:"09-21",t:"应用 v1.9.10 上线：全新「问题反馈」（选类型+说明，完整日志文件直达开发者群）与「提意见」分家；AirPods 5（LE 音频）连接指引；二维码点击放大；弹窗滚动；设置保存修复"},
+  {v:"2.2.2",d:"09-06",t:"新增 SmartScreen 首次运行提示说明（更多信息→仍要运行）；应用 v1.9.5 带设置项上线"},
+  {v:"2.2.1",d:"08-27",t:"修复：一次误发布把本页覆盖成了简化版（静态截图），已整体回滚——恢复可交互应用界面模拟演示（连接三态/优先级排序/宠物动画/托盘演示）"},
+  {v:"2.2.0",d:"08-26",t:"关于入口改为本软件专属子页 airpods-buddy-about.html（专属风格+专属反馈讨论区，通用推广页下线）"},
+  {v:"2.1.0",d:"08-26",t:"应用界面改为前端模拟演示（原真实截图含真实设备名，已删除）；界面可点击：连接三态流转 + 优先级排序"},
+  {v:"2.0.0",d:"08-26",t:"页面焕新：星星布丁精灵图动画演示、三态托盘图标、关于作者入口、新增一键强制刷新组件"},
+  {v:"1.0.0",d:"08-19",t:"产品页首版上线"},
+];
+
+/* 更新日志渲染 */
+(function(){
+  const list=document.getElementById('frList');
+  document.getElementById('frLabel').textContent='更新 '+PAGE_LOG[0].d;
+  list.innerHTML=PAGE_LOG.map(x=>
+    `<li><span class="v">v${x.v}</span><span class="d">${x.d}</span><br>${x.t}</li>`).join('');
+  const btn=document.getElementById('frLogBtn'),panel=document.getElementById('frPanel');
+  btn.addEventListener('click',e=>{e.stopPropagation();
+    panel.hidden=!panel.hidden;btn.setAttribute('aria-expanded',String(!panel.hidden));});
+  document.addEventListener('click',e=>{if(!panel.hidden&&!panel.contains(e.target))panel.hidden=true;});
+})();
+
+/* toast */
+let frToastT=null;
+function frToast(msg){
+  const t=document.getElementById('frToast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(frToastT);frToastT=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+/* 一键刷新：先绕过缓存取一次本页（更新浏览器缓存），再整体重载 */
+document.getElementById('frRefresh').addEventListener('click',async function(){
+  const btn=this;btn.classList.remove('spin');void btn.offsetWidth;btn.classList.add('spin');
+  frToast('⚡ 正在强制刷新…');
+  try{await fetch(location.pathname,{cache:'reload'});}catch(e){}
+  setTimeout(()=>location.reload(),250);
+});
+
+/* 打开时核对远端版本号（本地 file:// 预览跳过） */
+(async function(){
+  try{
+    if(location.protocol==='file:')return;
+    const res=await fetch(location.pathname+'?_vc='+Date.now(),{cache:'no-store'});
+    const html=await res.text();
+    const m=html.match(/PAGE_VER\s*=\s*"([^"]+)"/);
+    if(!m||m[1]===PAGE_VER)return;                 /* 版本一致，无需刷新 */
+    const key='ab_autorefreshed_'+m[1];
+    if(sessionStorage.getItem(key))return;         /* 本会话已自动刷过仍不一致：不再刷，防死循环 */
+    sessionStorage.setItem(key,'1');
+    frToast('🆕 检测到新版本 v'+m[1]+'，正在刷新…');
+    setTimeout(()=>location.replace(location.pathname+'?v='+encodeURIComponent(m[1])),600);
+  }catch(e){/* 静默：离线/本地环境不打扰 */}
+})();
+
+/* ================= 滚动渐入 ================= */
+(function(){
+  const io=new IntersectionObserver(es=>es.forEach(e=>{
+    if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}
+  }),{threshold:.12});
+  document.querySelectorAll('.rv').forEach(el=>io.observe(el));
+})();
+
+/* ================= 星星布丁宠物演示 =================
+   精灵图 1536x1248（8 列 x 6 行），显示格 120x130（整体 0.625 缩放）
+   行序：0 idle | 1 waving | 2 jumping | 3 failed | 4 waiting | 5 review
+   帧时长与应用内 pet.html 完全一致 */
+const PET_ROWS={
+  idle:{row:0,frames:[280,110,110,140,140,320]},
+  waving:{row:1,frames:[140,140,140,280]},
+  jumping:{row:2,frames:[140,140,140,140,280]},
+  failed:{row:3,frames:[140,140,140,140,140,140,140,240]},
+  waiting:{row:4,frames:[150,150,150,150,150,260]},
+  review:{row:5,frames:[150,150,150,150,150,280]},
+};
+const PET_TEXT={
+  connecting:{anim:'waiting',text:'连接中',dots:true,tray:'loading'},
+  ok:{anim:'jumping',text:'连上啦！💕',dots:false,tray:'on'},
+  disconnecting:{anim:'review',text:'断开中',dots:true,tray:'loading'},
+  off:{anim:'waving',text:'已断开 💤 拜拜~',dots:false,tray:'off'},
+  fail:{anim:'failed',text:'没连上 QAQ',dots:false,tray:'off'},
+  idle:{anim:'idle',text:'我在呢',dots:false,tray:'off'},
+};
+const FW=120,FH=130;
+let petTimer=null,petFrame=0,petRow=0,autoTimer=null;
+const sprite=document.getElementById('petSprite'),
+      bubble=document.getElementById('petBubble'),
+      stage=document.getElementById('petStage'),
+      card=document.getElementById('petCard'),
+      trayImg=document.getElementById('deskTrayImg');
+const TRAY={off:'assets/img/airpods-buddy/tray-off.png',on:'assets/img/airpods-buddy/tray-on.png',
+  loading:'assets/img/airpods-buddy/tray-loading-0.png'};
+let loadingFrame=0;
+
+function petPlayRow(name){
+  const r=PET_ROWS[name];if(!r)return;
+  petRow=r.row;petFrame=0;clearTimeout(petTimer);
+  (function tick(){
+    sprite.style.backgroundPosition=`-${petFrame*FW}px -${petRow*FH}px`;
+    const d=r.frames[petFrame];
+    petFrame=(petFrame+1)%r.frames.length;
+    petTimer=setTimeout(tick,d);
+  })();
+}
+function petHearts(n){
+  for(let i=0;i<n;i++)setTimeout(()=>{
+    const h=document.createElement('span');h.className='pet-heart';
+    h.textContent=Math.random()<.5?'💕':'✨';
+    h.style.left=(30+Math.random()*110)+'px';h.style.top=(80+Math.random()*30)+'px';
+    card.appendChild(h);setTimeout(()=>h.remove(),1500);
+  },i*160);
+}
+function petSetState(state){
+  const cfg=PET_TEXT[state]||PET_TEXT.idle;
+  /* 重新弹出一次，还原「从右下角弹出来」的手感 */
+  stage.className='pet-stage';void stage.offsetWidth;stage.classList.add('in');
+  petPlayRow(cfg.anim);
+  bubble.className='pet-bubble'+(cfg.dots?' dots':'');
+  bubble.textContent=cfg.text;
+  if(state==='ok')petHearts(4);
+  /* 托盘图标同步三态 */
+  if(cfg.tray==='loading'){trayImg.src=TRAY.loading;}   /* 由 loadingInterval 接管换帧 */
+  else{trayImg.src=TRAY[cfg.tray];}
+  trayImg.dataset.mode=cfg.tray;
+}
+/* 连接中：托盘 loading 帧动画（6 帧循环） */
+setInterval(()=>{
+  const t=document.getElementById('deskTrayImg');
+  if(t&&t.dataset.mode==='loading'){
+    loadingFrame=(loadingFrame+1)%6;
+    t.src=`assets/img/airpods-buddy/tray-loading-${loadingFrame}.png`;
+  }
+},95);
+/* 三态展示区：中问那张 loading 也一直转 */
+setInterval(()=>{
+  const t=document.getElementById('trayLoadingImg');
+  if(t){loadingFrame=(loadingFrame+1)%6;
+    t.src=`assets/img/airpods-buddy/tray-loading-${loadingFrame}.png`;}
+},95);
+
+/* 自动演示：一个小故事循环 */
+function petAutoStory(){
+  const seq=[['connecting',2100],['ok',2400],['idle',1800],['off',2100],['idle',1500]];
+  let i=0;
+  (function next(){
+    if(!autoOn)return;
+    petSetState(seq[i][0]);
+    autoTimer=setTimeout(next,seq[i][1]);
+    i=(i+1)%seq.length;
+  })();
+}
+let autoOn=true;
+const autoBtn=document.getElementById('petAutoBtn');
+function setAuto(on){
+  autoOn=on;autoBtn.classList.toggle('on',on);autoBtn.textContent=on?'▶ 自动演示':'⏸ 已暂停';
+  if(on)petAutoStory();else clearTimeout(autoTimer);
+}
+autoBtn.addEventListener('click',()=>setAuto(!autoOn));
+document.querySelectorAll('.pet-btn[data-state]').forEach(b=>{
+  b.addEventListener('click',()=>{setAuto(false);petSetState(b.dataset.state);});
+});
+/* 点桌面右下角托盘 = 单击托盘连接 */
+document.getElementById('deskTray').addEventListener('click',()=>{
+  setAuto(false);
+  petSetState(trayImg.dataset.mode==='on'?'off':'connecting');
+  setTimeout(()=>{if(!autoOn&&trayImg.dataset.mode==='loading')petSetState('ok');},1900);
+});
+
+/* 启动：预载精灵图后弹出 */
+const petPre=new Image();
+petPre.onload=()=>{sprite.style.backgroundImage="url('assets/img/airpods-buddy/pet-sheet.webp')";petSetState('idle');petAutoStory();};
+petPre.onerror=()=>{bubble.textContent='(精灵图加载失败)';};
+petPre.src='assets/img/airpods-buddy/pet-sheet.webp';
+
+/* ================= 应用界面·前端模拟演示 =================
+   还原真实应用的布局手感：设备列表（优先级可调）+ 大圆连接钮三态。
+   设备名均为虚构，不含任何真实信息。 */
+(function(){
+  const big=document.getElementById('appBigBtn'),ico=document.getElementById('appBigIco'),
+        lb=document.getElementById('appBigLb'),dev1=document.getElementById('dev1'),
+        dev1St=document.getElementById('dev1St');
+  let st='off',t=null;
+  function set(s){
+    st=s;clearTimeout(t);big.className='bigbtn '+s;
+    if(s==='off'){ico.textContent='🔌';lb.textContent='点我连接';
+      dev1.classList.remove('on');dev1St.textContent='未连接';}
+    else if(s==='loading'){lb.textContent='连接中';dev1St.textContent='连接中…';}
+    else{ico.textContent='💚';lb.textContent='已连接 · 点我断开';
+      dev1.classList.add('on');dev1St.textContent='已连接 · A2DP';}
+  }
+  big.addEventListener('click',()=>{
+    if(st==='off'){set('loading');t=setTimeout(()=>set('on'),1300);}
+    else if(st==='on'){set('off');}
+  });
+  /* 优先级 ▲▼：真的会调换顺序 */
+  document.querySelectorAll('#appList .op').forEach(b=>b.addEventListener('click',e=>{
+    e.stopPropagation();
+    const li=b.closest('.dev'),list=document.getElementById('appList');
+    const items=[...list.children],i=items.indexOf(li);
+    const j=b.dataset.mv==='up'?i-1:i+1;
+    if(j<0||j>=items.length)return;
+    li.classList.add('ghosted');
+    setTimeout(()=>{
+      b.dataset.mv==='up'?list.insertBefore(li,items[j]):list.insertBefore(items[j],li);
+      li.classList.remove('ghosted');
+    },140);
+  }));
+  /* 刷新按钮：转一圈 + 列表闪一下 */
+  const rf=document.getElementById('appRefresh');
+  rf.addEventListener('click',()=>{
+    rf.classList.remove('spin');void rf.offsetWidth;rf.classList.add('spin');
+    [...document.getElementById('appList').children].forEach(li=>{
+      li.classList.add('ghosted');setTimeout(()=>li.classList.remove('ghosted'),420);});
+  });
+})();
+</script>
+
+</body>
+</html>
