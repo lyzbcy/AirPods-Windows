@@ -23,12 +23,18 @@
   /* 精灵图 1536x1248（8 列 x 6 行全宽），0.78 缩放：格 150x162，图 1200x975 */
   .sprite{width:150px;height:162px;background-repeat:no-repeat;
     background-size:1200px 975px;image-rendering:auto;
-    position:relative;z-index:1}
-  /* 气泡：角色头部右上，奶油底墨字（评审 P6：台词而非字幕） */
-  .bubble{position:absolute;top:-38px;left:50%;margin-left:-64px;z-index:2;
+    position:relative;z-index:1;transition:transform .17s ease-out}
+  /* 气泡：角色上方居中，两行文字均位于透明窗口范围内。 */
+  .bubble{position:absolute;bottom:calc(100% - 7px);left:50%;transform:translateX(-50%);z-index:2;
     font-size:12.5px;font-weight:600;color:#2A241A;letter-spacing:.5px;
     background:#FFF9EC;border:1px solid rgba(70,50,0,.14);border-radius:14px;
-    padding:7px 13px;white-space:nowrap;box-shadow:0 4px 12px rgba(70,50,0,.10)}
+    padding:7px 10px;width:188px;text-align:center;
+    box-shadow:0 4px 12px rgba(70,50,0,.10)}
+  .bubble-title{white-space:nowrap;line-height:1.3}
+  .bubble-detail{font-size:11px;font-weight:500;letter-spacing:0;line-height:1.35;
+    color:#62584A;max-width:166px;margin-top:3px;overflow-wrap:anywhere;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .bubble-detail[hidden]{display:none}
   /* 气泡尾巴：右下角指向角色头部 */
   .bubble::after{content:"";position:absolute;bottom:-5px;right:16px;
     width:10px;height:10px;background:#FFF9EC;border-right:1px solid rgba(70,50,0,.14);
@@ -39,6 +45,11 @@
     pointer-events:none}
   @keyframes floatUp{from{transform:translateY(0) scale(.6)}
     to{transform:translateY(-56px) scale(0)}}
+  @media (prefers-reduced-motion: reduce){
+    .card,.stage.out .card,.sprite{transition:none}
+    .dots::after{animation:none;content:"…"}
+    .heart{display:none;animation:none}
+  }
 </style>
 </head>
 <body>
@@ -46,48 +57,75 @@
   <div class="card">
     <div class="ground"></div>
     <div class="sprite" id="sprite"></div>
-    <div class="bubble" id="bubble">…</div>
+    <div class="bubble" id="bubble" role="status">
+      <div class="bubble-title" id="bubbleTitle">…</div>
+      <div class="bubble-detail" id="bubbleDetail" aria-live="off" hidden></div>
+    </div>
   </div>
 </div>
 <script>
-/* 星星布丁宠物弹窗 —— 精灵图行序（裁剪后）:
-   0 idle | 1 waving | 2 jumping | 3 failed | 4 waiting | 5 review
-   显示尺寸格 120x130（源 192x208 的 0.625），帧时长遵循 hatch-pet 规范 */
+/* 星星布丁宠物弹窗 —— 8 列 x 6 行，源格 192x208、显示格 150x162。
+   等待行的往返顺序避开原先 5→0 的明显姿势跳变；终态只播一遍并停留。 */
 const ROWS = {
-  idle:        {row:0, frames:[280,110,110,140,140,320]},
-  waving:      {row:1, frames:[140,140,140,280]},
-  jumping:     {row:2, frames:[140,140,140,140,280]},
-  failed:      {row:3, frames:[140,140,140,140,140,140,140,240]},
-  waiting:     {row:4, frames:[150,150,150,150,150,260]},
-  review:      {row:5, frames:[150,150,150,150,150,280]},
+  idle:        {row:0, frames:[280,110,110,140,140,320], loop:true},
+  waving:      {row:1, frames:[140,140,140,280], loop:false},
+  jumping:     {row:2, frames:[140,140,140,140,280], loop:false},
+  failed:      {row:3, frames:[140,140,140,140,140,140,140,240], loop:false},
+  waiting:     {row:4, frames:[180,180,180,180,180,280],
+                order:[0,1,4,3,2,5,2,3,4,1], loop:true},
+  review:      {row:5, frames:[180,180,180,180,180,280], loop:true},
 };
 const TEXT = {
-  connecting:    {anim:'waiting',  text:'连接中',    dots:true},
-  ok:            {anim:'jumping', text:'连上啦！💕'},
-  disconnecting: {anim:'review',   text:'断开中',    dots:true},
-  off:           {anim:'waving',   text:'已断开 💤 拜拜~'},
-  fail:          {anim:'failed',  text:'没连上 QAQ'},
+  connecting:    {anim:'waiting',  text:'连接中', dots:true, detail:'正在连接耳机'},
+  ok:            {anim:'jumping', text:'连接已就绪', detail:'请试听确认声音'},
+  disconnecting: {anim:'review',   text:'断开中', dots:true, detail:'正在断开耳机'},
+  off:           {anim:'waving',   text:'已断开', detail:'设备已断开'},
+  fail:          {anim:'failed',  text:'操作未完成', detail:'请查看详情'},
   idle:          {anim:'idle',     text:'我在呢'},
 };
 const FW = 150, FH = 162;
-let curRow = 0, timer = null, frame = 0;
+const sprite = document.getElementById('sprite');
+const title = document.getElementById('bubbleTitle');
+const detailLine = document.getElementById('bubbleDetail');
+const motionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+let reducedMotion = !!(motionQuery && motionQuery.matches);
+let activeAnim = '', activeState = '', lastOperation = '', timer = null, step = 0, heartToken = 0;
 
 function playRow(name) {
-  const r = ROWS[name]; if (!r) return;
-  curRow = r.row; frame = 0;
+  const r = ROWS[name]; if (!r || activeAnim === name) return;
+  activeAnim = name; step = 0;
   clearTimeout(timer);
-  (function tick() {
-    const d = r.frames[frame];
-    document.getElementById('sprite').style.backgroundPosition =
-      `-${frame * FW}px -${curRow * FH}px`;
-    frame = (frame + 1) % r.frames.length;
-    timer = setTimeout(tick, d);
-  })();
+  tick();
+}
+function tick() {
+  const r = ROWS[activeAnim];
+  const order = r.order || r.frames.map((_, i) => i);
+  const frame = reducedMotion ? 0 : order[step];
+  sprite.style.backgroundPosition = `-${frame * FW}px -${r.row * FH}px`;
+  /* 小幅位移由 CSS 插值；精灵帧保持不透明，透明颜色键不会出现叠影。 */
+  sprite.style.transform = reducedMotion ? '' : `translateY(${[-1,0,1,0,1,0][frame % 6]}px)`;
+  if (reducedMotion || (!r.loop && step === order.length - 1)) return;
+  const duration = r.frames[frame];
+  step = (step + 1) % order.length;
+  timer = setTimeout(tick, duration);
+}
+if (motionQuery) {
+  const onMotionChange = e => {
+    reducedMotion = e.matches;
+    clearTimeout(timer);
+    step = 0;
+    if (activeAnim) tick();
+  };
+  if (motionQuery.addEventListener) motionQuery.addEventListener('change', onMotionChange);
+  else if (motionQuery.addListener) motionQuery.addListener(onMotionChange);
 }
 function spawnHearts(n) {
+  if (reducedMotion) return;
+  const token = heartToken;
   const card = document.querySelector('.card');
   for (let i = 0; i < n; i++) {
     setTimeout(() => {
+      if (token !== heartToken) return;
       const h = document.createElement('span');
       h.className = 'heart';
       h.textContent = Math.random() < .5 ? '💕' : '✨';
@@ -98,13 +136,34 @@ function spawnHearts(n) {
     }, i * 160);
   }
 }
-window.setState = function (state) {
+window.setState = function (state, detail = '') {
   const cfg = TEXT[state] || TEXT.idle;
+  const changed = state !== activeState;
+  if (state === 'connecting' || state === 'disconnecting') lastOperation = state;
+  else if (state === 'ok' || state === 'off' || state === 'idle') lastOperation = '';
+  activeState = state;
   playRow(cfg.anim);
-  const b = document.getElementById('bubble');
-  b.className = 'bubble' + (cfg.dots ? ' dots' : '');
-  b.textContent = cfg.text;
-  if (state === 'ok') spawnHearts(4);
+  title.className = 'bubble-title' + (cfg.dots ? ' dots' : '');
+  title.textContent = state === 'fail'
+    ? (lastOperation === 'disconnecting' ? '断开未完成'
+      : lastOperation === 'connecting' ? '连接未完成' : cfg.text)
+    : cfg.text;
+  detailLine.textContent = typeof detail === 'string' && detail.trim()
+    ? detail.trim().slice(0, 100) : (cfg.detail || '');
+  detailLine.hidden = !detailLine.textContent;
+  if (changed) heartToken++;
+  if (state === 'ok' && changed) spawnHearts(4);
+};
+/* AHK 可传 JSON 对象：setProgress({state, phaseText, elapsedMs})。
+   阶段与已等待时间仅反映后端进度，不在前端推断完成。 */
+window.setProgress = function (progress) {
+  if (!progress || typeof progress !== 'object') return;
+  const phase = typeof progress.phaseText === 'string' ? progress.phaseText.trim() : '';
+  const elapsed = Number(progress.elapsedMs);
+  const elapsedText = Number.isFinite(elapsed) && elapsed >= 0
+    ? `已等待 ${Math.floor(elapsed / 1000)} 秒` : '';
+  const detail = [phase, elapsedText].filter(Boolean).join(' · ');
+  window.setState(progress.state, detail);
 };
 window.showPopup = function () {
   document.getElementById('stage').className = 'stage in';

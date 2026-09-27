@@ -16,6 +16,8 @@ routeEvents := []
 probeResult := "supported", probeCalls := 0, probeSideEffect := ""
 linkStarts := 0, downStarts := 0
 deviceOps := Map(), operationSerial := 0, routeOwner := 0, actionEpoch := 0, pendingRetryDisconnect := 0
+petStates := []
+workerFails := true, petFails := false
 devices := [{name:"A",info:Buffer(560)}]
 result := DoAction("A", "connect")
 Check("backend_exception_returns_failure", result = "fail")
@@ -38,8 +40,10 @@ SetOpState("P", progressGen, "link_retrying")
 Check("retry_worker_is_explicit_phase", InStr(DeviceProgressJson("P"), '"phase":"retrying"'))
 busy := true, pendingRetryDisconnect := 0, epochBefore := actionEpoch
 Check("retry_cancel_queues_without_claiming_submission", DoAction("P", "disconnect") = "ok" && actionEpoch = epochBefore + 1 && InStr(DeviceProgressJson("P"), '"action":"disconnect","phase":"queued"'))
+Check("queued_cancel_shows_disconnect_pet", petStates.Length = 1 && petStates[1] = "disconnecting")
 epochBefore := actionEpoch
 Check("duplicate_queued_cancel_is_busy_without_epoch_change", DoAction("P", "disconnect") = "busy" && actionEpoch = epochBefore)
+Check("rejected_busy_action_does_not_flash_pet", petStates.Length = 1)
 busy := false, pendingRetryDisconnect := 0
 SetOpState("P", progressGen, "audio_pending")
 Check("audio_phase_is_distinct", InStr(DeviceProgressJson("P"), '"phase":"audio","step":3,"steps":4') && InStr(DeviceProgressJson("P"), '"phaseBudgetMs":13500}'))
@@ -218,6 +222,11 @@ try {
     try RegDeleteKey("HKCU\" RUN_KEY)
     try FileDelete(lnk)
 }
+devices := [{id:"AABBCCDDEEFF",name:"Headphones",info:Buffer(560)}]
+NumPut("uint64", 0xAABBCCDDEEFF, devices[1].info, 8)
+busy := false, workerFails := false, petFails := true
+Check("pet_display_error_does_not_fail_accepted_worker", DoAction("AABBCCDDEEFF", "connect") = "ok" && busy)
+workerFails := true, petFails := false, busy := false
 FileDelete(PRIO_PATH)
 FileDelete(SETTINGS_PATH)
 FileAppend("RESULT failures=" failures "`n", "*")
@@ -237,7 +246,16 @@ SetTrayLoading(on) {
     loading := on
 }
 StartBackgroundJob(*) {
-    throw Error("injected worker launch failure")
+    global workerFails
+    if workerFails
+        throw Error("injected worker launch failure")
+    return true
+}
+PetShow(state, *) {
+    global petStates, petFails
+    petStates.Push(state)
+    if petFails
+        throw Error("injected pet display failure")
 }
 PushEvent(event, data) {
     global routeEvents

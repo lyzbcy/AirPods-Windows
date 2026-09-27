@@ -108,6 +108,8 @@ SetTrayLoading(*) {
 }
 PetUpdate(*) {
 }
+PetShow(*) {
+}
 TrayTip(*) {
 }
 OnConnectSuccess() {

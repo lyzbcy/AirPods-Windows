@@ -194,6 +194,8 @@ LogMsg(*) {
 }
 PetUpdate(*) {
 }
+PetShow(*) {
+}
 PushEvent(event, data) {
     global events
     events.Push({name: event, data: data})

@@ -1,107 +1,30 @@
-# AGENTS.md · 接力开发入口（给任何 AI Agent / 新协作者）
+# AirPods 小助手 · 协作入口
 
-> **你是刚接手的 Agent？只读这一页 + 按需跳转 doc/，不要盲目翻代码。**
-> 本项目采用"渐进式披露"：入口 → 索引 → 按需深读，避免浪费上下文。
+先读项目根 SKILL.md，再由 doc/README.md 按任务进入模块文档；不要把历史候选快照当作当前部署状态。
 
-## 30 秒了解项目
+## 30 秒定位
 
-- **是什么**：AirPods 小助手（AirPodsBuddy）——Windows/Mac 桌面小工具，
-  一键连接 AirPods、常驻托盘/菜单栏、无遥测，用户主动反馈可附日志
-- **仓库布局**：
-  - `airpods_buddy.ahk` — Windows 主程序（AHK v2 + WebView2）
-  - `webui/` — 共享前端（index.html 源码 / index_built.html 构建产物）
-  - `mac/AirPodsBuddyMac/` — Mac 版（Swift 菜单栏应用，macOS CI 编译和单测已通过，真机验收另记）
-  - `doc/` — 知识库（**必读**，见下）
-  - `tools/` — 构建工具（gitignore，下载方式见 doc/02 §7）
-- **当前版本**：Windows v1.9.20 正式 Release 已于 2026-09-27 16:38 公开，GitHub Latest；发布 tag peeled 与 Release target 均为 `e15fb9046056768eec9948883f6d7a633895fdc3`；main 后续只追加发布记录文档，唯一 ZIP SHA256 `4E6AC4F14E7ADC8C95248FB4B9FAE2EEEC68974EB70421A24B9E4684EC009AC9`。最终提交 Windows CI `36306464529` 成功。15:49 新版部署、16:16 用户确认从 AirPods 听到默认输出；历史五轮失败仍在发布说明披露。Release：`https://github.com/lyzbcy/AirPods-Windows/releases/tag/v1.9.20`。Mac 状态以 doc/06 与真实构建记录为准
-
-## 连接/断开进度最新候选（2026-09-27）
-
-后端 `progress` 按实际请求、链路、一次有界重试、播放与断开核实阶段返回；前端小宠物/圆形主按钮持续动效显示第 N / M 步、已等待时间和**当前阶段观察窗口**，不是整体 ETA 或百分比。结果说明持留到设备状态变化，`ready` 仍需用户试听；连接请求提交完成后可取消，重试 worker 中取消会明确排队；断开中禁重复点击，后端忙碌态拒绝重复请求，支持 `prefers-reduced-motion`。本机完整离线 `OFFLINE_PASS assertions=364 suites=20`、460×600 双场景截图已检查。本轮进度 UI 15:49 已部署（exe `59F859CA5A4A9A27E18245FE3785919072A3848BDFA33383E816F7FC99202D3A`，本地 ZIP `4E6AC4F14E7ADC8C95248FB4B9FAE2EEEC68974EB70421A24B9E4684EC009AC9`），用户已确认一次新安装版真实连接及从 AirPods 听到默认输出；连续五轮失败仍保留。发布状态以最终 GitHub Release 核对为准。协议读 `doc/02-架构与原理.md`，证据读 `verification/2026-09-27-progress-backend/` 与 `verification/2026-09-27-progress-frontend/`。
-
-## P0 音频真相（2026-09-27，优先于下方历史记录）
-
-此前旧安装版用户确认默认输出清晰提示音「完全没听到」，系统原生「测试」答复「完全没听到／系统报错」（不能确定是哪一项）。即使 `link=1`、目标 render ACTIVE、默认三角色均指向耳机，也不能显示为已证实可播放。独立 Core Audio 对照中，AirPods 自身 mix 的共享模式支持检查返回 `0x88890008`，Realtek 返回 `0x00000000`，根因未定。**候选工作树已实现**切默认前精确目标 render 的无声 `GetMixFormat → IsFormatSupported → Initialize(shared)` 预检：阴性不切默认、不标 `ready`/`audiook`、不补 KS；阳性仍需用户听音，不是成功回执。离线 `OFFLINE_PASS assertions=337 suites=20`、AHK build-only 编译通过；新候选 15:11 已部署、15:12 启动检查通过，但尚无用户听音确认。本地新 ZIP 与已安装 exe 一致，仍须复验安装版听音和 CI、更新远端资产，再审正式发版；旧验收与旧资产不可沿用。证据见 `verification/2026-09-27-coreaudio-readonly/RESULT.txt`、`verification/2026-09-27-p0-audio-truth/VERIFICATION.txt`。
-
-## 必读文档（按角色）
-
-| 你要做什么 | 先读 |
+| 项目 | 入口 |
 |---|---|
-| 任何开发前的共识 | `doc/01-初心与使命.md`（为什么做、为谁做） |
-| **Mac 端继续开发** | `doc/06-Mac版方案.md`（看门狗机制 + 构建风险点 + 测试清单） |
-| 改 Windows 端 | `doc/02-架构与原理.md`（模块原理 + 编译部署全流程） |
-| 调试任何问题 | `doc/05-已知问题与踩坑记录.md`（**先读再动手**，能省你两小时） |
-| 了解进度/待办 | `doc/04-项目进度.md`（改完代码请更新它） |
+| Windows 主程序 / 页面 | airpods_buddy.ahk（AHK v2 + WebView2）/ webui/ |
+| Mac 菜单栏版 | mac/AirPodsBuddyMac/；构建与真机边界见 doc/06-Mac版方案.md |
+| 当前状态 / 历史 | doc/04-项目进度.md 顶部为现状，下方日期标题是当时快照 |
+| Windows 架构 / 排障 | doc/02-架构与原理.md / doc/05-已知问题与踩坑记录.md |
+| 连接验收 / 发布事务 | doc/09-Windows连接方案选型.md / doc/08-更新与后台任务.md |
 
-## Mac 端验收入口（CI 已通过，硬件项仍需真机）
+Windows 源码版本字段是 airpods_buddy.ahk 的 APP_VERSION，工作树 v1.9.21 是未发布候选，v1.9.20 是正式发布版；偶发连接或无声、严格五轮失败均已披露，不表示问题已解决。现状、Release 资产和证据以 SKILL.md 指向的当前入口核对。应用源码在本仓库维护；产品页源码在独立的 lyzbcy/lyzbcy.github.io 仓库。
 
-```bash
-cd mac/AirPodsBuddyMac
-swift build -c release        # 需要 macOS 13+ 和 Xcode CLT
-.build/release/AirPodsBuddyMac
-```
+## 开发红线
 
-1. 修到编译通过（三个预判风险点在 doc/06「构建状态与坑」）
-2. 按 doc/06「测试清单」真机验证（连接/左键切换/看门狗抗 iPhone 抢走/输出锁定）
-3. 验证通过后：更新 doc/04 进度，参照 doc/02 §7 的精神给 Mac 补构建文档
-4. Windows 的坑对 Mac 多数不适用，但 doc/05 的 B 节（验证方法论）通用
+1. 错误写日志，不向用户弹窗（Windows 见 doc/02，Mac 写 ~/Library/Logs/AirPodsBuddyMac.log）；用户机桌面测试要克制，不用自动化脚本反复打扰。
+2. 修改代码后同步 doc/04-项目进度.md 和 CHANGELOG.md，核对 APP_VERSION 与发布状态；源码提交、离线通过、真实安装、用户听音和公开 Release 是不同证据层级。
+3. GitHub Release 先取得用户对**该版本**的明确同意。v1.9.20 的同意不自动授权后续版本；已知问题接受路径保留失败事实，绝不伪造五轮通过。
+4. Release 发布后必须按 doc/08-更新与后台任务.md 同步独立产品页、递增 PAGE_VER，等待 Pages 部署并从公网核对两处下载链接、已知问题和资产 SHA256；只上线 ZIP 不算闭环。
+5. 不自动重置整机蓝牙、清除用户配对或切换其他设备；更新器改动须单独记录测试与回滚证据。
 
-## 红线（历代 Agent 用算力换来的）
+## 本机与双机约定
 
-1. **错误不许弹窗到用户脸上**——Windows 走日志系统（doc/02 §5），
-   Mac 走 `~/Library/Logs/AirPodsBuddyMac.log`
-2. **改完必须更新** `doc/04-项目进度.md` 和 `CHANGELOG.md`
-3. **在用户桌面上跑测试脚本要极其克制**（历史事故：弹窗轰炸用户）
-4. 提交信息写清楚"为什么"；不确定的决策记到 doc/04 待办里问用户
-5. **发 GitHub Release 必须先征得用户明确同意**——软件有真实存量用户，
-   发版=推送给所有用户（2026-09-05 事故：Agent 未征得同意连发 v1.9.0/
-   v1.9.1 两版，被用户严厉指出）。2026-09-27 用户已明确同意 v1.9.20 正式
-   Release 并披露偶发蓝牙/音频失效；仅对这一版、在最终资产和安装版验收完成后适用。
-   五轮失败不得写成通过，后续版本仍须另行取得同意。
-   **Release 发布后还必须同步公开产品页**：按项目根 `SKILL.md` 与 `doc/08-更新与后台任务.md` 更新 `lyzbcy/lyzbcy.github.io` 的 `main/airpods-buddy.html`，递增 `PAGE_VER`，等待 Pages 部署成功并从公网核对版本、下载资产和已知问题；仅 Release 上线不算闭环。
-6. **AI 沙箱 shell 拉起的进程带受限令牌**（对既有 exe 只有 RX）——要启动
-   用户侧应用，用 `explorer.exe <path>` 中转或让用户自己启动；沙箱直接
-   Start-Process 的应用连自更新都会静默失败（swapper 继承受限令牌）。
-
-## 快速事实
-
-- Windows 构建：Ahk2Exe 必须从仓库根目录、`Start-Process` 分离启动
-  （直接 bash 调用会静默失败，见 doc/05 坑 B1）
-- 本机安全软件会间歇性删 .ps1/.ahk 文件——重要脚本必须进 git
-- 用户设备：Windows 开发机 + MacBook（通过 E:\共享 同步此仓库）
-
-## 双机协作规矩（Windows ↔ Mac 经共享文件夹）
-
-- ⚠️ **不要直接运行共享文件夹里的 dist\AirPodsBuddy.exe**——dist 在
-  gitignore 里，同步不保证最新（2026-08-19 事故：用户跑了共享目录里的
-  v1.3.1 旧 exe，抱怨"图标不更新"，其实 v1.4.0 部署在 AppData 没被运行）。
-  判断跑的是哪个：看日志 boot 行的 scriptdir。
-- ⚠️ **（2026-09-20 起）唯一开发仓库 = 本文件夹**，Windows 与 Mac 都在这里改源码；
-    E:\github\BluetoothDeviceConnector 旧副本退役（历史保留）。
-    开发启动器 = 仓库根「AirPods小助手.bat」（脚本模式秒生效）；正式版用「编译并部署.bat」。
-- ⚠️ **（2026-09-05 起）用户机常驻目录 = `C:\Users\24676\Desktop\AirPodsBuddy\`**，
-  桌面/启动快捷方式都指向这里。旧 `%LOCALAPPDATA%\BluetoothDeviceConnector\`
-  里的 exe 被 360 内核驱动冻结（删/改全拒，ACL 全绿也拦——360AntiSteal/
-  360Box64/360FsFlt 在 360 界面退出后仍然驻留！），已成弃子，别再往那部署。
-  该目录可写 → 应用内自更新恢复正常。
-- ⚠️ **360 的驱动不随界面退出而卸载**，"退出 360"后写文件照样被拦。
-  要么 360 信任区加目录、要么彻底卸载/重启验证。bat 必须 CRLF+纯 ASCII
-  （LF-only 会被 cmd 解析成碎片命令报错）。
-
-- 本文件夹是**含 .git 的完整仓库副本**（E:\共享\创业\BluetoothDeviceConnector）
-- **在 Mac 上开工前**：`git pull --rebase origin main`（拿远端最新）
-- **在 Mac 上提交后**：`git push origin main`；提醒用户回 Windows 时也 `git pull`
-- 两台机器**不要同时改同一文件后各自提交**——会冲突
-- Windows 和 Mac 的唯一开发仓库均为本目录；`E:\github\BluetoothDeviceConnector` 为历史副本。
-
-## 2026-09-26 审计修复入口
-先读 `doc/07-审计修复清单.md`；严格区分代码测试、真实路由和用户听音。第一段测试音用户答“没听到”；第二段显式 WASAPI 测试用户确认“第二段测试我听到了”。P0-02 为单次显式端点听音通过，普通应用、五轮重连与重启验收仍待完成。源码改动不等于已部署。
-
-## 当前维护路径
-代码问题按 `doc/07-审计修复清单.md` 核对，当前架构以 `doc/02-架构与原理.md` 为准，更新器变更必须读 `doc/08-更新与后台任务.md`。第一批历史听音与本轮稳定性记录分开，不将测试脚本路由成功冒充安装版全场景成功。
-
-## v1.9.20 最新交付入口
-完整离线 `python tests/run_suite.py`，当前 211 项/14 套通过。连接已改为精确 ContainerId + KS 单次请求；日常路径不再启停蓝牙服务。原始失败与修正后结果均见 `verification/2026-09-26-ks/VERIFICATION.txt`，最终听音和五轮稳定性独立验收。每次启动资源目录含 GUID，防同版本 PID 重用加载旧模块。
-
-## 2026-09-26 发布条件复核追加
-用户已授权“没有问题就发版”；已发现P0连续连接失败与旧 micOff 偏好语义回归，条件不成立。对照实验在手机/Mac蓝牙关闭后第2轮仍 link_failed；安装/Release 未执行。资产名 `AirPodsBuddy-Windows.zip` 已在本地通过更新器校验，不能当作真机稳定通过。完整当前证据 `verification/2026-09-26-release/VERIFICATION.txt`。
+- 唯一开发仓库是 E:\共享\创业\BluetoothDeviceConnector；E:\github\BluetoothDeviceConnector 为历史副本。Windows 与 Mac 不要同时改同一文件。Mac 开工前拉取、提交后推送并通知另一端同步。
+- 用户常驻安装目录是 C:\Users\24676\Desktop\AirPodsBuddy\；不要从共享目录的 dist\AirPodsBuddy.exe 判断当前运行版本。以常驻目录 exe 哈希及启动日志 scriptdir 核对。旧 %LOCALAPPDATA%\BluetoothDeviceConnector\ 安装位置不再使用。
+- Windows 构建工具与命令见 doc/02-架构与原理.md；沙箱 shell 直接启动应用可能带受限令牌，用户侧启动需经 explorer.exe <path> 或由用户启动。构建 bat 保持 CRLF 与纯 ASCII；本机安全软件可能拦写/删脚本，先核对 Git 状态。
+- 用户反馈日志与企业微信缓存读取规则在根 SKILL.md；只把相关反馈和原始日志证据写入项目记录。

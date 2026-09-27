@@ -3,7 +3,7 @@
 Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行（开机自启依赖此行为）
 
 ; =====================================================================
-;  AirPods Buddy v1.2 - 米白简约风 AirPods 管理小助手
+;  AirPods Buddy - 米白简约风 AirPods 管理小助手（版本见 APP_VERSION）
 ;  UI: HTML/CSS via WebView2 (webui/index.html)
 ;  Core connect/disconnect logic from ChromuSx/BluetoothDeviceConnector (MIT)
 ; =====================================================================
@@ -12,7 +12,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\BackgroundJobs.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.20"
+APP_VERSION   := "1.9.21"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -460,6 +460,14 @@ petWv := 0
 petVisible := false
 petReady := false
 petPending := ""
+petOpName := ""
+petOpAction := ""
+petOpGen := 0
+petBatch := []
+petBatchGen := Map()
+petBatchFailed := Map()
+petBatchStarted := 0
+petBatchTicket := 0
 
 PetOnMsg(core, args) {
     global petReady, petPending
@@ -471,21 +479,26 @@ PetOnMsg(core, args) {
             petReady := true
             ; IsSet 守卫：/testpet 在 auto-exec 前段就调用 Pet 系列，
             ; 此时顶层 pet* 全局初始化(见下方)还没执行到，直接读会 UnsetError
-            if (IsSet(petPending) && petPending != "") {
-                PetApply(petPending)
+            if (IsSet(petPending) && IsObject(petPending)) {
+                pending := petPending
+                PetApply(pending.state, pending.detail)
                 petPending := ""
+                ; A quick terminal result must remain visible for a full dwell
+                ; after WebView2 is ready, not expire during cold startup.
+                if (pending.state = "ok" || pending.state = "off" || pending.state = "fail")
+                    SetTimer(PetFade, -2500)
             }
         }
     }
 }
 
-PetApply(state) {
+PetApply(state, detail := "") {
     global petWv, petReady, petPending
     if (!IsSet(petReady) || !petReady) {
-        petPending := state   ; 页面还没就绪：先存起来，petready 后补播
+        petPending := {state: state, detail: detail}   ; 页面就绪后补播
         return
     }
-    try petWv.ExecuteScriptAsync('showPopup();setState("' state '")')
+    try petWv.ExecuteScriptAsync('showPopup();setState(' JsonStr(state) ',' JsonStr(detail) ')')
 }
 
 PetEnsure() {
@@ -543,10 +556,55 @@ PetEnsure() {
     return true
 }
 
-PetShow(state) {
-    global petGui, petVisible
+PetBatchContains(name) {
+    global petBatch
+    if !IsSet(petBatch)
+        return false
+    for key in petBatch
+        if key = name
+            return true
+    return false
+}
+
+PetStartBatch(queue) {
+    global petBatch, petBatchGen, petBatchFailed, petBatchStarted, petBatchTicket
+    petBatchTicket++
+    petBatch := queue.Clone()
+    petBatchGen := Map(), petBatchFailed := Map()
+    petBatchStarted := A_TickCount
+    try PetShow("disconnecting", queue[1], 0, true)
+    catch as e
+        LogMsg("pet batch display failed: " e.Message, "WARN")
+    return petBatchTicket
+}
+
+PetBatchFail(name) {
+    global petBatchFailed
+    if PetBatchContains(name)
+        petBatchFailed[name] := true
+}
+
+PetShow(state, name := "", gen := 0, fromBatch := false) {
+    global petGui, petWvc, petVisible, petOpName, petOpAction, petOpGen
+    global petBatch, petBatchGen, petBatchFailed, petBatchTicket
+    if !IsSet(petBatch)
+        petBatch := [], petBatchGen := Map(), petBatchFailed := Map()
+    if !IsSet(petBatchTicket)
+        petBatchTicket := 0
+    ; A newly accepted direct action supersedes a pending tray-disconnect queue,
+    ; even if the popup itself cannot be rendered. Its deferred timer must stop.
+    preserveBatch := fromBatch && state = "disconnecting" && PetBatchContains(name)
+    if (name != "" && !preserveBatch) {
+        petBatch := [], petBatchGen := Map(), petBatchFailed := Map()
+        petBatchTicket++
+    }
     if !PetEnsure()
         return
+    ; A previous operation's delayed fade must never hide a new operation.
+    SetTimer(PetFade, 0), SetTimer(PetHideNow, 0), SetTimer(PetProgressTick, 0)
+    if (preserveBatch && gen)
+        petBatchGen[name] := gen
+    petOpName := name, petOpAction := state = "disconnecting" ? "disconnect" : "connect", petOpGen := gen
     ; DPI 陷阱：A_ScreenWidth 是物理像素，Gui.Show 的 x/y 是逻辑坐标（会被
     ; 系统再缩放），直接相减会把窗口摆出屏幕。这里全部走物理坐标链：
     ; 工作区(SPI) -> 窗口实际矩形 -> SetWindowPos 原生定位。
@@ -564,22 +622,114 @@ PetShow(state) {
     petWvc.IsVisible := true
     petVisible := true
     PetApply(state)
-    SetTimer(PetFade, -9000)
+    if name != "" {
+        SetTimer(PetProgressTick, 500)
+        PetProgressTick()
+    } else
+        SetTimer(PetFade, -9000) ; /testpet 演示模式，无实际操作可跟踪
 }
 
-PetUpdate(state) {
-    global petVisible
+PetUpdate(state, detail := "") {
+    global petVisible, petPending
     if (!IsSet(petVisible) || !petVisible)
         return
     global petWv, petReady
-    if (!IsSet(petReady) || !petReady)
-        return   ; 首帧还没播就到了终态：直接走 PetFinish 的定时即可
-    try petWv.ExecuteScriptAsync('setState("' state '")')
+    if (!IsSet(petReady) || !petReady) {
+        petPending := {state: state, detail: detail}
+        return
+    }
+    try petWv.ExecuteScriptAsync('setState(' JsonStr(state) ',' JsonStr(detail) ')')
 }
 
-PetFinish(state) {
-    PetUpdate(state)
-    SetTimer(PetFade, -1400)
+PetFinish(state, detail := "") {
+    global petReady
+    SetTimer(PetProgressTick, 0)
+    PetUpdate(state, detail)
+    if (IsSet(petReady) && petReady)
+        SetTimer(PetFade, -2500)
+}
+
+PetPhaseText(action, state) {
+    if action = "disconnect" {
+        if state = "down_pending"
+            return "等待 Windows 确认断开"
+        return "正在提交断开请求"
+    }
+    switch state {
+        case "link_pending", "link_up": return "正在确认蓝牙链路"
+        case "link_retry_wait": return "等待同一副耳机重试"
+        case "link_retrying": return "正在重试这副耳机"
+        case "audio_pending": return "正在确认播放设备"
+        default: return "正在提交连接请求"
+    }
+}
+
+PetProgress(state, detail, elapsed) {
+    global petReady, petWv
+    if (!IsSet(petReady) || !petReady)
+        return
+    payload := '{"state":' JsonStr(state) ',"phaseText":' JsonStr(detail) ',"elapsedMs":' Max(0, elapsed) '}'
+    try petWv.ExecuteScriptAsync('setProgress(' payload ')')
+}
+
+PetProgressTick() {
+    global petVisible, petOpName, petOpAction, petOpGen, petBatch, petBatchGen, petBatchFailed
+    global petBatchStarted, deviceOps, pendingRetryDisconnect, actionEpoch
+    if (!IsSet(petVisible) || !petVisible || petOpName = "") {
+        SetTimer(PetProgressTick, 0)
+        return
+    }
+    if petBatch.Length {
+        done := 0, failed := 0
+        for name in petBatch {
+            if petBatchFailed.Has(name) {
+                done++, failed++
+            } else if petBatchGen.Has(name) && deviceOps.Has(name) && deviceOps[name].gen = petBatchGen[name] {
+                op := deviceOps[name]
+                if op.state = "disconnected"
+                    done++
+                else if op.state = "disconnect_failed" || op.state = "service_failed"
+                    done++, failed++
+            }
+        }
+        if done = petBatch.Length {
+            detail := failed ? (failed " 副耳机未断开，请查看详情") : ("已断开 " done " 副耳机")
+            petBatch := []
+            PetFinish(failed ? "fail" : "off", detail)
+            return
+        }
+        PetProgress("disconnecting", "已处理 " done "/" petBatch.Length " 副，等待系统确认", A_TickCount - petBatchStarted)
+        return
+    }
+    name := petOpName
+    if (petOpAction = "disconnect" && IsObject(pendingRetryDisconnect)
+        && pendingRetryDisconnect.name = name && pendingRetryDisconnect.epoch = actionEpoch) {
+        PetProgress("disconnecting", "取消连接已排队，等待当前请求结束", A_TickCount - pendingRetryDisconnect.started)
+        return
+    }
+    if !deviceOps.Has(name) || deviceOps[name].gen != petOpGen || deviceOps[name].action != petOpAction {
+        PetFinish("fail", "状态已变化，请打开详情确认")
+        return
+    }
+    op := deviceOps[name]
+    if DeviceProgressJson(name) != "null" {
+        PetProgress(petOpAction = "connect" ? "connecting" : "disconnecting", PetPhaseText(petOpAction, op.state), A_TickCount - op.started)
+        return
+    }
+    if (petOpAction = "connect" && op.state = "ready")
+        PetFinish("ok", "播放设备已就绪，请试听确认")
+    else if (petOpAction = "connect" && op.state = "disconnected")
+        PetFinish("fail", "设备已断开，连接未完成")
+    else if (petOpAction = "disconnect" && op.state = "disconnected")
+        PetFinish("off", "Windows 已确认断开")
+    else if (petOpAction = "connect" && (op.state = "audio_failed" || op.state = "playback_unavailable" || op.state = "playback_unverified" || op.state = "audio_lost"))
+        PetFinish("fail", "声音未就绪，请查看 Windows 输出")
+    else if (op.state = "service_failed" || op.state = "link_failed" || op.state = "disconnect_failed")
+        PetFinish("fail", petOpAction = "disconnect" ? "断开未完成，请查看详情" : "连接未完成，请查看详情")
+    else if (op.state = "superseded" || op.state = "retry_cancelled")
+        PetFinish("fail", "操作已取消或被新操作取代")
+    else
+        PetFinish("fail", "操作状态未确认，请查看详情")
 }
 
 PetFade() {
@@ -587,6 +737,7 @@ PetFade() {
     if (!IsSet(petVisible) || !petVisible)
         return
     SetTimer(PetFade, 0)
+    SetTimer(PetProgressTick, 0)
     try petWv.ExecuteScriptAsync('hidePopup()')
     SetTimer(PetHideNow, -400)
 }
@@ -784,7 +935,6 @@ TrayQuickAction(action) {
             DoAction(DeviceKey(devices[1]), "connect")
             return
         }
-        PetShow("connecting")
         SetTrayLoading(true)
         r := DoAction(DeviceKey(target), "connect")
         SetTrayLoading(false)
@@ -792,7 +942,6 @@ TrayQuickAction(action) {
             ; 真实链路由 LinkVerifyTick 异步核实，完成后修正宠物与提示
             TrayTip("AirPods 小助手", "正在连接 «" target.name "» …", 2)
         } else {
-            PetFinish("fail")
             TrayTip("AirPods 小助手", "连接失败 «" target.name "»", 3)
         }
     } else {
@@ -801,8 +950,8 @@ TrayQuickAction(action) {
             if dev.connected
                 queue.Push(DeviceKey(dev))
         if queue.Length {
-            PetShow("disconnecting")
-            DisconnectQueue(queue)
+            ticket := PetStartBatch(queue)
+            DisconnectQueue(queue, ticket)
         } else
             TrayTip("当前没有连接中的耳机", "AirPods 小助手", 1)
 
@@ -1240,7 +1389,6 @@ AudioVerifyTick(name, left, gen) {
             state := probe.status = "unsupported" ? "playback_unavailable" : "playback_unverified"
             SetOpState(name, gen, state)
             LogMsg("playback precheck failed address=" name " status=" state " reason=" probe.reason, "WARN")
-            PetUpdate("fail")
             TrayTip("蓝牙已连接，但 Windows 播放端点无法打开或播放未验证。请查看 Windows 声音输出。", "AirPods 小助手", 2)
             PushEvent("audioheld", JsonStr(name))
             return
@@ -1252,7 +1400,6 @@ AudioVerifyTick(name, left, gen) {
             SetOpState(name, gen, "ready")
             LogMsg("shared playback precheck passed address=" name " render=" renderId "; actual sound not listened to")
             OnConnectSuccess()
-            PetUpdate("ok")
             PushEvent("audiook", JsonStr(name))
             MicSwitchTo(name, gen)
             return
@@ -1267,7 +1414,6 @@ AudioVerifyTick(name, left, gen) {
             return
         SetOpState(name, gen, "audio_failed")
         LogMsg("audio route not ready after verification window: '" name "'", "WARN")
-        PetUpdate("fail")
         TrayTip("蓝牙已连接，但播放端点或默认输出尚未就绪。请查看 Windows 声音输出；原因尚未确认。", "AirPods 小助手", 2)
         PushEvent("audioheld", JsonStr(name))
         return
@@ -1514,7 +1660,7 @@ FindAllAudioDevices() {
     DllCall("Bthprops.cpl\BluetoothFindDeviceClose", "ptr", searchHandle)
 }
 
-DoAction(name, action) {
+DoAction(name, action, fromBatch := false) {
     global busy, actionEpoch, deviceOps, pendingRetryDisconnect
     if (action != "connect" && action != "disconnect")
         return "invalid"
@@ -1526,6 +1672,9 @@ DoAction(name, action) {
             deviceOps[name].state := "retry_cancelled"
             pendingRetryDisconnect := {name: name, epoch: actionEpoch, started: A_TickCount, scheduled: false}
             LogMsg("KS retry cancellation queued same-target disconnect: '" name "'")
+            try PetShow("disconnecting", name, deviceOps[name].gen, fromBatch)
+            catch as e
+                LogMsg("pet queued display failed: " e.Message, "WARN")
             return "ok"
         }
         return "busy"
@@ -1556,6 +1705,9 @@ DoAction(name, action) {
         payload := '{"address":' JsonStr(deviceOps[name].address) ',"action":' JsonStr(action) ',"mic":' (deviceOps[name].micRequested ? "true" : "false") ',"micRestore":' (deviceOps[name].micRestore ? "true" : "false") '}'
         if !StartBackgroundJob("bluetooth", payload, (result, job) => FinishBluetoothAction(name, action, gen, result), 30000)
             throw Error("Bluetooth worker launch failed")
+        try PetShow(action = "connect" ? "connecting" : "disconnecting", name, gen, fromBatch)
+        catch as e
+            LogMsg("pet display failed: " e.Message, "WARN")
         return "ok"
     } catch as e {
         if deviceOps[name].micRestore
@@ -1594,7 +1746,6 @@ LinkVerifyTick(name, left, gen) {
             return
         SetOpState(name, gen, "link_failed")
         LogMsg((linkState = -1 ? "link query unavailable" : "link not verified") " before deadline: '" name "'", "WARN")
-        PetUpdate("fail")
         PushEvent("linkfail", JsonStr(name))
         return
     }
@@ -1704,7 +1855,6 @@ DownVerifyTick(name, left, gen) {
     if (GetLinkState(name) = 0 && TargetEndpointsInactive(deviceOps[name].targetEndpoints)) {
         SetOpState(name, gen, "disconnected")
         LogMsg("link down verified: '" name "'")
-        PetUpdate("off")
         PushEvent("linkdown", JsonStr(name))
         return
     }
@@ -2024,17 +2174,21 @@ FinishBluetoothAction(name, action, gen, result) {
 ValidEndpointId(id, flow) {
     return RegExMatch(id, "i)^\{0\.0\." flow "\.\d{8}\}\.\{[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}\}$")
 }
-DisconnectQueue(queue) {
-    global busy
+DisconnectQueue(queue, ticket := 0) {
+    global busy, petBatchTicket
+    if ticket && ticket != petBatchTicket
+        return
     if !queue.Length
         return
     if !busy {
         name := queue.RemoveAt(1)
-        if DoAction(name, "disconnect") != "ok"
+        if DoAction(name, "disconnect", true) != "ok" {
+            PetBatchFail(name)
             PushEvent("downfail", JsonStr(name))
+        }
     }
     if queue.Length
-        SetTimer(() => DisconnectQueue(queue), -200)
+        SetTimer(() => DisconnectQueue(queue, ticket), -200)
 }
 
 DaysSince(stamp) {

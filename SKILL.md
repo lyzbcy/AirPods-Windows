@@ -5,33 +5,28 @@ description: AirPods 小助手接力开发入口
 
 # AirPods 小助手开发入口
 
-## 项目与技术栈
-Windows 托盘工具采用 AutoHotkey v2 与 WebView2；Mac 菜单栏工具采用 Swift。
+AirPods 小助手是 Windows 托盘与 Mac 菜单栏应用。Windows 用 AutoHotkey v2 + WebView2，Mac 用 Swift；本仓库是两端唯一开发仓库。
 
-## 目录地图
-`airpods_buddy.ahk` 是 Windows 主程序；`webui/` 是前端；`mac/` 是 Mac 版；`doc/` 是知识库；`tools/` 是本机构建工具。公开产品页 `https://lyzbcy.github.io/airpods-buddy.html` 的源码在独立仓库 `lyzbcy/lyzbcy.github.io` 的 `main/airpods-buddy.html`；该仓库的 `pages-deploy.yml` 自动构建并发布到 `gh-pages`。
+## 先看哪里
 
-## 文档索引
-先读 `AGENTS.md`。Windows连接路线选型与“不影响用户”的验收门槛读 `doc/09-Windows连接方案选型.md`。当前审计修复读 `doc/07-审计修复清单.md`。Windows 开发读 `doc/02-架构与原理.md`；排障读 `doc/05-已知问题与踩坑记录.md`；进度读 `doc/04-项目进度.md`；技术方案读 `doc/03-技术方案.md`；Mac 开发读 `doc/06-Mac版方案.md`。
+- `AGENTS.md`：协作红线与本机部署约定；`doc/README.md`：按任务选择文档，不要一次读完整个 `doc/`。
+- `airpods_buddy.ahk`：Windows 主程序，`APP_VERSION` 是源码版本字段；`webui/`：页面及小精灵；`mac/`：Mac 端；`tools/`：本机构建工具。
+- `doc/04-项目进度.md` **顶部最新条目**：当前进度与待办的项目内唯一入口；下方按时间排列的“候选／草稿／阻断”均是当时快照，不代表现状。模块实现与排障再按 `doc/README.md` 跳转。原始测试和发布回执保存在 `verification/`，不要把历史哈希抄成当前资产。
 
-## 开发流程
-只在本仓库改应用源码。Windows 先运行 `webui/build_ui.ps1`，再用 `tools/ahk2exe_stable/Ahk2Exe.exe` 编译。改代码后同步 `doc/04-项目进度.md` 与 `CHANGELOG.md`，核实日志与实际运行行为。
+## 当前版本
 
-**每次正式 GitHub Release 发布后，产品页同步是发版闭环的必做项，不能因应用 ZIP 与 Release 已上线而省略。**在 `lyzbcy/lyzbcy.github.io` 的 `main/airpods-buddy.html` 同步首页版本/发布日期、两处下载地址、更新日志、功能与已知问题文案；页面每次改动递增 `PAGE_VER`。提交并推送网站 `main`，等待 `pages-deploy.yml` 成功和 `gh-pages` 更新，再从公网重新请求 `https://lyzbcy.github.io/airpods-buddy.html`（含无缓存参数）核对新版本、下载链接、已知问题；下载目标须与本次 Release 的资产和 SHA256 对上。把页面部署 run、公网页面读回、Release 资产核对结果记入发布证据。若公网未更新，发版工作仍未闭环。详细步骤见 `doc/08-更新与后台任务.md`。
+工作树 `APP_VERSION = 1.9.21`，属于未发布候选；v1.9.20 已于 2026-09-27 正式发布为 [GitHub Latest Release](https://github.com/lyzbcy/AirPods-Windows/releases/tag/v1.9.20)；偶发连接／无声与严格五轮失败按已知问题披露，不得改写为通过。发布资产和用户听音验收以 `verification/2026-09-27-release-public/`、`verification/2026-09-27-formal-release/` 及 `doc/04-项目进度.md` 顶部记录核对。后续开发不自动等于已部署或已发布。
+
+## 修改与发布
+
+开发前按 `doc/README.md` 读对应模块。Windows 页面改动先运行 `webui/build_ui.ps1`，编译步骤见 `doc/02-架构与原理.md`；按改动层级验证，不以离线测试代替真机听音。改代码后同步 `doc/04-项目进度.md`、`CHANGELOG.md` 与版本字段/发布说明的适用状态，避免候选与正式版混写。
+
+**GitHub Release 必须先得到用户对该版本的明确同意。**发版门槛、已知问题接受路径与回执见 `doc/08-更新与后台任务.md`。正式 Release 后还须同步公开产品页 https://lyzbcy.github.io/airpods-buddy.html，其源码位于独立网站仓库 `lyzbcy/lyzbcy.github.io` 的 `main/airpods-buddy.html`：更新版本/日期、两处下载地址、日志及已知问题，递增 `PAGE_VER`；等待 `pages-deploy.yml` 发布，再从公网页面无缓存读回并核对 Release 资产 SHA256。把部署 run、公网页面和资产核对记入发布证据；公网未更新则发版未闭环。
 
 ## 用户反馈取证
-先看用户常驻目录 `C:\Users\24676\Desktop\AirPodsBuddy\logs\app-YYYY-MM-DD.log`。本机企业微信反馈可按 `E:\共享\工作\微盛\.agents\skills\lyzbcy-daily-note-summarizer\SKILL.md` 的缓存方法读取：先运行其 `scripts/wecom_chat_export.py --date YYYY-M-D --root E:\共享\工作\微盛`，再只看 `E:\共享\工作\微盛\每日笔记\wecom-cache\YYYY.M.DD.md` 中「软件反馈群」的相关消息。导出命令可能打印密钥，不复制到报告；缓存中的文件传输占位不是日志正文。以用户运行目录的原始日志交叉核对，不把无关群聊带入项目记录。
 
-## 当前状态与版本
-正式发布状态（2026-09-27 16:38）：Windows v1.9.20 已公开为 GitHub Latest Release，地址 `https://github.com/lyzbcy/AirPods-Windows/releases/tag/v1.9.20`；发布 tag/Release target 均为 `e15fb9046056768eec9948883f6d7a633895fdc3`；main 后续只追加发布记录文档，不改变该版本资产，唯一 ZIP 资产 SHA256 `4E6AC4F14E7ADC8C95248FB4B9FAE2EEEC68974EB70421A24B9E4684EC009AC9`，与本地验收包一致。最终提交的 Windows CI `36306464529` 成功；本次遗漏的产品页同步另见 `verification/2026-09-27-landing-sync/VERIFICATION.txt`。下文 15:11、15:49 的候选状态是发布前历史快照，不代表当前仍为草稿。
-
-连接/断开进度最新安装候选（2026-09-27，15:49 已部署）：后端已按真实操作阶段提供 `progress`，前端已加入小宠物/圆形主按钮持续动画、阶段说明、第 N / M 步、已等待时间和当前阶段观察窗口（非整体完成倒计时或百分比），终态结果持留、连接中取消、断开中防重复点击及减少动态效果。完整离线 `OFFLINE_PASS assertions=364 suites=20`，460×600 连接/断开截图已检查。此前用户反馈只适用于 15:11 的旧候选，不是这次进度 UI 的真机验收；新安装 exe SHA256 `59F859CA5A4A9A27E18245FE3785919072A3848BDFA33383E816F7FC99202D3A`、本地 ZIP SHA256 `4E6AC4F14E7ADC8C95248FB4B9FAE2EEEC68974EB70421A24B9E4684EC009AC9`，15:49 正常启动与 navigation/list RPC 已读回。用户在新安装版一次真实连接后明确确认 Windows 默认输出从 AirPods 听到声音，Windows CI `36304899963` 已通过；历史五轮失败仍按已知问题披露。版本号维持 v1.9.20，发布资产以最终哈希回执和 GitHub Release 为准。实现见 `doc/02-架构与原理.md`，进度与证据见 `doc/04-项目进度.md`、`verification/2026-09-27-progress-frontend/`、`verification/2026-09-27-progress-backend/`。
-
-P0 音频真相（2026-09-27，优先于下方旧候选记录）：用户在此前旧安装版默认输出清晰提示音时确认「完全没听到」，Windows 原生「测试」答复「完全没听到／系统报错」；即使链路已连、目标 render ACTIVE、三个默认输出角色指向耳机，也不能宣称可播放。独立 Core Audio 探针的目标端点 `IsFormatSupported(shared, mix)=0x88890008`，Realtek 对照为 `0x00000000`；根因未定。**候选工作树已实现**对精确目标 render 的无声格式支持与共享模式初始化预检，阴性不切默认、不标 `ready`/`audiook`、不补 KS；阳性只证明该预检通过，**不等于用户听音**。该候选离线 `OFFLINE_PASS assertions=337 suites=20`、AHK build-only 编译通过，已于 15:11 部署、15:12 经 explorer 正常启动（PID 47240；boot v1.9.20/navigation ok/list RPC），但尚无新候选耳机听音确认。Windows 版本号仍为 v1.9.20 候选，正式 Release 仍是草稿；当前 main/tag 与 GitHub 草稿资产仍属旧候选；新安装 exe SHA256 `080C6A1CA39D91D18BA444B3F363C8F3F4F4E7CB7306439B87F7719651725BEB`，本地新 ZIP SHA256 `024D1AE1709C3C497CB9A190DDFB223E85BDBCDDBAB395B7BE03C1AD83C0AFA3` 且内 exe 匹配。仍须更新远端资产、复验与用户实际听音，不沿用下方旧哈希或历史有声记录放行。证据见 `verification/2026-09-27-coreaudio-readonly/RESULT.txt`、`verification/2026-09-27-p0-audio-truth/VERIFICATION.txt` 与 `verification/2026-09-27-formal-release/`。
-
-2026-09-27 发布政策更新：用户明确要求正式 Release 并写明偶发连接/无声已知问题；这不改变下述五轮失败事实。发布前需另行完成最终源码/ZIP/已安装 exe 一致性、真实默认输出听音与问题反馈入口、远端 CI，以及显式已知问题验收回执。若走 `scripts/release-precheck.py` 的已知问题接受路径，必须同时保留历史失败证据，不得伪造五轮通过。AirPods 5 只有口头反馈，尚无该型号真机验收；Classic 已配对设备仅扩大名称候选，LE-only 不在当前实现范围。首页页脚主反馈应附日志，轻意见仍在「关于捞鱼」。
-
-Windows 源码 v1.9.20，分支 `fix/audit-20260926`，版本字段在 `airpods_buddy.ahk` 的 `APP_VERSION`。本机完整离线 `OFFLINE_PASS assertions=301 suites=20` 且 build-only 编译通过；最终安装版、远端 CI、ZIP 和正式 Release 状态按 `verification/2026-09-27-formal-release/` 的最新证据核对，不以旧候选哈希代替。严格真机五轮仍失败：`verification/2026-09-27-single5/` 的第 1 轮断开约 39.48 秒后 link=1、exit5，没有进入重连；之前的标准策略第 3 轮也曾 `audio_failed`。用户明确同意披露此问题后发正式版，但不能把该失败改写为通过。用户曾手动关开电脑蓝牙恢复 Windows 原生连接，应用未自动重置全局无线电。现有 AirPods 5 报告仅为口头转述，无准确设备名、日志或真机听音；本次仅扩大已配对 Classic 名称候选，不覆盖 LE-only。反馈页脚优先附日志，取消勾选时摘要和附件均不发送，轻意见仍在「关于捞鱼」。发布流程、手工恢复与已知问题回执见 `doc/08-更新与后台任务.md`、`RELEASE_NOTES_v1.9.20.md`；排障见 `doc/09-Windows连接方案选型.md`、`doc/07-审计修复清单.md`。Mac CI 5 项单测与 release build 通过，真机另记。
+优先读用户常驻目录 `C:\Users\24676\Desktop\AirPodsBuddy\logs\app-YYYY-MM-DD.log`。本机企业微信反馈按 `E:\共享\工作\微盛\.agents\skills\lyzbcy-daily-note-summarizer\SKILL.md` 的缓存方法：运行 `scripts/wecom_chat_export.py --date YYYY-M-D --root E:\共享\工作\微盛`，再只读 `E:\共享\工作\微盛\每日笔记\wecom-cache\YYYY.M.DD.md` 的「软件反馈群」相关消息。导出命令可能打印密钥，不复制到报告；文件传输占位不是日志正文。用原始应用日志交叉核对。
 
 ## 红线
-错误不弹窗；不要用测试脚本打扰用户桌面；GitHub Release 必须先获用户明确同意。完整协作与构建注意事项见 `AGENTS.md`。
+
+错误不弹窗；不要用测试脚本打扰用户桌面；不自动重置整机蓝牙。完整协作与本机启动注意事项见 `AGENTS.md`。
