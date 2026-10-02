@@ -17,18 +17,21 @@ body = r'''
 #SingleInstance Off
 OnError((e, mode) => (FileAppend("ERROR " e.Message " line=" e.Line "`n", "*"), ExitApp(2)))
 feedbackBusy := false
-gatherCalls := 0, fileCalls := 0, sentPayload := "", sentPath := ""
+gatherCalls := 0, fileCalls := 0, diagnosticCalls := 0, sentPayload := "", sentPath := ""
 SendIssueAsync(1, "连接", "测试", "00", "")
 Check("unchecked_never_reads_log_tail", gatherCalls = 0)
 Check("unchecked_never_builds_log_file", fileCalls = 0)
 Check("unchecked_payload_has_no_log", !InStr(sentPayload, "LOG_MARKER"))
 Check("unchecked_payload_has_no_file_path", !InStr(sentPayload, "FILE_MARKER") && sentPath = "")
-gatherCalls := 0, fileCalls := 0, sentPayload := "", sentPath := ""
+Check("unchecked_never_collects_diagnostics", diagnosticCalls = 0)
+gatherCalls := 0, fileCalls := 0, diagnosticCalls := 0, sentPayload := "", sentPath := ""
 SendIssueAsync(2, "连接", "测试", "01", "")
 Check("checked_reads_log_tail", gatherCalls = 1)
 Check("checked_builds_log_file", fileCalls = 1)
 Check("checked_payload_has_log_tail", InStr(sentPayload, "LOG_MARKER") > 0)
 Check("checked_payload_has_file_path", InStr(sentPayload, "FILE_MARKER") > 0 && sentPath = "FILE_MARKER")
+Check("checked_collects_diagnostics_once", diagnosticCalls = 1)
+Check("checked_tail_receives_diagnostic", InStr(sentPayload, "DIAGNOSTIC_MARKER") > 0)
 FileAppend("RESULT failures=" failures "`n", "*")
 ExitApp(failures ? 1 : 0)
 Check(name, ok) {
@@ -37,15 +40,20 @@ Check(name, ok) {
         failures++
     FileAppend((ok ? "PASS " : "FAIL ") name "`n", "*")
 }
-GatherLogTail() {
+GatherLogTail(diagnostic := "") {
     global gatherCalls
     gatherCalls++
-    return "LOG_MARKER"
+    return "LOG_MARKER " diagnostic
 }
-BuildIssueLogFile() {
+BuildIssueLogFile(diagnostic := "") {
     global fileCalls
     fileCalls++
     return "FILE_MARKER"
+}
+DiagnosticCollectFeedback() {
+    global diagnosticCalls
+    diagnosticCalls++
+    return "DIAGNOSTIC_MARKER"
 }
 TruncateUtf8(s, n) => s
 FbWebhook() => "WEBHOOK"

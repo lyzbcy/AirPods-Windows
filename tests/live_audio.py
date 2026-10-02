@@ -38,6 +38,7 @@ body=r'''
 #Warn All, StdOut
 #Include lib\AudioRouting.ahk
 #Include lib\BackgroundJobs.ahk
+#Include lib\Diagnostics.ahk
 FileEncoding("UTF-8-RAW")
 OnError((e, mode) => (FileAppend("ERROR " e.Message " line=" e.Line "`n", "*"), ExitApp(2)))
 backgroundJobs := [], appRoot := A_ScriptDir

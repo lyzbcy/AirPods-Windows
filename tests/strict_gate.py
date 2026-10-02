@@ -17,7 +17,7 @@ from types import SimpleNamespace
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUT = ROOT / 'verification/2026-09-26-final/strict-gate'
 RUNTIME_INPUTS = ('airpods_buddy.ahk', 'lib/AudioRouting.ahk',
-                  'lib/BackgroundJobs.ahk', 'scripts/background-worker.ps1',
+                  'lib/BackgroundJobs.ahk', 'lib/Diagnostics.ahk', 'scripts/background-worker.ps1',
                   'scripts/KsBluetooth.cs', 'scripts/KsBluetooth.psm1')
 
 

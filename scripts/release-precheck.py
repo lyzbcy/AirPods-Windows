@@ -23,7 +23,7 @@ PHASES = ('disconnect', 'after-disconnect', 'delayed-disconnect',
 SHA256 = re.compile(r'^[0-9A-F]{64}$')
 ADDRESS = re.compile(r'^[0-9A-F]{12}$')
 RUNTIME_INPUTS = ('airpods_buddy.ahk', 'lib/AudioRouting.ahk',
-                  'lib/BackgroundJobs.ahk', 'scripts/background-worker.ps1',
+                  'lib/BackgroundJobs.ahk', 'lib/Diagnostics.ahk', 'scripts/background-worker.ps1',
                   'scripts/KsBluetooth.cs', 'scripts/KsBluetooth.psm1')
 
 

@@ -14,6 +14,7 @@ commands = [
     ('device_classifier', ['python', 'tests/device_classifier_test.py']),
     ('live_audio_extractor', ['python', 'tests/live_audio_extractor_test.py']),
     ('feedback_consent', ['python', 'tests/feedback_consent_test.py']),
+    ('private_diagnostics', ['python', 'tests/diagnostics_test.py']),
     ('state', ['python', 'tests/run_state_tests.py']),
     ('resource_identity', ['python', 'tests/resource_identity_test.py']),
     ('ks_retry', ['python', 'tests/ks_retry_behavior.py']),

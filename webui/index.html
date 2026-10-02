@@ -582,7 +582,7 @@
     <div class="iss-sec">② 补充说明（可选）：什么时候开始、做了什么操作</div>
     <textarea id="issText" maxlength="500" rows="3" placeholder="不选类型、直接写也行；新款耳机请写准确型号…"></textarea>
     <input id="issContact" maxlength="60" placeholder="📞 联系方式（选填）：留个邮箱/QQ，排查好了回你">
-    <label class="iss-file"><input type="checkbox" id="issFile" checked><span><b>📎 附上完整日志（推荐，请确认）</b><i>勾选后发送今天+昨天的运行日志，仅用于定位问题</i></span></label>
+    <label class="iss-file"><input type="checkbox" id="issFile" checked><span><b>📎 附上脱敏诊断日志（推荐，请确认）</b><i>近期运行记录与设备状态；设备名、地址和个人路径会脱敏。取消勾选仅发你的描述。</i></span></label>
     <div class="row" id="issOps">
       <button class="btn ghost" onclick="closeModal('mIssue')">取消</button>
       <button class="btn primary" id="issSend" onclick="issueSend()">发送反馈</button>
@@ -1162,7 +1162,7 @@ async function issueSend(){
     } else if(r==='nofile'){
       document.getElementById('issOps').style.display='none';
       document.getElementById('issFail').style.display='none';
-      document.getElementById('issDone').textContent='✓ 反馈已送达！💕（完整日志文件未送达；已送达内容见回执，请保留本地日志以便进一步排查）';
+      document.getElementById('issDone').textContent='✓ 反馈已送达！💕（诊断日志文件未送达；已送达内容见回执，请保留本地日志以便进一步排查）';
       document.getElementById('issDone').style.display='block';
       setTimeout(()=>{closeModal('mIssue');document.getElementById('issDone').style.display='none';
         document.getElementById('issOps').style.display='flex'},3400);

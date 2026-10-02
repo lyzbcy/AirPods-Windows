@@ -12,7 +12,7 @@
 | Windows 架构 / 排障 | doc/02-架构与原理.md / doc/05-已知问题与踩坑记录.md |
 | 连接验收 / 发布事务 | doc/09-Windows连接方案选型.md / doc/08-更新与后台任务.md |
 
-Windows 源码版本字段是 airpods_buddy.ahk 的 APP_VERSION；工作树 v1.9.21 已正式发布，官网产品页也已同步。偶发连接或无声、严格五轮失败均已披露，不表示问题已解决。现状、Release 资产和证据以 SKILL.md 指向的当前入口核对。应用源码在本仓库维护；产品页源码在独立的 lyzbcy/lyzbcy.github.io 仓库。
+Windows 源码版本字段是 airpods_buddy.ahk 的 APP_VERSION；工作树 v1.9.22 是未部署、未发布的隐私诊断日志候选，v1.9.21 为已发布版且官网已同步。诊断字段、数据最小化和附日志勾选边界见 doc/10-诊断日志与隐私.md。偶发连接或无声、严格五轮失败仍按已知问题披露。现状、Release 资产和证据以 SKILL.md 指向的当前入口核对。应用源码在本仓库维护；产品页源码在独立的 lyzbcy/lyzbcy.github.io 仓库。
 
 ## 开发红线
 

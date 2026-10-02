@@ -10,9 +10,10 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\WebView2\WebView2.ahk
 #Include lib\AudioRouting.ahk
 #Include lib\BackgroundJobs.ahk
+#Include lib\Diagnostics.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.21"
+APP_VERSION   := "1.9.22"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -41,6 +42,12 @@ LOG_DIR := A_ScriptDir "\logs"
 
 LogMsg(msg, level := "INFO") {
     global LOG_DIR
+    ; One boundary for local logs too; legacy files are sanitized again on export.
+    try msg := DiagnosticSanitize(msg)
+    catch
+        msg := "diagnostic redaction failed; raw detail withheld"
+    if StrLen(msg) > 4096
+        msg := SubStr(msg, 1, 4096) " [bounded]"
     line := Format("[{}] [{}] {}`r`n", FormatTime(, "yyyy-MM-dd HH:mm:ss"), level, msg)
     path := LOG_DIR "\app-" FormatTime(, "yyyy-MM-dd") ".log"
     ; 三级回退：本机安全软件可能间歇性拦截文件写入（0x800704C7），
@@ -58,7 +65,7 @@ LogMsg(msg, level := "INFO") {
 ; 全局错误拦截：任何未捕获错误写入日志而不是弹出 AHK 报错对话框。
 ; 返回 -1 = 静默结束当前线程（不再弹窗）。
 OnErrorHandler(err, mode) {
-    try LogMsg(Type(err) " @ " (err.HasOwnProp("File") ? err.File : "?") ":" err.Line (err.What ? " in " err.What : "") " : " err.Message, "ERROR")
+    try LogMsg(Type(err) " line=" err.Line (err.What ? " in " err.What : "") " : " err.Message, "ERROR")
     return -1
 }
 OnError(OnErrorHandler)
@@ -236,7 +243,7 @@ EnsureResources() {
     }
 }
 
-LogMsg("boot v" APP_VERSION " compiled=" A_IsCompiled " scriptdir=" A_ScriptDir)
+LogMsg("boot v" APP_VERSION " compiled=" A_IsCompiled " os=" A_OSVersion " arch=" (A_PtrSize = 8 ? "x64" : "x86") " diagnosticSchema=1 session=" DiagnosticSession())
 wv2Fallback := ""   ; 提前初始化：/testpet 模式在 EnsureWebView2Runtime 之前就会进 PetEnsure
 
 ; /testpet：宠物弹窗演示模式（QA/截图验证用）
@@ -436,7 +443,7 @@ RunNoiseMode(mode) {
     }
     addr := DevAddrString(target.info)
     ps1 := A_IsCompiled ? (appRoot "\noise_mode.ps1") : (A_ScriptDir "\tools\noise_mode.ps1")
-    LogMsg("noise mode " mode " -> " target.name " (" addr ")")
+    LogMsg("noise mode=" mode " target=" DiagnosticAlias("device", addr))
     payload := '{"address":' JsonStr(addr) ',"mode":' JsonStr(mode) '}'
     StartBackgroundJob("noise", payload, (result, job) => PushEvent("toast", JsonStr(result["status"] = "ok" ? "降噪切换命令已完成" : "降噪切换未完成，请查看日志")), 20000)
 
@@ -1039,12 +1046,12 @@ FbWebhook() {
 
 
 ; 最近 50 条日志：今天优先，不足补昨天（横跳/闪断可能跨零点）
-GatherLogTail() {
+GatherLogTail(diagnostic := "") {
     dir := A_ScriptDir "\logs"
     today := dir "\app-" FormatTime(A_Now, "yyyy-MM-dd") ".log"
     yest := dir "\app-" FormatTime(DateAdd(A_Now, -1, "days"), "yyyy-MM-dd") ".log"
     lines := []
-    for _, f in [today, yest] {
+    for _, f in [yest, today] {
         if !FileExist(f)
             continue
         try {
@@ -1058,7 +1065,8 @@ GatherLogTail() {
     out := "=== AirPodsBuddy 日志（最近 " (lines.Length - start + 1) " 行 · " A_Now "） ===`r`n"
     Loop lines.Length - start + 1
         out .= lines[start + A_Index - 1] "`r`n"
-    return out
+    ; Snapshot last, so byte-budget trimming retains current discovery evidence.
+    return DiagnosticSanitize(out) (diagnostic != "" ? "`r`n" diagnostic : "")
 }
 
 ; 日志随反馈上传：企微机器人先 upload_media（multipart，HttpClient）拿 media_id，
@@ -1083,16 +1091,16 @@ PsStr(v) {
 ; 与「提意见」分工：意见 = 纯文本轻通道；问题反馈 = 类型化 + 完整日志（今天+昨天
 ; 合并成文件）经企微 upload_media → file 消息发到群里。前端 fetch 文本失败时，
 ; 文本兜底也在这里一并发。返回：ok / nofile（文本已达、文件没发出去）/ fail
-BuildIssueLogFile() {
+BuildIssueLogFile(diagnostic := "") {
     dir := A_ScriptDir "\logs"
     today := dir "\app-" FormatTime(A_Now, "yyyy-MM-dd") ".log"
     yest := dir "\app-" FormatTime(DateAdd(A_Now, -1, "days"), "yyyy-MM-dd") ".log"
-    body := "AirPodsBuddy v" APP_VERSION " 完整日志 · " FormatTime(A_Now, "yyyy-MM-dd HH:mm:ss")
+    body := "AirPodsBuddy v" APP_VERSION " 脱敏诊断日志 · " FormatTime(A_Now, "yyyy-MM-dd HH:mm:ss") "`r`n" diagnostic
     n := 0
     for label, f in Map("今天", today, "昨天", yest) {
         if FileExist(f) {
             n++
-            try body .= "`r`n`r`n========== " label " " f " ==========`r`n`r`n" FileRead(f, "UTF-8")
+            try body .= "`r`n`r`n========== " label " ==========`r`n`r`n" SubStr(DiagnosticSanitize(FileRead(f, "UTF-8")), -49151)
         }
     }
     if (n = 0)
@@ -1100,7 +1108,7 @@ BuildIssueLogFile() {
     p := A_Temp "\AirPodsBuddy_issue_log_" DllCall("GetCurrentProcessId") "_" A_TickCount ".txt"
     try {
         fw := FileOpen(p, "w", "UTF-8-RAW")   ; 无 BOM，群里下载后记事本直接读
-        fw.Write(body)
+        fw.Write(DiagnosticSanitize(body))
         fw.Close()
         return p
     } catch as e {
@@ -1562,11 +1570,15 @@ WebMessageHandler(core, args) {
     }
     ; frontend forwards window.onerror / unhandledrejection here
     if (cmd = "jserror") {
-        LogMsg("[JS-ERROR] " arg1, "ERROR")
+        LogMsg("frontend error kind=" (InStr(arg1, "rawlist=[") = 1 ? "list_json_parse" : "script_error") " detailChars=" StrLen(arg1), "ERROR")
         return
     }
-    if (cmd != "statuspoll")
-        LogMsg((cmd = "sendfeedback" || cmd = "sendissue") ? ("rpc: " cmd " (" StrLen(arg1) " chars)") : "rpc: " msg)
+    if (cmd != "statuspoll") {
+        eventSummary := "rpc: " cmd " id=" id " args=" Max(0, parts.Length - 2)
+        if cmd = "connect" || cmd = "disconnect" || cmd = "remove"
+            eventSummary .= " target=" DiagnosticAlias("device", arg1)
+        LogMsg(eventSummary)
+    }
 
     switch cmd {
         ; NOTE: Reply() injects its payload as a raw JS expression. Anything that
@@ -1596,7 +1608,7 @@ WebMessageHandler(core, args) {
                 Reply(id, "false")
                 return
             }
-            LogMsg("priority updated: " arg1)
+            LogMsg("priority updated entries=" priorityList.Length)
             Reply(id, "true")
         case "doupdate":          DoUpdate(id)
         case "getautostart":      Reply(id, JsonStr(AutostartEnabled()))
@@ -1690,6 +1702,7 @@ DeviceProgressJson(name) {
 FindAllAudioDevices() {
     global devices
     devices := []
+    diagnostic := DiagnosticNewStats("authenticated"), diagnosticRows := [], started := A_TickCount
     searchParams := Buffer(40, 0)
     NumPut("uint", 40, searchParams, 0)
     NumPut("uint", 1, searchParams, 4)
@@ -1697,15 +1710,28 @@ FindAllAudioDevices() {
     deviceInfo := Buffer(560, 0)
     NumPut("uint", 560, deviceInfo, 0)
 
+    DllCall("SetLastError", "uint", 0)
     searchHandle := DllCall("Bthprops.cpl\BluetoothFindFirstDevice", "ptr", searchParams, "ptr", deviceInfo, "ptr")
-    if !searchHandle
+    if !searchHandle {
+        diagnostic.error := A_LastError
+        diagnostic.status := diagnostic.error = 259 ? "no_match" : "api_error"
+        diagnostic.elapsedMs := A_TickCount - started
+        try DiagnosticObserveDiscovery(diagnostic, diagnosticRows)
         return
+    }
+    try {
     loop {
         cod := NumGet(deviceInfo, 16, "uint")
+        try DiagnosticTrackRow(diagnostic, diagnosticRows, deviceInfo)
+        catch
+            diagnostic.status := "diagnostic_error"
         if IsAudioCandidate(cod, StrGet(deviceInfo.Ptr + 64, "UTF-16")) {
             info := Buffer(560)
             DllCall("RtlMoveMemory", "ptr", info, "ptr", deviceInfo, "ptr", 560)
-            DllCall("Bthprops.cpl\BluetoothGetDeviceInfo", "ptr", 0, "ptr", info, "uint")
+            infoCode := DllCall("Bthprops.cpl\BluetoothGetDeviceInfo", "ptr", 0, "ptr", info, "uint")
+            diagnostic.refreshErrors += infoCode != 0
+            if infoCode != 0
+                diagnostic.refreshError := infoCode
             devices.Push({
                 id: Format("{:012X}", NumGet(info, 8, "uint64")),
                 name: StrGet(info.Ptr + 64, "UTF-16"),
@@ -1713,10 +1739,17 @@ FindAllAudioDevices() {
                 connected: NumGet(info, 20, "uint") != 0   ; Windows 填的是位标志(实测32)，非零即已连接
             })
         }
-        if !DllCall("Bthprops.cpl\BluetoothFindNextDevice", "ptr", searchHandle, "ptr", deviceInfo)
+        DllCall("SetLastError", "uint", 0)
+        if !DllCall("Bthprops.cpl\BluetoothFindNextDevice", "ptr", searchHandle, "ptr", deviceInfo) {
+            diagnostic.nextError := A_LastError
+            if diagnostic.nextError != 259
+                diagnostic.status := "partial"
             break
+        }
     }
-    DllCall("Bthprops.cpl\BluetoothFindDeviceClose", "ptr", searchHandle)
+    } finally DllCall("Bthprops.cpl\BluetoothFindDeviceClose", "ptr", searchHandle)
+    diagnostic.elapsedMs := A_TickCount - started
+    try DiagnosticObserveDiscovery(diagnostic, diagnosticRows)
 }
 
 DoAction(name, action, fromBatch := false) {
@@ -2343,10 +2376,11 @@ SendIssueAsync(id, types, note, flags, contact) {
         return
     }
     wantFile := SubStr(flags, 2, 1) = "1"
+    diagnostic := wantFile ? DiagnosticCollectFeedback() : ""
     content := "问题反馈：" types "`n" note "`n联系方式：" contact
     if wantFile
-        content .= "`n" TruncateUtf8(GatherLogTail(), 2200)
-    logPath := wantFile ? BuildIssueLogFile() : ""
+        content .= "`n" TruncateUtf8(GatherLogTail(diagnostic), 2200)
+    logPath := wantFile ? BuildIssueLogFile(diagnostic) : ""
     payload := '{"webhook":' JsonStr(FbWebhook()) ',"payload":{"msgtype":"markdown","markdown":{"content":' JsonStr(content) '}},"wantFile":' (wantFile ? 'true' : 'false') ',"logPath":' JsonStr(logPath) '}'
     SendFeedbackJob(id, "issue", payload, logPath)
 }
