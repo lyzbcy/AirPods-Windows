@@ -13,7 +13,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\Diagnostics.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.22"
+APP_VERSION   := "1.9.23"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -1387,6 +1387,11 @@ ProbeDeviceRender(name, gen, minInterval := 30000) {
         return {status: "unknown", reason: "stale device operation"}
     op := deviceOps[name]
     id := op.renderId
+    captureUse := op.captureId != "" ? AudioCaptureUse(op.captureId) : 0
+    if !OpCurrent(name, gen)
+        return {status: "unknown", reason: "stale capture observation"}
+    if captureUse != 0
+        return {status: "deferred", reason: captureUse = 1 ? "target microphone in use; playback probe deferred" : "capture use unavailable; playback probe deferred"}
     age := A_TickCount - op.probeAt
     if (op.probeId = id && op.probeAt >= 0 && age >= 0 && age < minInterval)
         return {status: op.probeStatus, reason: op.probeReason}
@@ -1450,6 +1455,17 @@ AudioVerifyTick(name, left, gen) {
             SetOpState(name, gen, "link_failed")
             LogMsg("Bluetooth link not up after playback precheck address=" name " state=" freshLink, "WARN")
             PushEvent("linkfail", JsonStr(name))
+            return
+        }
+        if (probe.status = "deferred") {
+            if left > 1 {
+                SetOpState(name, gen, "audio_pending")
+                SetTimer(() => AudioVerifyTick(name, left - 1, gen), -1500)
+            } else {
+                SetOpState(name, gen, "playback_unverified")
+                LogMsg("playback probe deferred until target microphone released", "WARN")
+                PushEvent("audioheld", JsonStr(name))
+            }
             return
         }
         if (probe.status != "supported") {
@@ -2145,6 +2161,20 @@ DeviceAudioState(name, connected) {
     ; changing a newer default-output choice.
     op := deviceOps[name]
     renderId := op.renderId
+    ; Voice apps may switch A2DP/HFP while using this exact microphone. The
+    ; passive watchdog must not open a render stream during that transition.
+    if (op.captureId != "" && op.gen = routeOwner
+        && (op.state = "ready" || op.state = "audio_failed" || op.state = "playback_unavailable" || op.state = "playback_unverified")) {
+        captureUse := AudioCaptureUse(op.captureId)
+        if !StateProbeCurrent(name, op, renderId)
+            return "unknown"
+        if !op.HasOwnProp("captureUseState") || op.captureUseState != captureUse {
+            op.captureUseState := captureUse
+            LogMsg("voice capture state=" captureUse " playbackProbe=" (captureUse = 0 ? "allowed" : "deferred"))
+        }
+        if captureUse != 0
+            return captureUse = 1 ? "call_active" : "call_unverified"
+    }
     if (op.state = "audio_failed" && op.gen = routeOwner
         && ValidEndpointId(renderId, 0) && AudioRouteMatchesId(renderId)) {
         if !StateProbeCurrent(name, op, renderId)

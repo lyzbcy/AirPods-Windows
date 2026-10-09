@@ -180,6 +180,121 @@ AudioRouteMatchesId(id, backend?) {
     }
 }
 
+; This observation never opens a stream or writes defaults. Keep API failure
+; separate from positive evidence of a missing endpoint or a changed role.
+AudioRouteObservation(id, backend?) {
+    result := {matches: false, reason: "query_failed", state: -1, matchedRoles: 0, failedRole: -1}
+    if (id = "" || InStr(id, "SWD\")) {
+        result.reason := "invalid_endpoint"
+        return result
+    }
+    try {
+        api := IsSet(backend) ? backend : CoreAudioBackend()
+        loop 2 {
+            result.state := 0
+            for row in api.Endpoints(0, 15)
+                if StrLower(row.id) = StrLower(id) {
+                    result.state := row.state
+                    break
+                }
+            if result.state != 1 {
+                result.reason := result.state = 0 ? "endpoint_missing" : "endpoint_inactive"
+                return result
+            }
+            if A_Index = 1 {
+                loop 3 {
+                    result.failedRole := A_Index - 1
+                    if StrLower(api.DefaultId(0, A_Index - 1)) = StrLower(id)
+                        result.matchedRoles |= 1 << (A_Index - 1)
+                }
+                result.failedRole := -1
+            }
+        }
+        result.matches := result.matchedRoles = 7
+        result.reason := result.matches ? "ready" : "default_changed"
+    } catch {
+        result.reason := "query_failed"
+    }
+    return result
+}
+
+; A receipt lives only in this process. An explicit off operation may undo only
+; defaults this instance changed, never guessed pre-upgrade choices or render.
+class OwnedCaptureRoute {
+    __New() {
+        this.target := "", this.previous := []
+    }
+    Switch(id, backend?, allowed?) {
+        try {
+            api := IsSet(backend) ? backend : CoreAudioBackend()
+            if IsSet(allowed) && !allowed.Call()
+                return false
+            previous := []
+            loop 3 {
+                role := A_Index - 1, current := api.DefaultId(1, role)
+                old := current
+                if (this.previous.Length = 3 && this.previous[role + 1] != "" && StrLower(current) = StrLower(this.target))
+                    old := this.previous[role + 1]
+                ; A role already on this target was not changed by this app.
+                previous.Push(StrLower(old) = StrLower(id) ? "" : old)
+            }
+            if IsSet(allowed) && !allowed.Call()
+                return false
+            if !CaptureSwitchToId(id, api)
+                return false
+            this.target := id, this.previous := previous
+            if IsSet(allowed) && !allowed.Call() {
+                this.Restore(api)
+                return false
+            }
+            return true
+        } catch as e {
+            LogMsg("owned capture switch failed: " e.Message, "WARN")
+            return false
+        }
+    }
+    Restore(backend?) {
+        result := {restored: 0, skipped: 0, failed: 0}
+        if this.previous.Length != 3
+            return result
+        try api := IsSet(backend) ? backend : CoreAudioBackend()
+        catch {
+            result.failed := 3
+            return result
+        }
+        loop 3 {
+            role := A_Index - 1, old := this.previous[role + 1]
+            if old = ""
+                continue
+            try {
+                current := api.DefaultId(1, role)
+                if StrLower(current) != StrLower(this.target) {
+                    this.previous[role + 1] := "", result.skipped++
+                    continue
+                }
+                if !AudioEndpointIdActive(old, 1, api) {
+                    result.skipped++
+                    continue
+                }
+                ; Recheck after the potentially blocking enumeration.
+                if StrLower(api.DefaultId(1, role)) != StrLower(this.target) {
+                    this.previous[role + 1] := "", result.skipped++
+                    continue
+                }
+                hr := api.SetDefault(old, role)
+                if (hr != 0 || StrLower(api.DefaultId(1, role)) != StrLower(old)) {
+                    result.failed++
+                    continue
+                }
+                this.previous[role + 1] := "", result.restored++
+            } catch {
+                result.failed++
+            }
+        }
+        return result
+    }
+}
+
 AudioRenderProbe(id, backend?) {
     if (id = "" || InStr(id, "SWD\"))
         return {status: "unknown", reason: "invalid render endpoint ID"}

@@ -229,6 +229,9 @@ AudioEndpointIdActive(*) {
     global renderActive
     return renderActive
 }
+AudioCaptureUse(*) {
+    return 0
+}
 AudioRenderProbe(*) {
     global probeResult
     return {status: probeResult, reason: "injected " probeResult}

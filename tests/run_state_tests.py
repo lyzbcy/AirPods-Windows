@@ -13,6 +13,7 @@ OnError((e, mode) => (FileAppend("ERROR " e.Message " line=" e.Line "`n", "*"), 
 SETTINGS_PATH := A_ScriptDir "\settings-test.ini"
 failures := 0, busy := false, loading := false, maxRetries := 1
 routeEvents := []
+routeQueryFailed := false
 probeResult := "supported", probeCalls := 0, probeSideEffect := ""
 linkStarts := 0, downStarts := 0
 deviceOps := Map(), operationSerial := 0, routeOwner := 0, actionEpoch := 0, pendingRetryDisconnect := 0
@@ -79,6 +80,9 @@ routeFresh := true
 deviceOps["A"].renderId := "{0.0.0.00000000}.{AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA}"
 deviceOps["A"].state := "ready"
 Check("ready_state_revalidated", DeviceAudioState("A", true) = "ready")
+routeQueryFailed := true
+Check("query_failure_preserves_route_state_without_claiming_ready", DeviceAudioState("A", true) = "unknown" && deviceOps["A"].state = "ready")
+routeQueryFailed := false
 routeFresh := false
 Check("changed_output_invalidates_ready", DeviceAudioState("A", true) = "audio_lost")
 routeFresh := false
@@ -268,6 +272,12 @@ LinkVerifyTick(*) {
 DownVerifyTick(*) {
     global downStarts
     downStarts++
+}
+ReleaseOwnedMicRoute(*) {
+}
+AudioRouteObservation(*) {
+    global routeFresh, routeQueryFailed
+    return {matches: routeFresh && !routeQueryFailed, reason: routeQueryFailed ? "query_failed" : (routeFresh ? "ready" : "default_changed"), state: 1, matchedRoles: routeFresh ? 7 : 0, failedRole: -1}
 }
 AudioRouteMatchesId(*) {
     global routeFresh
