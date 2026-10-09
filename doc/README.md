@@ -4,7 +4,7 @@
 
 ## 快速事实
 
-Windows 为 AutoHotkey v2 + WebView2 单文件托盘应用；Mac 为 Swift 菜单栏应用。Windows 工作树 v1.9.22 是未部署、未发布的隐私诊断日志候选；v1.9.21 已正式发布，偶发连接／无声与严格五轮失败按已知问题披露。用户机日志在 C:\Users\24676\Desktop\AirPodsBuddy\logs\app-YYYY-MM-DD.log。产品页属于独立网站仓库，不在应用仓库根 index.html。
+Windows 为 AutoHotkey v2 + WebView2 单文件托盘应用；Mac 为 Swift 菜单栏应用。Windows 工作树 v1.9.22 是未部署、未发布的隐私诊断与通话音频修复候选；v1.9.21 已正式发布，偶发连接／无声与严格五轮失败按已知问题披露。用户机日志在 C:\Users\24676\Desktop\AirPodsBuddy\logs\app-YYYY-MM-DD.log。产品页属于独立网站仓库，不在应用仓库根 index.html。
 
 ## 按需阅读
 
@@ -19,6 +19,7 @@ Windows 为 AutoHotkey v2 + WebView2 单文件托盘应用；Mac 为 Swift 菜�
 | 审计整改 | [07-审计修复清单.md](07-审计修复清单.md) |
 | 更新器、发版预检及产品页同步 | [08-更新与后台任务.md](08-更新与后台任务.md) |
 | Windows 连接路线与验收边界 | [09-Windows连接方案选型.md](09-Windows连接方案选型.md) |
+| 微信语音／游戏无声、自动切麦与撤回 | [11-通话音频与麦克风.md](11-通话音频与麦克风.md) |
 | 用户反馈、设备发现日志与隐私脱敏 | [10-诊断日志与隐私.md](10-诊断日志与隐私.md) |
 | 音频根因假设与实验 | [实验卡-连上没声音根因确诊.md](实验卡-连上没声音根因确诊.md) |
 

@@ -169,6 +169,9 @@ BtRadioRescue(*) {
 }
 BtRescueGiveUpTip(*) {
 }
+AudioCaptureUse(*) {
+    return 0
+}
 AudioRenderProbe(*) {
     global probeResult, probeSideEffect, deviceOps, actionEpoch, mockLink
     effect := probeSideEffect, probeSideEffect := ""

@@ -191,8 +191,8 @@ DiagnosticRadioSummary() {
     return "radios visible=" count " error=" errorCode " power=unverified"
 }
 
-DiagnosticAudioSummary() {
-    api := CoreAudioBackend(), text := ""
+DiagnosticAudioSummary(backend?) {
+    api := IsSet(backend) ? backend : CoreAudioBackend(), text := "", captureUses := Map()
     loop 2 {
         flow := A_Index - 1, counts := Map(1, 0, 2, 0, 4, 0, 8, 0), hints := 0
         for row in api.Endpoints(flow, 15) {
@@ -205,12 +205,19 @@ DiagnosticAudioSummary() {
             " disabled=" counts[2] " absent=" counts[4] " unplugged=" counts[8] " appleNameHints=" hints)
         loop 3 {
             role := A_Index - 1
-            try id := DiagnosticAlias("endpoint", api.DefaultId(flow, role))
+            try {
+                rawId := api.DefaultId(flow, role)
+                id := DiagnosticAlias("endpoint", rawId)
+                if flow = 1 && !captureUses.Has(rawId)
+                    captureUses[rawId] := AudioCaptureUse(rawId, api)
+            }
             catch
                 id := "unavailable"
             text .= " role" role "=" id
         }
     }
+    for rawId, observed in captureUses
+        text .= "`n  captureSession endpoint=" DiagnosticAlias("endpoint", rawId) " observedActive=" observed " complete=unverified"
     return text
 }
 

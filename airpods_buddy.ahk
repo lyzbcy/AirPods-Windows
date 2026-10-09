@@ -29,6 +29,7 @@ backgroundJobs := []
 OnExit(StopBackgroundJobs)
 updateBusy := false
 feedbackBusy := false
+ownedMicRoute := OwnedCaptureRoute()
 audioProfile := "a2dp-hfp"
 maxRetries := 10
 SEP := Chr(31)
@@ -1323,7 +1324,7 @@ MicPreferenceSet(value) {
     wasCritical := A_IsCritical
     Critical("On")
     try {
-        old := SettingRead("auto_mic_switch", "1")
+        old := SettingRead("auto_mic_switch", "0")
         pending := value = "0" ? "0" : (old = "0" ? "1" : SettingRead("mic_restore_pending", "0"))
         lines := []
         if FileExist(SETTINGS_PATH) {
@@ -1338,7 +1339,14 @@ MicPreferenceSet(value) {
         }
         lines.Push("auto_mic_switch=" value)
         lines.Push("mic_restore_pending=" pending)
-        return AtomicWriteText(SETTINGS_PATH, Join(lines, "`n") "`n")
+        if !AtomicWriteText(SETTINGS_PATH, Join(lines, "`n") "`n")
+            return false
+        if value = "0"
+            ReleaseOwnedMicRoute()
+        return true
+    } catch as e {
+        LogMsg("mic preference save failed: " e.Message, "WARN")
+        return false
     } finally Critical(wasCritical)
 }
 
@@ -1488,14 +1496,22 @@ AudioVerifyTick(name, left, gen) {
     SetTimer(() => AudioVerifyTick(name, left - 1, gen), -1500)
 }
 
+ReleaseOwnedMicRoute() {
+    global ownedMicRoute
+    result := ownedMicRoute.Restore()
+    LogMsg("mic automatic switch off restored=" result.restored " skipped=" result.skipped " failed=" result.failed)
+    if result.failed || result.skipped
+        PushEvent("toast", JsonStr("自动切麦已关闭；部分原麦克风未恢复，请在 Windows 或通话应用中确认输入设备"))
+}
+
 MicSwitchTo(name, gen) {
-    if (SettingRead("auto_mic_switch", "1") = "1")
+    if (SettingRead("auto_mic_switch", "0") = "1")
         MicSwitchTick(name, 4, gen)
 }
 
 MicSwitchTick(name, left, gen) {
     global deviceOps
-    if (!CanRoute(name, gen) || SettingRead("auto_mic_switch", "1") != "1")
+    if (!CanRoute(name, gen) || SettingRead("auto_mic_switch", "0") != "1")
         return
     linkState := GetLinkState(name)
     if linkState != 1 {
@@ -1511,7 +1527,8 @@ MicSwitchTick(name, left, gen) {
         PushEvent("toast", JsonStr("耳机已连接，但 Windows 没有提供这副耳机的麦克风；原默认麦克风保持不变"))
         return
     }
-    if (CaptureSwitchToId(ep)) {
+    global ownedMicRoute
+    if (ownedMicRoute.Switch(ep, , () => CanRoute(name, gen) && SettingRead("auto_mic_switch", "0") = "1")) {
         LogMsg("mic route verified (roles 0/1/2): '" name "'")
         PushEvent("toast", JsonStr("麦克风默认设备已确认切到耳机"))
         return
@@ -1613,7 +1630,7 @@ WebMessageHandler(core, args) {
         case "doupdate":          DoUpdate(id)
         case "getautostart":      Reply(id, JsonStr(AutostartEnabled()))
         case "setautostart":      Reply(id, JsonStr(AutostartSet(arg1 = "1")))
-        case "getmicswitch":      Reply(id, JsonStr(SettingRead("auto_mic_switch", "1")))
+        case "getmicswitch":      Reply(id, JsonStr(SettingRead("auto_mic_switch", "0")))
         case "setmicswitch":      Reply(id, MicPreferenceSet(arg1) ? "true" : "false")
         case "getrescue":         Reply(id, JsonStr("0"))
         case "setrescue":         Reply(id, "false")
@@ -1790,7 +1807,7 @@ DoAction(name, action, fromBatch := false) {
     try {
         SetTrayLoading(true)
         deviceOps[name].address := Format("{:012X}", NumGet(dev.info, 8, "uint64"))
-        deviceOps[name].micRequested := SettingRead("auto_mic_switch", "1") = "1"
+        deviceOps[name].micRequested := SettingRead("auto_mic_switch", "0") = "1"
         deviceOps[name].micRestore := action = "connect" && deviceOps[name].micRequested && SettingRead("mic_restore_pending", "0") = "1"
         if (deviceOps[name].micRestore && !SettingWrite("mic_restore_pending", "0"))
             throw Error("Cannot persist one-time microphone migration receipt")
@@ -2176,10 +2193,18 @@ DeviceAudioState(name, connected) {
         op.state := state
     }
     if (op.state = "ready") {
-        routeMatches := AudioRouteMatchesId(renderId)
+        observation := AudioRouteObservation(renderId)
         if !StateProbeCurrent(name, op, renderId)
             return "unknown"
-        if !routeMatches {
+        summary := "reason=" observation.reason " endpointState=" observation.state " defaultRoleMask=" observation.matchedRoles " failedRole=" observation.failedRole
+        if !op.HasOwnProp("routeObservation") || op.routeObservation != summary {
+            op.routeObservation := summary
+            if !observation.matches
+                LogMsg("route observation target=" name " " summary, "WARN")
+        }
+        if observation.reason = "query_failed"
+            return "unknown"
+        if !observation.matches {
             op.state := "audio_lost"
             op.probeAt := -1, op.probeId := ""
         } else {

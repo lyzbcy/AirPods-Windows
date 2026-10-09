@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 #SingleInstance Off
 FileEncoding("UTF-8-RAW")
 #Include ..\lib\AudioRouting.ahk
@@ -64,6 +64,11 @@ Check("capture_drop_restores_prior_defaults", api.defaults[1] = "old0" && api.de
 api := MockAudio("render_drops_after_readback")
 api.defaults := ["{target}", "{target}", "{target}"]
 Check("route_watch_rechecks_active_after_readback", !AudioRouteMatchesId("{target}", api) && api.endpointChecks = 2 && api.lastEndpointReadCount = 3)
+captureExact := "{0.0.1.00000000}.{AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA}"
+Check("capture_active_is_not_playback_success", AudioCaptureUse(captureExact, CaptureFake(1)) = 1)
+Check("capture_idle_is_distinct", AudioCaptureUse(captureExact, CaptureFake(0)) = 0)
+Check("capture_query_failure_is_unknown", AudioCaptureUse(captureExact, CaptureFake(-1)) = -1)
+Check("render_id_not_used_as_capture", AudioCaptureUse("{0.0.0.00000000}.{AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA}", CaptureFake(1)) = -1)
 Check("shared_hresult_s_ok_supported", AudioSharedFormatStatus(0) = "supported")
 Check("shared_hresult_unsupported", AudioSharedFormatStatus(0x88890008) = "unsupported")
 Check("shared_hresult_s_false_unknown", AudioSharedFormatStatus(1) = "unknown")
@@ -139,5 +144,14 @@ class MockAudio {
         if this.mode = "probe_s_false"
             return {status: AudioSharedFormatStatus(1), reason: "IsFormatSupported(shared) HRESULT=00000001"}
         return {status: AudioSharedFormatStatus(0), reason: "shared stream initialized; playback not listened to"}
+    }
+}
+
+class CaptureFake {
+    __New(state) {
+        this.state := state
+    }
+    CaptureUse(id) {
+        return this.state
     }
 }
