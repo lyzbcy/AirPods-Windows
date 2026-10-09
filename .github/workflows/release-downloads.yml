@@ -1,0 +1,50 @@
+name: Release download trend
+
+on:
+  schedule:
+    - cron: '23 1 * * *' # 09:23 Asia/Shanghai; GitHub may delay scheduled runs.
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/release-downloads.yml'
+      - 'scripts/release_downloads.py'
+      - 'tests/test_release_downloads.py'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-download-trend
+  cancel-in-progress: false
+
+jobs:
+  update:
+    if: github.repository == 'lyzbcy/AirPods-Windows'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Verify collector and chart behavior
+        run: python -m unittest discover -s tests -p 'test_release_downloads.py' -v
+      - name: Collect public Release counts
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python scripts/release_downloads.py
+      - name: Commit snapshot and chart together
+        shell: bash
+        run: |
+          git add assets/release-downloads.json assets/release-downloads.svg
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'docs: update Release download trend'
+          git pull --rebase origin main
+          git push origin HEAD:main

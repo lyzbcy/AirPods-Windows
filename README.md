@@ -76,6 +76,12 @@
 > 注意：**单独安装 Edge 浏览器解决不了这个问题**——程序用的是独立的
 > WebView2 Runtime。
 
+## 📈 Release 下载趋势
+
+![AirPodsBuddy Release 附件累计下载趋势](assets/release-downloads.svg)
+
+统计所有公开 Release 附件的累计下载次数，**包含版本更新和重复下载，不代表独立用户数**。图中只画真实采集快照，缺少逐日记录的区间用虚线连接。每天自动更新；[原始数据](assets/release-downloads.json) · [统计口径与维护说明](doc/12-Release下载趋势.md)。
+
 ## ❓ 常见问题
 
 **AirPods 5 等新耳机如何配对？连上却没有声音怎么办？**

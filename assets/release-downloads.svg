@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="440" viewBox="0 0 960 440" role="img" aria-labelledby="title description">
+<title id="title">AirPodsBuddy Release 下载趋势</title>
+<desc id="description">截至 2026-10-09，公开 Release 附件累计 555 次下载。仅绘制真实快照；包含更新和重复下载，不代表独立用户。</desc>
+<rect x="1" y="1" width="958" height="438" rx="22" fill="#fffdf7" stroke="#e8e1d3"/>
+<g font-family="Segoe UI, Microsoft YaHei, PingFang SC, sans-serif">
+<text x="40" y="47" fill="#262722" font-size="24" font-weight="700">Release 下载趋势</text>
+<text x="40" y="74" fill="#6b7063" font-size="14">AirPodsBuddy · GitHub 公开附件累计下载次数</text>
+<text x="918" y="62" text-anchor="end" fill="#587844" font-size="40" font-weight="700">555</text>
+<text x="918" y="86" text-anchor="end" fill="#6b7063" font-size="13">截至 2026-10-09 · 上海日期</text>
+<path d="M40 110H920" stroke="#e8e1d3"/>
+<text x="76" y="135" fill="#72786a" font-size="12">累计下载次数</text>
+<path d="M76 330.00H888" stroke="#e8e9df"/>
+<text x="62" y="334.00" text-anchor="end" fill="#72786a" font-size="12">0</text>
+<path d="M76 286.50H888" stroke="#e8e9df"/>
+<text x="62" y="290.50" text-anchor="end" fill="#72786a" font-size="12">150</text>
+<path d="M76 243.00H888" stroke="#e8e9df"/>
+<text x="62" y="247.00" text-anchor="end" fill="#72786a" font-size="12">300</text>
+<path d="M76 199.50H888" stroke="#e8e9df"/>
+<text x="62" y="203.50" text-anchor="end" fill="#72786a" font-size="12">450</text>
+<path d="M76 156.00H888" stroke="#e8e9df"/>
+<text x="62" y="160.00" text-anchor="end" fill="#72786a" font-size="12">600</text>
+<path d="M76.00 218.06L888.00 169.05" stroke="#729858" stroke-width="3" fill="none" stroke-dasharray="6 5"/>
+<circle cx="76.00" cy="218.06" r="3.5" fill="#729858" stroke="#fffdf7" stroke-width="1.5"/>
+<circle cx="888.00" cy="169.05" r="3.5" fill="#729858" stroke="#fffdf7" stroke-width="1.5"/>
+<text x="76.00" y="206.06" text-anchor="middle" fill="#446334" font-size="13" font-weight="700">386</text>
+<text x="888.00" y="157.05" text-anchor="middle" fill="#446334" font-size="13" font-weight="700">555</text>
+<text x="76.00" y="355" text-anchor="middle" fill="#72786a" font-size="12">09-23</text>
+<text x="279.00" y="355" text-anchor="middle" fill="#72786a" font-size="12">09-27</text>
+<text x="482.00" y="355" text-anchor="middle" fill="#72786a" font-size="12">10-01</text>
+<text x="685.00" y="355" text-anchor="middle" fill="#72786a" font-size="12">10-05</text>
+<text x="888.00" y="355" text-anchor="middle" fill="#72786a" font-size="12">10-09</text>
+<text x="40" y="394" fill="#6b7063" font-size="13">● 实际采集快照　虚线连接缺少逐日记录的区间，未补造历史数据</text>
+<text x="40" y="418" fill="#6b7063" font-size="13">包含版本更新与重复下载；不代表独立用户数。资产删除或替换可能使总数下降。</text>
+</g></svg>

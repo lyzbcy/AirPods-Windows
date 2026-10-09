@@ -1,0 +1,229 @@
+{
+  "schema_version": 1,
+  "repository": "lyzbcy/AirPods-Windows",
+  "metric": "release_asset_download_count",
+  "snapshots": [
+    {
+      "date": "2026-09-23",
+      "observed_at": "2026-09-23T10:23:27.6183846+08:00",
+      "total_downloads": 386,
+      "release_count": 15,
+      "source": "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases?per_page=100",
+      "assets": [
+        {
+          "id": 519495944,
+          "release": "v1.0.0",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 1
+        },
+        {
+          "id": 519511218,
+          "release": "v1.0.1",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 0
+        },
+        {
+          "id": 519544744,
+          "release": "v1.1.0",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 2
+        },
+        {
+          "id": 519552526,
+          "release": "v1.1.1",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 2
+        },
+        {
+          "id": 519570075,
+          "release": "v1.1.2",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 6
+        },
+        {
+          "id": 526831893,
+          "release": "v1.8.3",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 91
+        },
+        {
+          "id": 528548100,
+          "release": "v1.8.4",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 40
+        },
+        {
+          "id": 532366860,
+          "release": "v1.9.0",
+          "name": "AirPodsBuddy.exe",
+          "downloads": 5
+        },
+        {
+          "id": 532492428,
+          "release": "v1.9.0",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 81
+        },
+        {
+          "id": 545807011,
+          "release": "v1.9.1",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 4
+        },
+        {
+          "id": 545817877,
+          "release": "v1.9.2",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 1
+        },
+        {
+          "id": 545941382,
+          "release": "v1.9.4",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 7
+        },
+        {
+          "id": 546982934,
+          "release": "v1.9.7",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 7
+        },
+        {
+          "id": 547876021,
+          "release": "v1.9.8",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 105
+        },
+        {
+          "id": 577911791,
+          "release": "v1.9.10",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 12
+        },
+        {
+          "id": 579046618,
+          "release": "v1.9.12",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 22
+        }
+      ]
+    },
+    {
+      "date": "2026-10-09",
+      "total_downloads": 555,
+      "release_count": 17,
+      "assets": [
+        {
+          "id": 519495944,
+          "release": "v1.0.0",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 1
+        },
+        {
+          "id": 519511218,
+          "release": "v1.0.1",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 0
+        },
+        {
+          "id": 519544744,
+          "release": "v1.1.0",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 2
+        },
+        {
+          "id": 519552526,
+          "release": "v1.1.1",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 2
+        },
+        {
+          "id": 519570075,
+          "release": "v1.1.2",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 6
+        },
+        {
+          "id": 526831893,
+          "release": "v1.8.3",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 91
+        },
+        {
+          "id": 528548100,
+          "release": "v1.8.4",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 40
+        },
+        {
+          "id": 532366860,
+          "release": "v1.9.0",
+          "name": "AirPodsBuddy.exe",
+          "downloads": 5
+        },
+        {
+          "id": 532492428,
+          "release": "v1.9.0",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 81
+        },
+        {
+          "id": 545807011,
+          "release": "v1.9.1",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 4
+        },
+        {
+          "id": 545817877,
+          "release": "v1.9.2",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 1
+        },
+        {
+          "id": 545941382,
+          "release": "v1.9.4",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 7
+        },
+        {
+          "id": 546982934,
+          "release": "v1.9.7",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 7
+        },
+        {
+          "id": 547876021,
+          "release": "v1.9.8",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 105
+        },
+        {
+          "id": 577911791,
+          "release": "v1.9.10",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 12
+        },
+        {
+          "id": 579046618,
+          "release": "v1.9.12",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 75
+        },
+        {
+          "id": 592500993,
+          "release": "v1.9.20",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 12
+        },
+        {
+          "id": 593065539,
+          "release": "v1.9.21",
+          "name": "AirPodsBuddy-Windows.zip",
+          "downloads": 104
+        }
+      ],
+      "source": "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases",
+      "observed_at": "2026-10-09T06:32:58.347681+00:00"
+    }
+  ]
+}
