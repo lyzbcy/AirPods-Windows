@@ -13,7 +13,7 @@ OnError((e, mode) => (FileAppend("ERROR " e.Message " line=" e.Line "`n", "*"), 
 SETTINGS_PATH := A_ScriptDir "\settings-test.ini"
 failures := 0, busy := false, loading := false, maxRetries := 1
 routeEvents := []
-routeQueryFailed := false
+routeQueryFailed := false, captureUseResult := 0, routeReadSideEffect := ""
 probeResult := "supported", probeCalls := 0, probeSideEffect := ""
 linkStarts := 0, downStarts := 0
 deviceOps := Map(), operationSerial := 0, routeOwner := 0, actionEpoch := 0, pendingRetryDisconnect := 0
@@ -83,6 +83,12 @@ Check("ready_state_revalidated", DeviceAudioState("A", true) = "ready")
 routeQueryFailed := true
 Check("query_failure_preserves_route_state_without_claiming_ready", DeviceAudioState("A", true) = "unknown" && deviceOps["A"].state = "ready")
 routeQueryFailed := false
+deviceOps["A"].captureId := "{0.0.1.00000000}.{BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB}"
+captureUseResult := 1, calls := probeCalls
+Check("active_capture_does_not_open_playback_stream", DeviceAudioState("A", true) = "call_active" && probeCalls = calls && deviceOps["A"].state = "ready")
+captureUseResult := -1
+Check("unknown_capture_is_not_reported_as_call_or_audio_failure", DeviceAudioState("A", true) = "call_unverified" && deviceOps["A"].state = "ready")
+captureUseResult := 0, deviceOps["A"].captureId := ""
 routeFresh := false
 Check("changed_output_invalidates_ready", DeviceAudioState("A", true) = "audio_lost")
 routeFresh := false
@@ -97,10 +103,12 @@ Check("late_route_reconciles_exact_current_output", DeviceAudioState("A", true) 
 Check("late_route_emits_success_once", DeviceAudioState("A", true) = "ready" && routeEvents.Length = before + 1)
 probeResult := "unsupported", deviceOps["A"].probeAt := A_TickCount - 30001
 before := routeEvents.Length
-Check("supported_route_losing_shared_stream_not_ready", DeviceAudioState("A", true) = "playback_unavailable" && routeEvents.Length = before)
 calls := probeCalls
-Check("unsupported_watchdog_uses_cache", DeviceAudioState("A", true) = "playback_unavailable" && probeCalls = calls)
+Check("passive_ready_observer_does_not_initialize_stream", DeviceAudioState("A", true) = "ready" && probeCalls = calls && routeEvents.Length = before)
+calls := probeCalls
+Check("passive_ready_repeat_remains_read_only", DeviceAudioState("A", true) = "ready" && probeCalls = calls)
 probeResult := "supported", deviceOps["A"].probeAt := A_TickCount - 30001
+deviceOps["A"].state := "playback_unavailable"
 Check("playback_positive_recheck_does_not_announce_ready", DeviceAudioState("A", true) = "playback_unverified" && routeEvents.Length = before)
 routeFresh := false, deviceOps["A"].state := "playback_unavailable", deviceOps["A"].probeAt := A_TickCount - 30001
 calls := probeCalls, before := routeEvents.Length
@@ -118,8 +126,8 @@ routeOwner := deviceOps["A"].gen
 before := routeEvents.Length, probeSideEffect := "new_other", deviceOps["A"].state := "playback_unavailable", deviceOps["A"].probeAt := -1
 Check("passive_probe_new_owner_cannot_mutate_state", DeviceAudioState("A", true) = "unknown" && deviceOps["A"].state = "playback_unavailable" && routeEvents.Length = before)
 routeOwner := deviceOps["A"].gen
-before := routeEvents.Length, probeSideEffect := "new_other", deviceOps["A"].state := "ready", deviceOps["A"].probeAt := -1
-Check("ready_probe_new_owner_cannot_mutate_state", DeviceAudioState("A", true) = "unknown" && deviceOps["A"].state = "ready" && routeEvents.Length = before)
+before := routeEvents.Length, routeReadSideEffect := "new_other", deviceOps["A"].state := "ready", deviceOps["A"].probeAt := -1
+Check("ready_readback_new_owner_cannot_mutate_state", DeviceAudioState("A", true) = "unknown" && deviceOps["A"].state = "ready" && routeEvents.Length = before)
 routeOwner := deviceOps["A"].gen
 devices.Push({name:"A",info:Buffer(560)})
 Check("duplicate_device_name_rejected", !FindDevByName("A"))
@@ -200,7 +208,7 @@ routeEvents := [], routeFresh := true, probeResult := "unsupported"
 SetOpState("001122334455", gen, "ready")
 deviceOps["001122334455"].probeAt := -1
 WatchAudioRoutes()
-Check("playback_failure_emits_audioheld_not_routelost", deviceOps["001122334455"].state = "playback_unavailable" && routeEvents.Length = 1 && routeEvents[1] = "audioheld")
+Check("passive_ready_does_not_publish_false_playback_failure", deviceOps["001122334455"].state = "ready" && routeEvents.Length = 0)
 probeResult := "supported"
 devices[1].connected := false
 SetOpState("001122334455", gen, "ready")
@@ -276,12 +284,19 @@ DownVerifyTick(*) {
 ReleaseOwnedMicRoute(*) {
 }
 AudioRouteObservation(*) {
-    global routeFresh, routeQueryFailed
+    global routeFresh, routeQueryFailed, routeReadSideEffect
+    effect := routeReadSideEffect, routeReadSideEffect := ""
+    if effect = "new_other"
+        BeginDeviceOp("Other", "connect")
     return {matches: routeFresh && !routeQueryFailed, reason: routeQueryFailed ? "query_failed" : (routeFresh ? "ready" : "default_changed"), state: 1, matchedRoles: routeFresh ? 7 : 0, failedRole: -1}
 }
 AudioRouteMatchesId(*) {
     global routeFresh
     return routeFresh
+}
+AudioCaptureUse(*) {
+    global captureUseResult
+    return captureUseResult
 }
 AudioRenderProbe(*) {
     global probeResult, probeCalls, probeSideEffect

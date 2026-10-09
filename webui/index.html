@@ -889,6 +889,8 @@ function isPlaybackWarning(d){return ['playback_unavailable','playback_unverifie
 function deviceAction(d){return d.connected||isConnecting(d)||isDisconnecting(d)?'disconnect':'connect'}
 function deviceActionTitle(d){return d.progress?.phase==='queued'?'取消已排队':(isDisconnecting(d)?'正在断开':(connectRequestBusy(d)?'正在提交连接请求':(isConnecting(d)?'取消连接':(d.connected?'断开':'连接'))))}
 function deviceStatus(d){
+  if(d.audioState==='call_active')return '耳机麦克风使用中 · 通话声音请试听';
+  if(d.audioState==='call_unverified')return '麦克风状态未确认 · 暂缓播放预检';
   if(d.progress?.phase==='queued')return '取消已排队 · 等待当前请求结束';
   if(isDisconnecting(d))return '正在断开 · 等待 Windows 核实';
   if(d.audioState==='link_retry_wait')return '链路未就绪 · 等待一次重试（可取消）';
@@ -900,6 +902,8 @@ function deviceStatus(d){
   return d.connected?(d.audioState==='ready'?'默认输出已切耳机 · 请试听':'蓝牙已连接 · 音频未确认'):'未连接';
 }
 function orbStatus(d){
+  if(d.audioState==='call_active')return '麦克风使用中';
+  if(d.audioState==='call_unverified')return '状态待确认';
   if(d.progress?.phase==='queued')return '取消已排队';
   if(isDisconnecting(d))return '正在断开';
   if(isConnecting(d))return '正在连接';

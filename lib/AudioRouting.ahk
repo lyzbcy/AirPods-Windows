@@ -15,6 +15,23 @@ class CoreAudioBackend {
         ComCall(4, this.enumerator, "int", flow, "int", role, "ptr*", &p)
         return this.DeviceId(ComValue(13, p, 1))
     }
+    ; Exact-ID state access has no friendly-name/property-store dependency.
+    ; Only E_NOTFOUND proves absence; all other query failures stay unknown.
+    EndpointState(id) {
+        p := 0
+        hr := ComCall(5, this.enumerator, "wstr", id, "ptr*", &p, "int")
+        if (hr & 0xFFFFFFFF) = 0x80070490
+            return 0
+        if hr != 0
+            throw Error("GetDevice HRESULT=" Format("{:08X}", hr & 0xFFFFFFFF))
+        device := ComValue(13, p, 1), state := 0
+        hr := ComCall(6, device, "uint*", &state, "int")
+        if hr != 0
+            throw Error("GetState HRESULT=" Format("{:08X}", hr & 0xFFFFFFFF))
+        if !(state = 1 || state = 2 || state = 4 || state = 8)
+            throw Error("unexpected endpoint state=" state)
+        return state
+    }
     SetDefault(id, role) {
         pc := ComObject("{870AF99C-171D-4F9E-AF0D-E63DF40C2BC9}", "{F8679F50-850A-41CF-9C72-430F290290C8}")
         return ComCall(13, pc, "wstr", id, "int", role, "int")
@@ -24,6 +41,10 @@ class CoreAudioBackend {
     ; active session observed in this snapshot, not proof of no microphone use.
     CaptureUse(id) {
         try {
+            ; A verified non-ACTIVE target cannot have a live capture stream.
+            ; Avoid treating its unavailable session manager as an active call.
+            if this.EndpointState(id) != 1
+                return 0
             p := 0
             ComCall(5, this.enumerator, "wstr", id, "ptr*", &p)
             device := ComValue(13, p, 1)
@@ -235,12 +256,18 @@ AudioRouteObservation(id, backend?) {
     try {
         api := IsSet(backend) ? backend : CoreAudioBackend()
         loop 2 {
-            result.state := 0
-            for row in api.Endpoints(0, 15)
-                if StrLower(row.id) = StrLower(id) {
-                    result.state := row.state
-                    break
-                }
+            if HasMethod(api, "EndpointState")
+                result.state := api.EndpointState(id)
+            else {
+                ; Legacy synthetic backends; production always uses the exact
+                ; method above and never infers missing from a skipped row.
+                result.state := 0
+                for row in api.Endpoints(0, 15)
+                    if StrLower(row.id) = StrLower(id) {
+                        result.state := row.state
+                        break
+                    }
+            }
             if result.state != 1 {
                 result.reason := result.state = 0 ? "endpoint_missing" : "endpoint_inactive"
                 return result

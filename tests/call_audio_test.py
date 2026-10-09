@@ -14,6 +14,7 @@ contracts = {
     'owned_mic_route_implemented': 'class OwnedCaptureRoute' in audio,
     'off_releases_owned_capture_only_after_save': 'ReleaseOwnedMicRoute()' in main,
     'route_query_failure_is_not_known_loss': 'observation.reason = "query_failed"' in main,
+    'route_uses_exact_state_not_friendly_name_enumeration': 'HasMethod(api, "EndpointState")' in audio,
 }
 for name, ok in contracts.items():
     print(('PASS ' if ok else 'FAIL ')+name)
@@ -102,6 +103,14 @@ Check("missing_endpoint_distinguished", AudioRouteObservation("render", api).rea
 api := CallAudio(), api.dropAfterRoles := true
 Check("endpoint_rechecked_after_default_readback", AudioRouteObservation("render", api).reason = "endpoint_inactive")
 Check("observations_never_write_or_open_stream", api.writes = 0 && api.renderWrites = 0 && api.probes = 0)
+api := StrictCallAudio()
+Check("exact_route_observation_avoids_property_enumeration", AudioRouteObservation("render", api).matches && api.stateReads = 2 && api.enumerations = 0)
+api.failState := true
+Check("exact_state_query_failure_is_unknown_not_missing", AudioRouteObservation("render", api).reason = "query_failed" && api.enumerations = 0)
+api.failState := false, api.absent := true
+Check("confirmed_exact_not_found_is_missing", AudioRouteObservation("render", api).reason = "endpoint_missing")
+api := StrictCallAudio(), api.dropAfterRoles := true
+Check("exact_state_rechecked_after_roles", AudioRouteObservation("render", api).reason = "endpoint_inactive" && api.stateReads = 2)
 api := CallAudio(), api.defaults := ["{0.0.1.00000000}.{AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA}", "{0.0.1.00000000}.{AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA}", "{0.0.1.00000000}.{AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA}"]
 summary := DiagnosticAudioSummary(api)
 Check("feedback_capture_sessions_are_anonymous", InStr(summary, "observedActive=1") && !InStr(summary, "AAAAAAAA"))
@@ -162,6 +171,23 @@ class CallAudio {
    return this.absent ? [] : [{id:"render", name:"Synthetic render", state:this.renderState}]
   return [{id:"micA",name:"Synthetic A",state:1},{id:"micB",name:"Synthetic B",state:1},
    {id:"old0",name:"Synthetic 0",state:this.oldState},{id:"old1",name:"Synthetic 1",state:this.oldState},{id:"old2",name:"Synthetic 2",state:this.oldState}]
+ }
+}
+class StrictCallAudio extends CallAudio {
+ __New() {
+  super.__New()
+  this.stateReads := 0, this.enumerations := 0, this.failState := false
+ }
+ EndpointState(id) {
+  this.stateReads++
+  if this.failState
+   throw Error("synthetic exact state query error")
+  return this.absent ? 0 : this.renderState
+ }
+ Endpoints(*) {
+  this.enumerations++
+  ; Mimic a legacy enumerator that swallows the target's property error.
+  return []
  }
 }
 '''.replace('AUDIO_LIB', str(selected/'lib/AudioRouting.ahk')).replace('DIAGNOSTIC_LIB', str(selected/'lib/Diagnostics.ahk'))

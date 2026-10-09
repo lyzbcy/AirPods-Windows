@@ -29,6 +29,7 @@ body = r'''
 #SingleInstance Off
 #Warn All, StdOut
 OnError((e, mode) => (FileAppend("ERROR " e.Message " line=" e.Line "`n", "*"), ExitApp(2)))
+captureUseResult := 0
 failures := 0, deviceOps := Map(), operationSerial := 0, routeOwner := 0, actionEpoch := 0, pendingRetryDisconnect := 0
 busy := false, linkUp := false, renderActive := false, endpointOff := true, micSetting := "0", jobCount := 0, audioChecks := 0, events := [], lastPayload := "", probeResult := "supported"
 devices := [{id: "AABBCCDDEEFF", info: Buffer(560)}, {id: "112233445566", info: Buffer(560)}]
@@ -116,6 +117,19 @@ gen := BeginDeviceOp("AABBCCDDEEFF", "connect")
 deviceOps["AABBCCDDEEFF"].renderId := "{0.0.0.00000000}.{AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA}"
 AudioVerifyTick("AABBCCDDEEFF", 1, gen)
 Check("unverified_playback_does_not_submit_second_ks", deviceOps["AABBCCDDEEFF"].state = "playback_unverified" && jobCount = beforeJobs)
+probeResult := "supported", captureUseResult := 1
+gen := BeginDeviceOp("AABBCCDDEEFF", "connect")
+deviceOps["AABBCCDDEEFF"].renderId := "{0.0.0.00000000}.{AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA}"
+deviceOps["AABBCCDDEEFF"].captureId := "{0.0.1.00000000}.{BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB}"
+AudioVerifyTick("AABBCCDDEEFF", 1, gen)
+Check("active_voice_defers_connect_precheck_without_new_ks", deviceOps["AABBCCDDEEFF"].state = "playback_unverified" && jobCount = beforeJobs)
+captureUseResult := -1
+gen := BeginDeviceOp("AABBCCDDEEFF", "connect")
+deviceOps["AABBCCDDEEFF"].renderId := "{0.0.0.00000000}.{AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA}"
+deviceOps["AABBCCDDEEFF"].captureId := "{0.0.1.00000000}.{BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB}"
+AudioVerifyTick("AABBCCDDEEFF", 1, gen)
+Check("unknown_voice_defers_without_claiming_audio_ready", deviceOps["AABBCCDDEEFF"].state = "playback_unverified" && jobCount = beforeJobs)
+captureUseResult := 0
 renderActive := false, probeResult := "supported", audioChecks := checksBefore
 linkUp := false
 
@@ -221,6 +235,10 @@ RenderSwitchToId(*) {
 }
 OnConnectSuccess() {
 }
+AudioCaptureUse(*) {
+    global captureUseResult
+    return captureUseResult
+}
 MicSwitchTo(*) {
 }
 TrayTip(*) {
@@ -228,9 +246,6 @@ TrayTip(*) {
 AudioEndpointIdActive(*) {
     global renderActive
     return renderActive
-}
-AudioCaptureUse(*) {
-    return 0
 }
 AudioRenderProbe(*) {
     global probeResult

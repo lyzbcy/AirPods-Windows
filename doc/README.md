@@ -4,7 +4,7 @@
 
 ## 快速事实
 
-Windows 为 AutoHotkey v2 + WebView2 单文件托盘应用；Mac 为 Swift 菜单栏应用。Windows 工作树 v1.9.22 是未部署、未发布的隐私诊断与通话音频修复候选；v1.9.21 已正式发布，偶发连接／无声与严格五轮失败按已知问题披露。用户机日志在 C:\Users\24676\Desktop\AirPodsBuddy\logs\app-YYYY-MM-DD.log。产品页属于独立网站仓库，不在应用仓库根 index.html。
+Windows 为 AutoHotkey v2 + WebView2 单文件托盘应用；Mac 为 Swift 菜单栏应用。Windows 工作树 v1.9.23 是未部署、未发布的隐私诊断与通话音频修复候选；v1.9.21 已正式发布，偶发连接／无声与严格五轮失败按已知问题披露。用户机日志在 C:\Users\24676\Desktop\AirPodsBuddy\logs\app-YYYY-MM-DD.log。产品页属于独立网站仓库，不在应用仓库根 index.html。
 
 ## 按需阅读
 
