@@ -1,12 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="960" height="440" viewBox="0 0 960 440" role="img" aria-labelledby="title description">
 <title id="title">AirPodsBuddy Release 下载趋势</title>
-<desc id="description">截至 2026-10-14，公开 Release 附件累计 594 次下载。仅绘制真实快照；包含更新和重复下载，不代表独立用户。</desc>
+<desc id="description">截至 2026-10-15，公开 Release 附件累计 598 次下载。仅绘制真实快照；包含更新和重复下载，不代表独立用户。</desc>
 <rect x="1" y="1" width="958" height="438" rx="22" fill="#fffdf7" stroke="#e8e1d3"/>
 <g font-family="Segoe UI, Microsoft YaHei, PingFang SC, sans-serif">
 <text x="40" y="47" fill="#262722" font-size="24" font-weight="700">Release 下载趋势</text>
 <text x="40" y="74" fill="#6b7063" font-size="14">AirPodsBuddy · GitHub 公开附件累计下载次数</text>
-<text x="918" y="62" text-anchor="end" fill="#587844" font-size="40" font-weight="700">594</text>
-<text x="918" y="86" text-anchor="end" fill="#6b7063" font-size="13">截至 2026-10-14 · 上海日期</text>
+<text x="918" y="62" text-anchor="end" fill="#587844" font-size="40" font-weight="700">598</text>
+<text x="918" y="86" text-anchor="end" fill="#6b7063" font-size="13">截至 2026-10-15 · 上海日期</text>
 <path d="M40 110H920" stroke="#e8e1d3"/>
 <text x="76" y="135" fill="#72786a" font-size="12">累计下载次数</text>
 <path d="M76 330.00H888" stroke="#e8e9df"/>
@@ -19,26 +19,28 @@
 <text x="62" y="203.50" text-anchor="end" fill="#72786a" font-size="12">450</text>
 <path d="M76 156.00H888" stroke="#e8e9df"/>
 <text x="62" y="160.00" text-anchor="end" fill="#72786a" font-size="12">600</text>
-<path d="M76.00 218.06L694.67 169.05" stroke="#729858" stroke-width="3" fill="none" stroke-dasharray="6 5"/>
-<path d="M694.67 169.05L733.33 166.44" stroke="#729858" stroke-width="3" fill="none"/>
-<path d="M733.33 166.44L772.00 164.99" stroke="#729858" stroke-width="3" fill="none"/>
-<path d="M772.00 164.99L810.67 163.25" stroke="#729858" stroke-width="3" fill="none"/>
-<path d="M810.67 163.25L849.33 161.22" stroke="#729858" stroke-width="3" fill="none"/>
-<path d="M849.33 161.22L888.00 157.74" stroke="#729858" stroke-width="3" fill="none"/>
+<path d="M76.00 218.06L666.55 169.05" stroke="#729858" stroke-width="3" fill="none" stroke-dasharray="6 5"/>
+<path d="M666.55 169.05L703.45 166.44" stroke="#729858" stroke-width="3" fill="none"/>
+<path d="M703.45 166.44L740.36 164.99" stroke="#729858" stroke-width="3" fill="none"/>
+<path d="M740.36 164.99L777.27 163.25" stroke="#729858" stroke-width="3" fill="none"/>
+<path d="M777.27 163.25L814.18 161.22" stroke="#729858" stroke-width="3" fill="none"/>
+<path d="M814.18 161.22L851.09 157.74" stroke="#729858" stroke-width="3" fill="none"/>
+<path d="M851.09 157.74L888.00 156.58" stroke="#729858" stroke-width="3" fill="none"/>
 <circle cx="76.00" cy="218.06" r="3.5" fill="#729858" stroke="#fffdf7" stroke-width="1.5"/>
-<circle cx="694.67" cy="169.05" r="3.5" fill="#729858" stroke="#fffdf7" stroke-width="1.5"/>
-<circle cx="733.33" cy="166.44" r="3.5" fill="#729858" stroke="#fffdf7" stroke-width="1.5"/>
-<circle cx="772.00" cy="164.99" r="3.5" fill="#729858" stroke="#fffdf7" stroke-width="1.5"/>
-<circle cx="810.67" cy="163.25" r="3.5" fill="#729858" stroke="#fffdf7" stroke-width="1.5"/>
-<circle cx="849.33" cy="161.22" r="3.5" fill="#729858" stroke="#fffdf7" stroke-width="1.5"/>
-<circle cx="888.00" cy="157.74" r="3.5" fill="#729858" stroke="#fffdf7" stroke-width="1.5"/>
+<circle cx="666.55" cy="169.05" r="3.5" fill="#729858" stroke="#fffdf7" stroke-width="1.5"/>
+<circle cx="703.45" cy="166.44" r="3.5" fill="#729858" stroke="#fffdf7" stroke-width="1.5"/>
+<circle cx="740.36" cy="164.99" r="3.5" fill="#729858" stroke="#fffdf7" stroke-width="1.5"/>
+<circle cx="777.27" cy="163.25" r="3.5" fill="#729858" stroke="#fffdf7" stroke-width="1.5"/>
+<circle cx="814.18" cy="161.22" r="3.5" fill="#729858" stroke="#fffdf7" stroke-width="1.5"/>
+<circle cx="851.09" cy="157.74" r="3.5" fill="#729858" stroke="#fffdf7" stroke-width="1.5"/>
+<circle cx="888.00" cy="156.58" r="3.5" fill="#729858" stroke="#fffdf7" stroke-width="1.5"/>
 <text x="76.00" y="206.06" text-anchor="middle" fill="#446334" font-size="13" font-weight="700">386</text>
-<text x="888.00" y="145.74" text-anchor="middle" fill="#446334" font-size="13" font-weight="700">594</text>
+<text x="888.00" y="144.58" text-anchor="middle" fill="#446334" font-size="13" font-weight="700">598</text>
 <text x="76.00" y="355" text-anchor="middle" fill="#72786a" font-size="12">09-23</text>
-<text x="269.33" y="355" text-anchor="middle" fill="#72786a" font-size="12">09-28</text>
-<text x="462.67" y="355" text-anchor="middle" fill="#72786a" font-size="12">10-03</text>
-<text x="694.67" y="355" text-anchor="middle" fill="#72786a" font-size="12">10-09</text>
-<text x="888.00" y="355" text-anchor="middle" fill="#72786a" font-size="12">10-14</text>
+<text x="297.45" y="355" text-anchor="middle" fill="#72786a" font-size="12">09-29</text>
+<text x="482.00" y="355" text-anchor="middle" fill="#72786a" font-size="12">10-04</text>
+<text x="666.55" y="355" text-anchor="middle" fill="#72786a" font-size="12">10-09</text>
+<text x="888.00" y="355" text-anchor="middle" fill="#72786a" font-size="12">10-15</text>
 <text x="40" y="394" fill="#6b7063" font-size="13">● 实际采集快照　虚线连接缺少逐日记录的区间，未补造历史数据</text>
 <text x="40" y="418" fill="#6b7063" font-size="13">包含版本更新与重复下载；不代表独立用户数。资产删除或替换可能使总数下降。</text>
 </g></svg>
