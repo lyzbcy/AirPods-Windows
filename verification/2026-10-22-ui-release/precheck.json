@@ -1,0 +1,14 @@
+{
+  "manifestSha256": "79BF8B67F40FB1B3208A8A0CBC851D9855FF13DE95490091411AF8B87ED30A5D",
+  "exeSha256": "A3DCABE3E19FEF664F944D9D34C39BEC84E581EFF184040A7AD36F9994C39086",
+  "sourceSha256": "0CDB2EEDBDCF5B90FA6BA551FD9E4B50DC4A69F039E29D5EA87996B9BB44EA5F",
+  "version": "1.9.24",
+  "zipSha256": "FBC11A12498A94E7B15CC7B6BFDCDD2A713B2A3F73FF0797E52C64F769FE41BE",
+  "profile": "ui-only-owner-authorized",
+  "baseline": "v1.9.21",
+  "protectedDependencies": 17,
+  "unchangedHostFunctions": 115,
+  "hardwareTest": "not-run-no-bluetooth",
+  "hearingConfirmed": false,
+  "knownIssuesRetained": true
+}

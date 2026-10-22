@@ -8,6 +8,8 @@ Windows 为 AutoHotkey v2 + WebView2 单文件托盘应用；Mac 为 Swift 菜�
 
 ## 按需阅读
 
+用户 Agent 排障、修复和 PR 贡献见 [AI_NATIVE.md](../AI_NATIVE.md)。v1.9.24 的真实状态以项目进度顶部及发布回执为准。
+
 | 任务 | 文档 |
 |---|---|
 | 理解产品取舍 | [01-初心与使命.md](01-初心与使命.md) |

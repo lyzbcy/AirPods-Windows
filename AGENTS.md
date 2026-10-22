@@ -12,7 +12,9 @@
 | Windows 架构 / 排障 | doc/02-架构与原理.md / doc/05-已知问题与踩坑记录.md |
 | 连接验收 / 发布事务 | doc/09-Windows连接方案选型.md / doc/08-更新与后台任务.md |
 
-Windows 源码版本字段是 airpods_buddy.ahk 的 APP_VERSION，工作树 v1.9.21 是未发布候选，v1.9.20 是正式发布版；偶发连接或无声、严格五轮失败均已披露，不表示问题已解决。现状、Release 资产和证据以 SKILL.md 指向的当前入口核对。应用源码在本仓库维护；产品页源码在独立的 lyzbcy/lyzbcy.github.io 仓库。
+Windows 源码版本字段是 airpods_buddy.ahk 的 APP_VERSION，本发布分支 v1.9.24 是以已发布 v1.9.21 为基线的 UI 更新，未夹带默认分支未发布的诊断／通话候选；偶发连接或无声、严格五轮失败均已披露，不表示问题已解决。现状、Release 资产和证据以 SKILL.md 指向的当前入口核对。应用源码在本仓库维护；产品页源码在独立的 lyzbcy/lyzbcy.github.io 仓库。
+
+用户 Agent 排障与 PR 指引见 [AI_NATIVE.md](AI_NATIVE.md)。2026-10-22 用户确认本机无蓝牙，本版按 UI 范围验收，不伪造听音；发布范围需通过 `scripts/release-ui-precheck.py` 核对。
 
 ## 开发红线
 
@@ -24,7 +26,7 @@ Windows 源码版本字段是 airpods_buddy.ahk 的 APP_VERSION，工作树 v1.9
 
 ## 本机与双机约定
 
-- 唯一开发仓库是 E:\共享\创业\BluetoothDeviceConnector；E:\github\BluetoothDeviceConnector 为历史副本。Windows 与 Mac 不要同时改同一文件。Mac 开工前拉取、提交后推送并通知另一端同步。
+- 唯一开发仓库是 E:\共享\创业\01-捞鱼软件产品\BluetoothDeviceConnector；E:\github\BluetoothDeviceConnector 为历史副本。Windows 与 Mac 不要同时改同一文件。Mac 开工前拉取、提交后推送并通知另一端同步。
 - 用户常驻安装目录是 C:\Users\24676\Desktop\AirPodsBuddy\；不要从共享目录的 dist\AirPodsBuddy.exe 判断当前运行版本。以常驻目录 exe 哈希及启动日志 scriptdir 核对。旧 %LOCALAPPDATA%\BluetoothDeviceConnector\ 安装位置不再使用。
 - Windows 构建工具与命令见 doc/02-架构与原理.md；沙箱 shell 直接启动应用可能带受限令牌，用户侧启动需经 explorer.exe <path> 或由用户启动。构建 bat 保持 CRLF 与纯 ASCII；本机安全软件可能拦写/删脚本，先核对 Git 状态。
 - 用户反馈日志与企业微信缓存读取规则在根 SKILL.md；只把相关反馈和原始日志证据写入项目记录。

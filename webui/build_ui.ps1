@@ -30,3 +30,9 @@ if (Test-Path $ahk) {
 [IO.File]::WriteAllText($out, $html, (New-Object System.Text.UTF8Encoding $false))
 $size = (Get-Item $out).Length
 Write-Host "built: $out ($size bytes, $totalReplaced images inlined)"
+
+$agent = Get-Content (Join-Path $PSScriptRoot 'agent.html') -Raw -Encoding UTF8
+$face = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $assets 'face_heart.png')))
+$agent = $agent.Replace('assets/face_heart.png', ('data:image/png;base64,' + $face))
+[IO.File]::WriteAllText((Join-Path $PSScriptRoot 'agent_built.html'), $agent, (New-Object System.Text.UTF8Encoding $false))
+Write-Host 'built: agent_built.html (brand image inlined)'

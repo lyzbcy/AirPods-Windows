@@ -20,7 +20,7 @@ EXE = 'AirPodsBuddy.exe'
 SHA256 = re.compile(r'[0-9A-F]{64}')
 VERSION = re.compile(r'APP_VERSION\s*:=\s*"([^"]+)"')
 STATIC_INPUTS = (
-    'airpods_buddy.ahk', 'webui/index.html', 'webui/index_built.html',
+    'airpods_buddy.ahk', 'webui/agent.html', 'webui/agent_built.html', 'webui/index.html', 'webui/index_built.html',
     'webui/pet.html', 'webui/pet_built.html', 'webui/build_ui.ps1',
     'tools/noise_mode.ps1', 'tools/ahk2exe_stable/Ahk2Exe.exe',
     'tools/ahk_v2_portable/AutoHotkey64.exe', 'scripts/background-worker.ps1',

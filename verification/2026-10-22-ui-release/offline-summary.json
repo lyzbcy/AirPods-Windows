@@ -1,0 +1,127 @@
+[
+  {
+    "name": "behavior",
+    "exit": 0,
+    "passes": 22
+  },
+  {
+    "name": "device_classifier",
+    "exit": 0,
+    "passes": 9
+  },
+  {
+    "name": "live_audio_extractor",
+    "exit": 0,
+    "passes": 2
+  },
+  {
+    "name": "feedback_consent",
+    "exit": 0,
+    "passes": 8
+  },
+  {
+    "name": "state",
+    "exit": 0,
+    "passes": 86
+  },
+  {
+    "name": "resource_identity",
+    "exit": 0,
+    "passes": 9
+  },
+  {
+    "name": "ks_retry",
+    "exit": 0,
+    "passes": 39
+  },
+  {
+    "name": "p0_timeline",
+    "exit": 0,
+    "passes": 2
+  },
+  {
+    "name": "strict_gate",
+    "exit": 0,
+    "passes": 2
+  },
+  {
+    "name": "release_precheck",
+    "exit": 0,
+    "passes": 46
+  },
+  {
+    "name": "package_windows_release",
+    "exit": 0,
+    "passes": 18
+  },
+  {
+    "name": "audio_sessions",
+    "exit": 0,
+    "passes": 2
+  },
+  {
+    "name": "target_endpoint",
+    "exit": 0,
+    "passes": 6
+  },
+  {
+    "name": "audio",
+    "exit": 0,
+    "passes": 34
+  },
+  {
+    "name": "background",
+    "exit": 0,
+    "passes": 5
+  },
+  {
+    "name": "rpc",
+    "exit": 0,
+    "passes": 16
+  },
+  {
+    "name": "agent_help",
+    "exit": 0,
+    "passes": 4
+  },
+  {
+    "name": "pet_popup",
+    "exit": 0,
+    "passes": 5
+  },
+  {
+    "name": "pet_lifecycle",
+    "exit": 0,
+    "passes": 21
+  },
+  {
+    "name": "pet_ready_race",
+    "exit": 0,
+    "passes": 3
+  },
+  {
+    "name": "pet_reentrancy",
+    "exit": 0,
+    "passes": 7
+  },
+  {
+    "name": "windows",
+    "exit": 0,
+    "passes": 20
+  },
+  {
+    "name": "update_health",
+    "exit": 0,
+    "passes": 3
+  },
+  {
+    "name": "ks_backend",
+    "exit": 0,
+    "passes": 33
+  },
+  {
+    "name": "mic_migration",
+    "exit": 0,
+    "passes": 13
+  }
+]

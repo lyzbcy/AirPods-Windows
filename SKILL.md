@@ -15,7 +15,7 @@ AirPods 小助手是 Windows 托盘与 Mac 菜单栏应用。Windows 用 AutoHot
 
 ## 当前版本
 
-工作树 `APP_VERSION = 1.9.21`，属于未发布候选；v1.9.20 已于 2026-09-27 正式发布为 [GitHub Latest Release](https://github.com/lyzbcy/AirPods-Windows/releases/tag/v1.9.20)；偶发连接／无声与严格五轮失败按已知问题披露，不得改写为通过。发布资产和用户听音验收以 `verification/2026-09-27-release-public/`、`verification/2026-09-27-formal-release/` 及 `doc/04-项目进度.md` 顶部记录核对。后续开发不自动等于已部署或已发布。
+本发布分支 `APP_VERSION = 1.9.24`，以已发布 v1.9.21 为蓝牙和音频基线，仅更新反馈与 Agent 双窗口。默认开发分支中的 v1.9.22/v1.9.23 诊断／通话候选未纳入本 Release。Agent 排查优先检出用户安装版对应 tag，并读 [AI_NATIVE.md](AI_NATIVE.md)。当前进度与发布状态见 `doc/04-项目进度.md` 顶部。历史五轮失败与偶发连接／无声继续披露。
 
 ## 修改与发布
 

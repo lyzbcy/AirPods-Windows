@@ -7,7 +7,7 @@
 <div align="center">
   <img src="https://img.shields.io/badge/Platform-Windows-blue?style=for-the-badge" alt="Platform">
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="MIT License">
-  <img src="https://img.shields.io/badge/Version-1.9.20-brightgreen?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/badge/Version-1.9.24-brightgreen?style=for-the-badge" alt="Version">
   <img src="https://img.shields.io/badge/%E5%8D%95%E6%96%87%E4%BB%B6-3.4MB-orange?style=for-the-badge" alt="Single exe 3.4MB">
 </div>
 
@@ -91,6 +91,12 @@ AirPods 5 可以作为蓝牙耳机与非 Apple 设备配对；本程序目前只
 
 仍未恢复时，在程序底部点「问题反馈（可附日志）」，选相符问题并保留日志勾选，填写 Windows 版本、耳机在 Windows 显示的**准确名称**、失败发生在发现/配对/连接/播放哪一步。只有口头「AirPods 5 不支持」反馈，尚无法做型号专属真机结论。
 
+## 🤝 让 Agent 帮你修复，也参与开源贡献
+
+打开「问题反馈」，普通反馈与 Agent 排障窗口会并排显示。左侧填写的现象会同步成可预览、复制的提示词；让自己的 Agent 排查、修复并验证后，说一句「帮我提交 PR」，它就能在你同意后用你的 GitHub 账号代劳。PR 合并后，提交署名参与项目贡献记录，Contributors 展示以 GitHub 统计为准。
+
+仅复制软件版本、问题类型和说明，不自动附日志或联系方式。操作指引见 [AI_NATIVE.md](AI_NATIVE.md)。本 tag 是以 v1.9.21 为基线的 UI 更新，未夹带默认分支的未发布音频候选；请优先检出与安装版本对应的 tag。
+
 ## 🛠 开发者
 
 - 技术栈：AutoHotkey v2 + WebView2（系统自带 Edge 内核），编译为单文件 exe
@@ -112,4 +118,4 @@ MIT
 
 ## 维护与验收
 
-当前源码 v1.9.20；实际发布版号与资产以 [GitHub Release](https://github.com/lyzbcy/AirPods-Windows/releases/latest)为准。开发入口 [SKILL.md](SKILL.md)，审计清单 [doc/07-审计修复清单.md](doc/07-审计修复清单.md)。Windows 与 Mac 应用各有独立 CI，不把 Stream Deck helper 的构建当主应用验收。
+当前源码 v1.9.24（反馈与 Agent 双窗口更新）；实际发布版号与资产以 [GitHub Release](https://github.com/lyzbcy/AirPods-Windows/releases/latest)为准。开发入口 [SKILL.md](SKILL.md)，审计清单 [doc/07-审计修复清单.md](doc/07-审计修复清单.md)。Windows 与 Mac 应用各有独立 CI，不把 Stream Deck helper 的构建当主应用验收。

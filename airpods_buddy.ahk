@@ -1,4 +1,4 @@
-﻿#Requires AutoHotkey v2.0
+#Requires AutoHotkey v2.0
 #SingleInstance Force
 Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行（开机自启依赖此行为）
 
@@ -10,9 +10,10 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\WebView2\WebView2.ahk
 #Include lib\AudioRouting.ahk
 #Include lib\BackgroundJobs.ahk
+#Include lib\AgentHelp.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.21"
+APP_VERSION   := "1.9.24"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -195,6 +196,8 @@ EnsureResources() {
         DirCreate(appRoot)
         if !FileExist(appRoot "\index_built.html")
             FileInstall "webui\index_built.html", appRoot "\index_built.html", 1
+        if !FileExist(appRoot "\agent_built.html")
+            FileInstall "webui\agent_built.html", appRoot "\agent_built.html", 1
         if !FileExist(appRoot "\pet_built.html")
             FileInstall "webui\pet_built.html", appRoot "\pet_built.html", 1
         if !FileExist(appRoot "\noise_mode.ps1")
@@ -919,7 +922,7 @@ LogMsg("loading UI html chars=" StrLen(htmlText))
 wv.SetVirtualHostNameToFolderMapping("app.airpods.local", A_IsCompiled ? appRoot : A_ScriptDir "\webui", 0)
 wv.Navigate("https://app.airpods.local/index_built.html")
 
-myGui.OnEvent("Close", (*) => myGui.Hide())
+myGui.OnEvent("Close", (*) => (AgentHide(), myGui.Hide()))
 myGui.OnEvent("Size", SyncWebView)
 
 ; ---------------------------------------------------------------------
@@ -1566,7 +1569,7 @@ WebMessageHandler(core, args) {
         return
     }
     if (cmd != "statuspoll")
-        LogMsg((cmd = "sendfeedback" || cmd = "sendissue") ? ("rpc: " cmd " (" StrLen(arg1) " chars)") : "rpc: " msg)
+        LogMsg((cmd = "sendfeedback" || cmd = "sendissue" || cmd = "openagent" || cmd = "updateagent") ? ("rpc: " cmd " (" StrLen(arg1) " chars)") : "rpc: " msg)
 
     switch cmd {
         ; NOTE: Reply() injects its payload as a raw JS expression. Anything that
@@ -1574,13 +1577,16 @@ WebMessageHandler(core, args) {
         ; wrapped with JsonStr(), otherwise the frontend receives bare identifiers
         ; (ReferenceError) or pre-parsed objects (JSON.parse throws "[object Object]").
         case "list", "statuspoll": Reply(id, JsonStr(BuildDevicesJson())), UpdateTrayIcon()
+        case "openagent":         AgentQueue(arg1, true), Reply(id, "true")
+        case "updateagent":       AgentQueue(arg1), Reply(id, "true")
+        case "closeagent":        AgentHide(), Reply(id, "true")
         case "getversion":        Reply(id, JsonStr(APP_VERSION))
         case "connect":           Reply(id, JsonStr(DoAction(arg1, "connect")))
         case "disconnect":        Reply(id, JsonStr(DoAction(arg1, "disconnect")))
         case "remove":            Reply(id, JsonStr(RemoveDevice(arg1)))
         case "add":               Run("ms-settings:bluetooth"), Reply(id, "true")
-        case "winmin":            myGui.Hide(), Reply(id, "true")   ; 最小化即缩托盘：不占任务栏（初心），随时托盘唤出
-        case "winclose":          myGui.Hide(), Reply(id, "true")
+        case "winmin":            AgentHide(), myGui.Hide(), Reply(id, "true")   ; 最小化即缩托盘：不占任务栏（初心），随时托盘唤出
+        case "winclose":          AgentHide(), myGui.Hide(), Reply(id, "true")
         case "openrelease":        Run(RELEASE_PAGE), Reply(id, "true")
         case "openrepo":           Run("https://github.com/lyzbcy/AirPods-Windows"), Reply(id, "true")
         case "stardone":           StarAskShown(), Reply(id, "true")
@@ -2259,7 +2265,7 @@ DaysSince(stamp) {
 }
 
 ValidBridgeArgs(cmd, parts) {
-    counts := Map("list",0,"statuspoll",0,"getversion",0,"connect",1,"disconnect",1,"remove",1,"add",0,"winmin",0,"winclose",0,"openrelease",0,"openrepo",0,"stardone",0,"windrag",0,"doupdate",0,"getautostart",0,"setautostart",1,"getmicswitch",0,"setmicswitch",1,"getrescue",0,"setrescue",1,"sendfeedback",1,"sendissue",4,"getfblogs",0,"getfbwebhook",0,"openurl",1,"jserror",1)
+    counts := Map("list",0,"statuspoll",0,"getversion",0,"openagent",1,"updateagent",1,"closeagent",0,"connect",1,"disconnect",1,"remove",1,"add",0,"winmin",0,"winclose",0,"openrelease",0,"openrepo",0,"stardone",0,"windrag",0,"doupdate",0,"getautostart",0,"setautostart",1,"getmicswitch",0,"setmicswitch",1,"getrescue",0,"setrescue",1,"sendfeedback",1,"sendissue",4,"getfblogs",0,"getfbwebhook",0,"openurl",1,"jserror",1)
     argc := parts.Length - 2
     if (argc = 1 && parts[3] = "")
         argc := 0
@@ -2277,6 +2283,8 @@ ValidBridgeArgs(cmd, parts) {
         return parts[3] = "0" || parts[3] = "1"
     if (cmd = "connect" || cmd = "disconnect" || cmd = "remove")
         return RegExMatch(parts[3], "^[0-9A-F]{12}$") != 0
+    if (cmd = "openagent" || cmd = "updateagent")
+        return StrLen(parts[3]) <= 6000
     if (cmd = "sendfeedback")
         return StrLen(parts[3]) <= 1000
     if (cmd = "sendissue")
