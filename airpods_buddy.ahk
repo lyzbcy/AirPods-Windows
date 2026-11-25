@@ -14,7 +14,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\AgentHelp.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.33"
+APP_VERSION   := "1.9.35"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -2267,14 +2267,21 @@ DeviceAudioState(name, connected) {
             return deviceOps[name].state
         ; A down verifier may fail because an exact audio endpoint remains
         ; active even after the Bluetooth control link disappears.
-        if (deviceOps[name].state = "disconnect_failed"
-            || (deviceOps[name].action = "disconnect" && deviceOps[name].state = "service_failed"))
+        if (deviceOps[name].state = "disconnect_failed" || deviceOps[name].state = "link_failed"
+            || deviceOps[name].state = "service_failed")
             return deviceOps[name].state
         deviceOps[name].state := "disconnected"
         return "disconnected"
     }
     if (deviceOps[name].state = "ready" && deviceOps[name].gen != routeOwner)
         return "unknown"
+    ; A native Windows connection can recover after an earlier terminal failure.
+    ; Keep link and route truth separate; expose explicit retry without automatic routing.
+    if (deviceOps[name].state = "disconnected" || deviceOps[name].state = "link_failed"
+        || (deviceOps[name].action = "connect" && deviceOps[name].state = "service_failed")) {
+        deviceOps[name].state := "unknown"
+        return "unknown"
+    }
     ; Windows may finish activating the exact stereo route after the bounded
     ; request deadline. Recognize that recovery without another KS request or
     ; changing a newer default-output choice.

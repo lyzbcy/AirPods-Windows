@@ -636,7 +636,7 @@
     <div class="iss-sec">② 补充说明（可选）：什么时候开始、做了什么操作</div>
     <textarea id="issText" maxlength="500" rows="3" placeholder="不选类型、直接写也行；新款耳机请写准确型号…"></textarea>
     <input id="issContact" maxlength="60" placeholder="📞 联系方式（选填）：留个邮箱/QQ，排查好了回你">
-    <label class="iss-file"><input type="checkbox" id="issFile" checked><span><b>📎 附上脱敏诊断日志（推荐，请确认）</b><i>近期运行记录与设备状态；设备名、地址和个人路径会脱敏。取消勾选仅发你的描述。</i></span></label>
+    <label class="iss-file"><input type="checkbox" id="issFile" checked><span><b>📎 附上脱敏诊断日志（推荐，请确认）</b><i>近期运行记录、设备状态及蓝牙适配器超时统计；不附系统事件正文，设备名、地址和个人路径会脱敏。取消勾选仅发你的描述。</i></span></label>
     <div class="row" id="issOps">
       <button class="btn ghost" onclick="closeModal('mIssue')">取消</button>
       <button class="btn primary" id="issSend" onclick="issueSend()">发送反馈</button>
@@ -947,7 +947,7 @@ function isConnecting(d){return d.progress?.action==='connect'||['connect','link
 function isDisconnecting(d){return d.progress?.action==='disconnect'||['disconnect','down_pending'].includes(d.audioState)}
 function connectRequestBusy(d){return isConnecting(d)&&(d.progress?.phase==='request'||(!d.progress&&d.audioState==='connect'))}
 function isPlaybackWarning(d){return ['playback_unavailable','playback_unverified'].includes(d.audioState)}
-function canRetryPlayback(d){return d.connected&&!isConnecting(d)&&!isDisconnecting(d)&&['unknown','audio_failed','playback_unavailable','playback_unverified'].includes(d.audioState)}
+function canRetryPlayback(d){return d.connected&&!isConnecting(d)&&!isDisconnecting(d)&&['unknown','audio_failed','audio_lost','playback_unavailable','playback_unverified'].includes(d.audioState)}
 function deviceAction(d){return d.connected||isConnecting(d)||isDisconnecting(d)?'disconnect':'connect'}
 function deviceActionTitle(d){return d.progress?.phase==='queued'?'取消已排队':(isDisconnecting(d)?'正在断开':(connectRequestBusy(d)?'正在提交连接请求':(isConnecting(d)?'取消连接':(d.connected?'断开':'连接'))))}
 function deviceStatus(d){
@@ -959,6 +959,7 @@ function deviceStatus(d){
   if(d.audioState==='link_retrying')return '正在重试连接（仅一次，可取消）';
   if(d.audioState==='link_failed')return '蓝牙链路未建立 · 可在系统设置对照';
   if(d.audioState==='audio_failed')return '播放端点未就绪 · 查看声音设置';
+  if(d.audioState==='audio_lost')return '播放输出已变化 · 可手动重试';
   if(d.audioState==='playback_unavailable')return '蓝牙已连 · Windows 播放不可用';
   if(d.audioState==='playback_unverified')return '蓝牙已连 · 播放能力未确认';
   if(connectRequestBusy(d))return '正在提交连接请求 · 请稍候';
@@ -983,7 +984,7 @@ function toggleCaseInspect(){
 function updateCaseShell(){
   const shell=document.getElementById('caseShell');if(!shell)return;
   const t=orbTarget(),active=currentProgress();
-  const failure=!!t&&progressOutcome?.id===t.id&&progressOutcome?.connected!==undefined&&!/已确认断开|已取消连接/.test(progressOutcome.title);
+  const failure=!!t&&(['link_failed','service_failed','disconnect_failed'].includes(t.audioState)||(progressOutcome?.id===t.id&&progressOutcome?.connected!==undefined&&!/已确认断开|已取消连接/.test(progressOutcome.title)));
   shell.dataset.case=(t?.connected||active||failure||(typeof caseInspect!=='undefined'&&caseInspect&&t))?'open':'closed';
   document.getElementById('caseLed').dataset.status=t?.connected?'on':active?'busy':'off';
 }
@@ -1009,7 +1010,7 @@ function renderOrb(){
   orb.className='orb'+(t.connected?' on':'')+(disabled?' busy':'')+(isConnecting(t)||isDisconnecting(t)?' inflight':'');
   orb.innerHTML=disabled?'<span class="spin" aria-hidden="true"></span>':isConnecting(t)?'取消连接':t.connected?'断开连接':'连接耳机';
   orb.onclick=disabled?null:()=>doAction(null,t.id,deviceAction(t));
-  hint.textContent=t.connected?'播放状态以 Windows 核实为准':isConnecting(t)?'正在核实连接状态':'连接「'+t.name+'」';
+  hint.textContent=t.connected?'播放状态以 Windows 核实为准':isConnecting(t)?'正在核实连接状态':t.audioState==='link_failed'?'连接未建立，可在诊断中打开系统蓝牙设置':'连接「'+t.name+'」';
   summary.innerHTML=`<div class="detail-row"><span>当前设备</span><strong>${esc(t.name)}</strong></div><div class="detail-row link-row ${t.connected?'linked':''}"><span><i class="row-icon">⌁</i> 蓝牙链路</span><strong>${t.connected?'已连接':'未连接'}</strong></div><div class="detail-row"><span><i class="row-icon playback">▶</i> 播放状态</span><strong>${deviceStatus(t)}</strong></div>${canRetryPlayback(t)?`<button class="audio-retry" data-act="connect" data-name="${esc(t.id)}">重试播放连接</button>`:''}`;
   summary.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>doAction(b));
   const i=devices.indexOf(t);

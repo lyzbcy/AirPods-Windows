@@ -192,6 +192,8 @@ const rpc=(...args)=>context.rpc(...args),pending=()=>vm.runInContext('Object.ke
   assert.equal(shell.dataset.case,'open');assert.equal(led.dataset.status,'off');
   context.progressOutcome={id:'B',connected:false,title:'已确认断开'};context.updateCaseShell();
   assert.equal(shell.dataset.case,'closed');
+  context.progressOutcome=null;context.devices[1].audioState='link_failed';context.updateCaseShell();assert.equal(shell.dataset.case,'open');assert.equal(led.dataset.status,'off');
+  assert.equal(context.canRetryPlayback({connected:true,audioState:'audio_lost'}),true);
   console.log('PASS case_shell_selected_device_and_truthful_led');
 
   const heldCode=html.slice(html.indexOf('async function onAudioHeld('),html.indexOf('let delTarget='));

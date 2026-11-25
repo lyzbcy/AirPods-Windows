@@ -9,6 +9,31 @@ function Send-Webhook([string]$Url,[string]$Json) {
     if (!$response.PSObject.Properties['errcode'] -or [int]$response.errcode -ne 0) { throw ('Business response rejected: '+$response.errcode) }
     return $response
 }
+# Only run for explicitly consented issue attachments. Never read Message,
+# Properties, machine name, event XML or other event providers.
+function Get-AdapterTimeoutSummary {
+    param([datetime]$Now=(Get-Date),[scriptblock]$Query={
+        param($Filter,$Limit)
+        Get-WinEvent -FilterHashtable $Filter -MaxEvents $Limit -ErrorAction Stop
+    })
+    $limit=20
+    $prefix='bluetoothAdapterEvents provider=BTHUSB id=3 windowHours=24 notRootCause=true'
+    try {
+        $events=@(& $Query @{LogName='System';ProviderName='BTHUSB';Id=3;StartTime=$Now.AddHours(-24);EndTime=$Now} $limit)
+        if (!$events.Count) { return "$prefix status=ok count=0 capped=false latestAgeMinutes=none" }
+        $latest=($events | ForEach-Object { $_.TimeCreated } | Sort-Object -Descending | Select-Object -First 1)
+        $age='unknown'
+        if ($latest -is [datetime]) { $age=[int][Math]::Max(0,[Math]::Floor(($Now-$latest).TotalMinutes)) }
+        $count=[Math]::Min($limit,$events.Count)
+        $capped=($events.Count -ge $limit).ToString().ToLowerInvariant()
+        return "$prefix status=ok count=$count capped=$capped latestAgeMinutes=$age"
+    } catch {
+        if ($_.FullyQualifiedErrorId -like 'NoMatchingEventsFound*') {
+            return "$prefix status=ok count=0 capped=false latestAgeMinutes=none"
+        }
+        return "$prefix status=unavailable"
+    }
+}
 try {
     switch ($r.kind) {
         {$_ -in 'checkupdate','stageupdate'} {
@@ -38,7 +63,8 @@ try {
                     $client.Timeout=[TimeSpan]::FromSeconds(15)
                     $boundary='----apb'+[guid]::NewGuid().ToString('N')
                     $header='--'+$boundary+"`r`n"+'Content-Disposition: form-data; name="media"; filename="AirPodsBuddy-log.txt"'+"`r`nContent-Type: text/plain`r`n`r`n"
-                    $bytes=[Text.Encoding]::UTF8.GetBytes($header)+[IO.File]::ReadAllBytes($a.logPath)+[Text.Encoding]::UTF8.GetBytes("`r`n--$boundary--`r`n")
+                    $adapterSummary=Get-AdapterTimeoutSummary
+                    $bytes=[Text.Encoding]::UTF8.GetBytes($header)+[IO.File]::ReadAllBytes($a.logPath)+[Text.Encoding]::UTF8.GetBytes("`r`n"+$adapterSummary+"`r`n")+[Text.Encoding]::UTF8.GetBytes("`r`n--$boundary--`r`n")
                     $body=New-Object Net.Http.ByteArrayContent(,$bytes)
                     $body.Headers.TryAddWithoutValidation('Content-Type','multipart/form-data; boundary='+$boundary)|Out-Null
                     try {
