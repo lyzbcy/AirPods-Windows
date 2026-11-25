@@ -53,5 +53,12 @@
     "latestDirectVerified": true
   },
   "publicReleaseCreated": false,
-  "privacy": "No raw device identifiers, screen contents, logs, personal paths or secrets"
+  "privacy": "No raw device identifiers, screen contents, logs, personal paths or secrets",
+  "directoryRenameDeferredByOwner": true,
+  "cleanupReportCreated": true,
+  "sourceCommit": "acf4f7fe6d1c4b9921fcf51eaa19efaa04b2922d",
+  "sourceBranch": "dev/airpods-1.9.38-20261125",
+  "remoteSelectedBlobs": 149,
+  "remoteObsoleteArtifactsOmitted": 130,
+  "actionsRuns": 0
 }
