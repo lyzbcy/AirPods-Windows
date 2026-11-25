@@ -6,3 +6,5 @@
 - [四套逐帧对齐检查](pet-alignment-review.jpg)
 
 原始私人素材与设备实机截图只保留本机；设计稿为虚构设备。
+
+实装页面离线合成设备截图（不代表真机连接成功）：[合拢](case-closed-1933-fixture.png) · [展开](case-open-1933-fixture.png)。合拢态实测可完整显示两副耳机；更长列表滚动。
