@@ -20,9 +20,9 @@
 
 ---
 
-> v1.9.20 已接受偶发 Windows 蓝牙/音频路由失效作为[已知问题](RELEASE_NOTES_v1.9.20.md)公开披露；严格五轮真机验收没有通过。下载请以 [Release 页面](https://github.com/lyzbcy/AirPods-Windows/releases/latest)为准，验收证据见[开发清单](doc/07-审计修复清单.md)。
+> v1.9.20 已接受偶发 Windows 蓝牙/音频路由失效作为[已知问题](RELEASE_NOTES_v1.9.20.md)公开披露；严格五轮真机验收没有通过。下载请以 [Release 页面](https://github.com/lyzbcy/AirPods-Windows/releases/latest)为准，验收证据见[开发清单](docs/07-审计修复清单.md)。
 
-> 本机开发版 **1.9.38** 尚未公开：整窗开盒、米白品牌、托盘悬浮及快捷菜单；1.9.36 的 HFP 引导冷连接在真实 AirPods 上已成功且用户实际听到声音，三个默认麦克风角色不变。更广泛型号与严格五轮仍待验收。独立 1.10.0-beta.2 控制实验室包含 ANC/通透/自适应强度的实验代码；未发现兼容通道时禁用，不能称为真机通过版。详见[当前进度](doc/04-项目进度.md)。
+> 本机开发版 **1.9.39** 尚未公开：整窗开盒、米白品牌、托盘悬浮及快捷菜单，「遇到问题反馈」是一级入口；1.9.36 起的 HFP 引导冷连接在真实 AirPods 上已成功多次且用户实际听到声音，三个默认麦克风角色不变。更广泛型号与严格五轮仍待验收。降噪 / 通透切换需要内核驱动通道，目前没有，详见[竞品对标](docs/14-竞品对标与高级能力路线.md)。进度与待办见 [roadmap](docs/roadmap.md)。
 
 ## 🤔 为什么需要它？（和系统设置比一比）
 
@@ -82,7 +82,7 @@
 
 ![AirPodsBuddy Release 附件累计下载趋势](assets/release-downloads.svg)
 
-统计所有公开 Release 附件的累计下载次数，**包含版本更新和重复下载，不代表独立用户数**。图中只画真实采集快照，缺少逐日记录的区间用虚线连接。每天自动更新；[原始数据](assets/release-downloads.json) · [统计口径与维护说明](doc/12-Release下载趋势.md)。
+统计所有公开 Release 附件的累计下载次数，**包含版本更新和重复下载，不代表独立用户数**。图中只画真实采集快照，缺少逐日记录的区间用虚线连接。每天自动更新；[原始数据](assets/release-downloads.json) · [统计口径与维护说明](docs/12-Release下载趋势.md)。
 
 ## ❓ 常见问题
 
@@ -104,8 +104,8 @@ AirPods 5 可以作为蓝牙耳机与非 Apple 设备配对；本程序目前只
 遇到问题也可以请自己的 Agent 排查、修复，并在你同意后用你的 GitHub 账号代交 PR，参与项目贡献。操作入口与验证、隐私、PR 说明见 [AI_NATIVE.md](AI_NATIVE.md)。v1.9.24 正式版已加入反馈与 Agent 并排窗口、同步提示词和复制入口。精确发布源码请检出 tag v1.9.24；此工作树仍含未来候选。PR 合并由维护者审核。
 
 - 技术栈：AutoHotkey v2 + WebView2（系统自带 Edge 内核），编译为单文件 exe
-- 完整文档在 [`doc/`](doc/README.md)（渐进式披露：初心 / 原理 / 技术方案 / 进度 / 踩坑记录）
-- 构建：改 `webui/index.html` → `webui/build_ui.ps1` → Ahk2Exe 编译（详见 doc/02）
+- 完整文档从 [`docs/agent.md`](docs/agent.md) 进入（初心 / 原理 / 技术方案 / 进度 / 踩坑记录）
+- 构建：改 `webui/index.html` → `webui/build_ui.ps1` → Ahk2Exe 编译（详见[架构与原理](docs/02-架构与原理.md)）
 
 ## 🙏 致谢
 
@@ -122,4 +122,4 @@ MIT
 
 ## 维护与验收
 
-当前源码 v1.9.20；实际发布版号与资产以 [GitHub Release](https://github.com/lyzbcy/AirPods-Windows/releases/latest)为准。开发入口 [SKILL.md](SKILL.md)，审计清单 [doc/07-审计修复清单.md](doc/07-审计修复清单.md)。Windows 与 Mac 应用各有独立 CI，不把 Stream Deck helper 的构建当主应用验收。
+源码与本机版本以[当前进度](docs/roadmap.md)为准；正式版与资产以 [GitHub Release](https://github.com/lyzbcy/AirPods-Windows/releases/latest) 为准。开发入口为 [SKILL.md](SKILL.md)，参见[审计清单](docs/07-审计修复清单.md)。Windows 与 Mac 应用各有独立 CI，不把 Stream Deck helper 的构建当主应用验收。

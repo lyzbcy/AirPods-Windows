@@ -1,7 +1,7 @@
 import AppKit
 
 // AirPodsBuddyMac — 菜单栏常驻小工具（Mac 版 AirPods 小助手）
-// 设计原则对应 doc/01-初心与使命.md：一键连接、绝不自己跳走、少一步是一步。
+// 设计原则对应 docs/01-初心与使命.md：一键连接、绝不自己跳走、少一步是一步。
 // 这是 LSUIElement 应用：不占 Dock，只活在菜单栏。
 
 final class AppDelegate: NSObject, NSApplicationDelegate {

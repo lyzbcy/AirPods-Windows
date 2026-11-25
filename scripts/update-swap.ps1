@@ -54,6 +54,8 @@ try {
     }
     $result=Invoke-UpdateTransaction -Candidate $r.candidate -Destination (Join-Path $r.directory 'AirPodsBuddy.exe') -ExpectedHash $r.hash -HealthCheck $check
     [IO.File]::WriteAllText($receipt,'ok')
+    # Reached only after the healthy swap: keep the previous version, drop older copies.
+    Remove-UpdateBackups -Destination (Join-Path $r.directory 'AirPodsBuddy.exe') -Keep 2 | Out-Null
 } catch {
     Invoke-UpdateFailureRecovery -Directory $r.directory -OriginalHash $originalHash -OldProcess $old -Receipt $receipt -Message $_.Exception.Message
     exit 1

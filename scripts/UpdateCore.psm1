@@ -73,4 +73,25 @@ function Invoke-UpdateTransaction {
         if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Force }
     }
 }
-Export-ModuleMember -Function Get-ApprovedRelease,Expand-VerifiedUpdate,Invoke-UpdateTransaction
+
+# Keeps only the newest rollback copies written by Invoke-UpdateTransaction.
+# Only files this module created are eligible: <exe>.backup-<32 hex>. Call it after
+# a healthy swap, never on a failure path, because the newest copy is the way back.
+function Remove-UpdateBackups {
+    param([Parameter(Mandatory)][string]$Destination,[ValidateRange(1,10)][int]$Keep=2)
+    $full=[IO.Path]::GetFullPath($Destination)
+    $pattern='^'+[regex]::Escape([IO.Path]::GetFileName($full))+'\.backup-[0-9a-f]{32}$'
+    $removed=@()
+    # Housekeeping must never turn a completed update into a reported failure.
+    try {
+        $backups=@(Get-ChildItem -LiteralPath (Split-Path -Parent $full) -File |
+            Where-Object { $_.Name -cmatch $pattern } |
+            Sort-Object LastWriteTimeUtc,Name -Descending)
+        foreach($old in @($backups | Select-Object -Skip $Keep)) {
+            try { Remove-Item -LiteralPath $old.FullName -Force -ErrorAction Stop; $removed+=$old.Name }
+            catch { Write-Warning ('Old update backup kept: '+$_.Exception.Message) }
+        }
+    } catch { Write-Warning ('Old update backups left in place: '+$_.Exception.Message) }
+    return ,$removed
+}
+Export-ModuleMember -Function Get-ApprovedRelease,Expand-VerifiedUpdate,Invoke-UpdateTransaction,Remove-UpdateBackups

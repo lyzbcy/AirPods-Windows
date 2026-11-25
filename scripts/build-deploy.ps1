@@ -43,6 +43,10 @@ try {
     $version=[regex]::Match((Get-Content airpods_buddy.ahk -Raw),'APP_VERSION\s*:=\s*"([^"]+)"').Groups[1].Value
     @{version=$version;sha256=$hash;source=$inputs['airpods_buddy.ahk'];inputs=$inputs;builtAt=(Get-Date).ToString('o')}|ConvertTo-Json -Depth 8|Set-Content (Join-Path $build 'build-manifest.json') -Encoding UTF8
     Write-Output ('BUILD_OK='+$candidate+' SHA256='+$hash)
+    # Old candidates are reproducible from source; keep the two newest so one rollback copy stays.
+    Get-ChildItem (Join-Path $root 'dist') -Directory | Where-Object {$_.Name -cmatch '^build-[0-9a-f]{32}$' -and $_.FullName -ne $build} |
+        Sort-Object LastWriteTimeUtc -Descending | Select-Object -Skip 1 |
+        ForEach-Object {try {Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction Stop}catch {Write-Warning ('Old build kept: '+$_.Exception.Message)}}
     if ($Deploy) {
         foreach($relative in $inputs.Keys) {
             if ((Get-FileHash -LiteralPath (Join-Path $root $relative) -Algorithm SHA256).Hash -ne $inputs[$relative]) {
@@ -87,6 +91,9 @@ try {
             try {Copy-Item (Join-Path $build 'build-manifest.json') -Destination (Join-Path $dest 'build-manifest.json') -Force}
             catch {Write-Warning ('Application is healthy; manifest copy failed: '+$_.Exception.Message)}
             Write-Output ('DEPLOY_OK='+$exe+' BACKUP='+$result.Backup)
+            # Only after the healthy swap: older rollback copies beyond the newest three go away.
+            $pruned=Remove-UpdateBackups -Destination $exe -Keep 3
+            if ($pruned.Count) {Write-Output ('PRUNED_BACKUPS='+$pruned.Count)}
         } catch {
             if ((Get-FileHash -LiteralPath $exe).Hash -eq $originalHash) {Start-Process -FilePath $exe -WindowStyle Hidden}
             throw

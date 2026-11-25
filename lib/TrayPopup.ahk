@@ -138,7 +138,7 @@ TrayPopupMessage(core,args) {
             TrayPopupPublish()
             return
         }
-        actions := Map("tray:open", "open", "tray:connect", "connect", "tray:disconnect", "disconnect", "tray:advanced", "advanced", "tray:logs", "logs", "tray:update", "update", "tray:quit", "quit", "tray:close", "close")
+        actions := Map("tray:open", "open", "tray:connect", "connect", "tray:disconnect", "disconnect", "tray:advanced", "advanced", "tray:logs", "logs", "tray:update", "update", "tray:feedback", "feedback", "tray:quit", "quit", "tray:close", "close")
         if actions.Has(message) {
             action := actions[message]
             TrayPopupHide()
@@ -156,8 +156,15 @@ TrayPopupAction(action) {
         case "advanced": OpenAdvancedControl()
         case "logs": ToggleDiagnosticLogging()
         case "update": CheckUpdate(true)
+        ; Lands on the first-level "遇到问题反馈" form instead of a hidden corner.
+        case "feedback": myGui.Show(), SyncWebView(), TrayOpenIssue()
         case "quit": ExitApp()
     }
+}
+
+TrayOpenIssue() {
+    global wv
+    try wv.ExecuteScriptAsync('openIssue()')
 }
 
 TrayPopupShow(*) {
@@ -174,7 +181,7 @@ TrayPopupShow(*) {
     trayPopupCreating := true
     try {
         scale := A_ScreenDPI / 96
-        w := Round(300*scale), h := Round(382*scale)
+        w := Round(300*scale), h := Round(416*scale)
         if !IsObject(trayPopupWvc) {
             EnsureResources()
             trayPopupGui := Gui("-DPIScale -Caption +AlwaysOnTop +ToolWindow", "AirPods 小助手 · 快捷菜单")

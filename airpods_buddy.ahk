@@ -15,7 +15,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\TrayPopup.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.38"
+APP_VERSION   := "1.9.39"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -389,7 +389,7 @@ WatchTrayState() {
 
 ; 连接来回跳检测（v1.9.8，用户 2026-09-06）：手机/电脑抢耳机或链路不稳时
 ; 连接状态反复翻转。120 秒窗口内翻转 ≥3 次 = 横跳，提示用户（5 分钟冷却）。
-; 只提示不自动动作：自动重连会跟手机抢得更凶，决策权交给用户（doc/04 待办调研）。
+; 只提示不自动动作：自动重连会跟手机抢得更凶，决策权交给用户（docs/roadmap.md 待办调研）。
 flapLog := Map()      ; name -> "|"-连接的时间戳串（必须 Map：Object 无 Has/__Item，见日志 8389 错误教训）
 flapPrev := Map()     ; name -> 上次连接状态(1/0)
 flapAdvised := Map()  ; name -> 上次提示时刻
@@ -480,8 +480,8 @@ ToggleQuickAction() {
 
 ; ------------------------- Pet popup ----------------------------------
 ; 托盘操作的萌系反馈：点一下，星星布丁从右下角弹出来陪你等连接。
-; 素材来自 ~/.codex/pets/xingxing-pudding（hatch-pet 8x11 atlas 规范，
-; 裁全宽 8 列 x 6 行(1536x1248)为 webui/assets/xingxing_pet.webp，~290KB）。
+; 素材是四套 7×7 精灵表（webui/assets/headphones*-49.webp，128px 格、20fps），
+; 对齐与来源见 docs/02 与 SKILL.md「视觉与资源」。
 petGui := 0
 petWvc := 0
 petWv := 0

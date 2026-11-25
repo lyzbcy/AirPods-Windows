@@ -209,6 +209,48 @@ BeginDeviceOp("B", "disconnect")
 Check("disconnect_cancels_mic_retry", !CanRoute("B",gb2))
 '''
     body = body.replace('FileAppend("RESULT failures="', extra+'\nFileAppend("RESULT failures="', 1)
+if function('OnConnectSuccess') and function('StarAskShown'):
+    # The real rating prompt, run against in-memory settings: ask once at the 10th successful
+    # connect, then at every 50th, and stay quiet for 15 days after a dismissal.
+    real = function('OnConnectSuccess').replace('\nOnConnectSuccess()', '\nRealOnConnectSuccess()', 1) \
+        + function('StarAskShown').replace('\nStarAskShown()', '\nRealStarAskShown()', 1)
+    star = '''
+settings := Map(), settings["connect_count"] := "8", settings["star_ask_last"] := "0", askScripts := [], daysSinceOverride := 1
+wv := {ExecuteScriptAsync: (this, s) => (askScripts.Push(s), 0)}
+RealOnConnectSuccess()
+Check("star_ask_waits_until_tenth_connect", askScripts.Length = 0 && settings["connect_count"] = 10 - 1)
+RealOnConnectSuccess()
+Check("star_ask_once_on_tenth_connect", askScripts.Length = 1 && settings["connect_count"] = 10 && InStr(askScripts[1], "starask"))
+RealStarAskShown()
+Check("star_ask_dismissal_is_persisted", settings["star_ask_last"] != "0")
+settings["connect_count"] := "49"
+RealOnConnectSuccess()
+Check("star_ask_quiet_within_15_days", askScripts.Length = 1 && settings["connect_count"] = 50)
+settings["connect_count"] := "50"
+RealOnConnectSuccess()
+Check("star_ask_only_on_milestones", askScripts.Length = 1 && settings["connect_count"] = 51)
+settings["connect_count"] := "99", daysSinceOverride := 16
+RealOnConnectSuccess()
+Check("star_ask_returns_after_cooldown", askScripts.Length = 2 && settings["connect_count"] = 100)
+settings["connect_count"] := "not-a-number"
+RealOnConnectSuccess()
+Check("star_ask_count_resets_when_corrupt", settings["connect_count"] = 1 && askScripts.Length = 2)
+'''
+    stubs = '''
+SettingRead(key, default) {
+    global settings
+    return settings.Has(key) ? settings[key] : default
+}
+SettingWrite(key, value) {
+    global settings
+    settings[key] := value
+}
+DaysSince(last) {
+    global daysSinceOverride
+    return daysSinceOverride
+}
+'''
+    body = body.replace('FileAppend("RESULT failures="', star+'\nFileAppend("RESULT failures="', 1) + real + stubs
 if not function('BeginDeviceOp'):
     body += '\nBeginDeviceOp(*) {\n global audioVerifyGen\n return ++audioVerifyGen\n}\n'
 script = V / ('behavior_' + args.source.stem + '.ahk')

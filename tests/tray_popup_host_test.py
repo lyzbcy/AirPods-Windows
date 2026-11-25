@@ -8,8 +8,9 @@ def extract(name):
 body=r'''
 #Requires AutoHotkey v2.0
 #SingleInstance Off
+OnError((*) => ExitApp(1), -1)
 trayPopupLastNotify := A_TickCount-1000, trayHoverPending := false, trayHoverVisible := false, trayPopupVisible := false
-rightCalls := 0, hoverCalls := 0, hideCalls := 0, fails := 0
+rightCalls := 0, hoverCalls := 0, hideCalls := 0, fails := 0, pendingAction := ""
 Check("other_window_not_intercepted", TrayNotify(0,0x205,0x404,0) = "")
 Check("right_click_intercepted", TrayNotify(0,0x205,0x404,A_ScriptHwnd) = 0)
 Check("duplicate_right_click_suppressed", TrayNotify(0,0x205,0x404,A_ScriptHwnd) = 0)
@@ -25,6 +26,15 @@ Sleep 650
 Check("hover_once", hoverCalls = 1)
 r:={left:10,top:20,right:30,bottom:40}
 Check("tray_rect_sensible", TrayPointIn(r,{x:10,y:20}) && !TrayPointIn(r,{x:30,y:20}) && !TrayPointIn(0,{x:10,y:20}))
+TrayPopupMessage({Source:"https://app.airpods.local/tray_built.html"},{Source:"https://app.airpods.local/tray_built.html",TryGetWebMessageAsString:(*) => "tray:feedback"})
+Sleep 60
+Check("tray_feedback_whitelisted_and_hides_popup", pendingAction = "feedback" && hideCalls = 2)
+TrayPopupMessage({Source:"https://app.airpods.local/tray_built.html"},{Source:"https://app.airpods.local/tray_built.html",TryGetWebMessageAsString:(*) => "tray:reset"})
+Sleep 60
+Check("unknown_tray_action_ignored", pendingAction = "feedback" && hideCalls = 2)
+TrayPopupMessage({Source:"https://evil.example/x"},{Source:"https://app.airpods.local/tray_built.html",TryGetWebMessageAsString:(*) => "tray:quit"})
+Sleep 60
+Check("foreign_tray_source_ignored", pendingAction = "feedback" && hideCalls = 2)
 ExitApp(fails ? 1 : 0)
 Check(name,ok) {
  global fails
@@ -44,8 +54,22 @@ TrayHoverHide(*) {
  global hideCalls
  hideCalls++
 }
+TrayPopupHide(*) {
+ global hideCalls
+ hideCalls++
+}
+; Every function referenced by an extracted function must exist, or AHK stalls at load
+; with an error dialog instead of failing the test.
+TrayPopupPublish() {
+}
 '''
-body+=extract('TrayNotify')+extract('TrayPointIn')
+body+=extract('TrayNotify')+extract('TrayPointIn')+extract('TrayPopupMessage')
+body+='''
+TrayPopupAction(action) {
+ global pendingAction
+ pendingAction := action
+}
+'''
 with tempfile.TemporaryDirectory(prefix='apb-tray-test-') as d:
     file=Path(d)/'test.ahk';file.write_text(body,encoding='utf-8-sig')
     r=subprocess.run([str(root/'tools/ahk_v2_portable/AutoHotkey64.exe'),'/ErrorStdOut=UTF-8',str(file)],capture_output=True,timeout=10)

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "airpods-buddy",
+  "name": "AirPods 小助手",
+  "version": "1.9.24",
+  "platform": "win32",
+  "architecture": "x64",
+  "executable": "AirPodsBuddy.exe",
+  "category": "桌面效率",
+  "summary": "在 Windows 上快捷连接和管理 AirPods。",
+  "siteUrl": "https://lyzbcy.github.io/airpods-buddy.html",
+  "iconPath": "assets/airpods-brand.png",
+  "videoIds": [
+    "7677278954927066387"
+  ],
+  "package": {
+    "type": "portable-zip",
+    "path": "dist/release-v1.9.24/AirPodsBuddy-Windows.zip",
+    "url": "https://github.com/lyzbcy/AirPods-Windows/releases/download/v1.9.24/AirPodsBuddy-Windows.zip",
+    "sha256": "fbc11a12498a94e7b15cc7b6bfdcdd2a713b2a3f73ff0797e52c64f769fe41be"
+  }
+}

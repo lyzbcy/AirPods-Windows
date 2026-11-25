@@ -40,4 +40,5 @@ update_result.txt
 
 # Raw historical/local verification is not public development source.
 verification/**
-doc/doc/
+# Private design proposals and local adapter reports stay on the owner's machine.
+reference/design/*-proposal.png

@@ -3,10 +3,16 @@ const html=fs.readFileSync(process.argv[2]||'webui/index.html','utf8');
 const footer=html.match(/<footer>([\s\S]*?)<\/footer>/)?.[1]||'';
 const about=html.match(/<!-- about modal -->([\s\S]*?)<!-- QR lightbox/)?.[1]||'';
 const issue=html.match(/<!-- 问题反馈：常见类型[\s\S]*?<div class="mask" id="mIssue">([\s\S]*?)<!-- settings -->/)?.[1]||'';
+const rail=html.match(/<aside class="device-rail">([\s\S]*?)<\/aside>/)?.[1]||'';
 assert.equal((footer.match(/<button\b/g)||[]).length,3);
 assert.doesNotMatch(footer,/<span\b/);
-assert.equal((footer.match(/onclick="openIssue\(\)"/g)||[]).length,1);
-assert.match(footer,/问题反馈（可附日志）/);
+assert.doesNotMatch(footer,/openIssue|反馈/);
+assert.match(footer,/toggleCaseInspect\(\)/);
+// "遇到问题反馈" is a first-level entry with visible wording, not a small footer link.
+const issueEntry=rail.match(/<button class="rail-issue"[^>]*>([\s\S]*?)<\/button>/)?.[1]||'';
+assert.match(issueEntry,/>遇到问题反馈$/);
+assert.equal((rail.match(/onclick="openIssue\(\)"/g)||[]).length,1);
+assert.doesNotMatch(rail,/<span\b[^>]*>反馈/);
 assert.doesNotMatch(footer,/openAbout\(true\)|提意见/);
 assert.match(about,/<b>提意见<\/b>/);
 assert.match(about,/纯文字、不附日志/);
@@ -106,7 +112,7 @@ const rpc=(...args)=>context.rpc(...args),pending=()=>vm.runInContext('Object.ke
   assert.match(html,/id="progressTitle"[^>]*aria-live="polite"/);
   assert.match(html,/prefers-reduced-motion:reduce/);
   assert.match(html,/\.orb\.inflight::after/);
-  const progressNodes=Object.fromEntries(['progressPanel','progressTitle','progressStep','progressWhy','progressTime','progressMarks','progressHelp']
+  const progressNodes=Object.fromEntries(['progressPanel','progressTitle','progressStep','progressWhy','progressTime','progressMarks','progressHelp','progressSelfhelp','progressSelfhelpList','progressIssue']
     .map(id=>[id,{hidden:true,dataset:{},textContent:'',innerHTML:''}]));
   Object.assign(context,{document:{getElementById:id=>progressNodes[id],querySelector:()=>false},
     progressSnapshotAt:Date.now(),localAction:null,lastActiveProgress:null,progressOutcome:null,cancelRequestedId:'',downConfirmed:new Set()});
@@ -136,15 +142,33 @@ const rpc=(...args)=>context.rpc(...args),pending=()=>vm.runInContext('Object.ke
   assert.match(progressNodes.progressTitle.textContent,/连接检查完成 · 请试听/);
   assert.match(progressNodes.progressWhy.textContent,/实际听到声音才算有声/);
   assert.equal(progressNodes.progressHelp.hidden,true);
+  assert.equal(progressNodes.progressSelfhelp.hidden,true);
+  assert.equal(progressNodes.progressIssue.hidden,true);
   context.devices=[connect];context.renderProgress();
   context.devices=[{...connect,audioState:'link_failed',progress:null}];context.renderProgress();
   assert.match(progressNodes.progressTitle.textContent,/蓝牙链路未建立/);
   assert.equal(progressNodes.progressHelp.hidden,false);
   assert.equal(progressNodes.progressHelp.textContent,'打开 Windows 蓝牙设置');
+  assert.equal(progressNodes.progressSelfhelp.hidden,false);
+  assert.equal((progressNodes.progressSelfhelpList.innerHTML.match(/<li>/g)||[]).length,6);
+  assert.match(progressNodes.progressSelfhelpList.innerHTML,/USB 2\.0/);
+  assert.doesNotMatch(progressNodes.progressSelfhelpList.innerHTML,/Hands-Free/);
+  assert.equal(progressNodes.progressIssue.hidden,false);
   context.devices=[audio];context.renderProgress();
+  assert.equal(progressNodes.progressIssue.hidden,true);
   context.devices=[{...audio,audioState:'audio_failed',progress:null}];context.renderProgress();
   assert.match(progressNodes.progressTitle.textContent,/播放端点未就绪/);
   assert.equal(progressNodes.progressHelp.textContent,'打开 Windows 声音设置');
+  assert.match(progressNodes.progressSelfhelpList.innerHTML,/Stereo/);
+  assert.doesNotMatch(progressNodes.progressSelfhelpList.innerHTML,/USB 2\.0/);
+  assert.equal(progressNodes.progressIssue.hidden,false);
+  for (const state of ['ready','call_active','disconnected']) {
+    context.devices=[connect];context.renderProgress();
+    context.devices=[{...audio,audioState:state,connected:true,progress:null}];context.renderProgress();
+    assert.equal(progressNodes.progressIssue.hidden,true);
+    assert.equal(progressNodes.progressSelfhelp.hidden,true);
+  }
+  console.log('PASS failure_outcomes_offer_sourced_selfhelp_and_feedback_only');
   console.log('PASS link_and_audio_failure_have_distinct_system_actions');
   console.log('PASS progress_clock_does_not_rebuild_device_cards');
   const disconnect={...connect,connected:true,audioState:'down_pending',

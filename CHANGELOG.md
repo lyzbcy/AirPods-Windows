@@ -1,3 +1,13 @@
+## 1.9.39 · 2026-11-25（本机开发版，未公开）
+
+- 「遇到问题反馈」升为一级入口：主窗口左栏常驻按钮、连接失败面板直达、托盘快捷菜单新增一项，打开后都落在原有的问题反馈表单。
+- 连接失败和播放失败时给出按微软官方指引整理的自助清单，只在这两类失败出现，不为其他状态编造步骤。
+- 设置里如实说明「用耳机麦克风通话会变成电话音质」的原因与对策；实验室弹窗说明降噪控制为什么需要内核驱动。
+- 更新器与构建脚本不再堆积旧文件：健康替换后只保留最近几份回退副本（自动更新 2 份、本机部署 3 份），构建只留最新两个；删不掉的跳过，不把更新判为失败。
+- 求好评逻辑补 7 项离线测试（第 10 次成功连接才问、关闭后 15 天冷却）。
+- 工程整理：开发目录改名为产品名，文档按规范改为 `docs/` 加 `reference/`，清理过时文件与旧构建；三份竞品与社区调研的结论写入 [docs/14](docs/14-竞品对标与高级能力路线.md)。
+- 未改变连接策略、麦克风行为或任何蓝牙请求；严格五轮仍未通过。
+
 ## 1.9.38 · 2026-11-25（本机开发版，未公开）
 
 - 托盘右键米白快捷弹层、hover 状态卡、手绘关闭/最小化；共享 WebView2 环境，关闭后释放 popup 控制器；左键一键连接/断开及原生故障回退保留。
@@ -117,7 +127,7 @@
 # v1.9.21（2026-09-27，Windows 正式版；官网已同步）
 
 - 连接／断开被接受后，右下角星星布丁在整个实际操作期间持续显示阶段及已等待时间；页面按钮和托盘共用该行为，旧隐藏计时器不再截断新操作，多耳机断开等待全部终态。新直接操作会中止旧批量断开的剩余队列；连接中链路失效和 WebView2 冷启动快速终态均按真实状态处理。终态文字不把播放预检写成真实听音。
-- 用原有精灵图改善等待动作衔接和两行状态气泡，减少动态效果设置下停止运动；未新增图片素材。根 Skill 和 AGENTS 瘦身为渐进式披露入口，`doc/README.md` 给出按需索引。
+- 用原有精灵图改善等待动作衔接和两行状态气泡，减少动态效果设置下停止运动；未新增图片素材。根 Skill 和 AGENTS 瘦身为渐进式披露入口，`docs/agent.md` 给出按需索引。
 - 修复主页面 RPC 内同步创建第二个 WebView2 控制器导致的重入：接受操作后延迟创建弹窗、复用主环境、只在控制器完成后展示最新请求。真实安装版断开与 `petready` 通过；单轮重连在 Windows 链路核实阶段失败，未做听音成功声明。
 - 最终离线回归 `OFFLINE_PASS assertions=411 suites=24`、编译与安装健康检查、远端 Windows CI 通过。用户对 v1.9.21 候选给出整体实测无问题并要求发版；这不是单独逐字的默认输出听音回执，软件播放预检也不等于实际听音。正式 v1.9.21 Release 已发布为 Latest，唯一 ZIP 与本地包一致；官网 `PAGE_VER=2.2.8` 已经 Pages 部署并从公网核对两处下载链接。历史严格五轮失败和偶发 Windows 蓝牙／无声问题仍在 Release notes 披露，不写成通过。原始记录见 `verification/2026-09-27-v1921-release/`。
 
@@ -196,7 +206,7 @@
 - 每设备操作代次、最新连接路由所有权、链路/默认音频状态分离、断开异步核实；停用自动全局 radio reset。
 - 修复 busy/finally、RPC 超时与 pending 清理、优先级持久化、JSON 控制字符、原子配置写入、RunWait 返回值和日期间隔计算。
 - 回归含真实 AHK 故障注入、COM 模拟后端和 Node RPC。真实连接默认路由已通过；第一段听音未通过，第二段显式 WASAPI 播放用户已确认听到。单次显式端点听音通过不等于普通应用和重连稳定性通过。
-- 完整未完成项见 doc/07-审计修复清单.md；无声修复脚本、更新器、Mac 等尚未全部处理。
+- 完整未完成项见 docs/07-审计修复清单.md；无声修复脚本、更新器、Mac 等尚未全部处理。
 
 # Changelog
 
@@ -229,7 +239,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Verification
 - 无窗口编译通过；独立编译的无窗口回归程序在本机完成耳机连接→断开（链路核实为 down）、清 Temp 后宠物资源恢复、隔离 Run 键删除/旧路径/StartupApproved 禁用状态回归。候选 exe 已部署用户常驻目录；同一用户上下文删除真实 Run 项后重启，日志确认 `Run entry restored`，进程与 Run 值复读均通过。未发布 Release。
-- **未通过音频主链**：用户 22:44 再试，`link verified` 后 22:45 `audio endpoint NOT up`；企微缓存 10:43/11:15/21:34 反馈均指向“蓝牙已连但播放输出缺失/反复失败”。v1.9.14 不应被当成“连接出声”修复版，详见 doc/05 A7。
+- **未通过音频主链**：用户 22:44 再试，`link verified` 后 22:45 `audio endpoint NOT up`；企微缓存 10:43/11:15/21:34 反馈均指向“蓝牙已连但播放输出缺失/反复失败”。v1.9.14 不应被当成“连接出声”修复版，详见 docs/05 A7。
 
 ## [1.9.13] - 2026-09-22
 
@@ -251,7 +261,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **蓝牙栈自救（用户实测病例驱动）**：2026-09-21 晚用户四连反馈+完整日志确诊——连续 7 次连接 `BluetoothSetServiceState` 全部返回成功但链路 9s 未建立，与手机蓝牙/耳机放回盒/重启 App 全部无关，重启电脑立即恢复（且是系统开机自动恢复的连接，App 未发起）＝Windows 蓝牙栈卡死（旁证：BTHUSB 事件 18 每次开机必现，适配器存不了链接密钥的廉价 dongle；事发前系统连续运行 22.5h）。非代码 bug，但"只能重启电脑"体验不可接受。落地：同一设备连续 2 次链路失败后，经 WinRT Radio API 自动开关一次蓝牙无线电（等效手动开关蓝牙，无需管理员）并自动重连一次；一轮故障只自救一次防重启循环，期间用户任何新动作作废自救（audioVerifyGen 代数号），被拒/超时/PS 异常全部如实降级为"开关蓝牙或重启电脑"指引并落日志。PS 段全 ASCII 走 -EncodedCommand（B6/B8.9 规矩）。
 - **连接后自动切到耳机麦克风（功能补齐）**：同日反馈"耳机连上了但默认麦克风还是电脑的"——排查确认 `OnConnectSuccess` 从未做过端点切换（Windows 新设备接入只自动切播放默认端，不切录音默认端）。落地：音频核实（AudioVerifyTick）通过后，WMI 按 PnP 实例名取该耳机录音端点 ID（`SWD\MMDEVAPI\{0.0.1.…}.{guid}`，0.0.1=录音端点，复用 AudioEndpointAlive 同款查询路数），经 `IPolicyConfig::SetDefaultDevice`（vtable 13，系统声音面板同款未公开接口）设为默认录音设备；a2dp-only 档位无录音端点则 INFO 跳过；失败只落 WARN 不弹窗。
 - **设置面板新增两行开关**：「连接后切到耳机麦克风」「连不上时蓝牙自救」（均默认开启，键 auto_mic_switch / bt_rescue），rpc 新增 get/setmicswitch、get/setrescue。
-- doc/05 新增 A5：蓝牙栈卡死病例全文（根因链 + 自救设计边界），防未来误诊成代码 bug。
+- docs/05 新增 A5：蓝牙栈卡死病例全文（根因链 + 自救设计边界），防未来误诊成代码 bug。
 
 ### Fixed
 - **两处"网上说行"陷阱被真机实测当场打回并修复**（老田式验收追问的功劳）：
@@ -283,7 +293,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **GatherLogTail 日志路径缺分隔符**：`dir "app-"` 拼出 `...\logsapp-*.log` 永远 miss（v1.9.9 清 BEL 时同族矫枉过正）→ `getfblogs` 恒返回空。补回 `\`。
 - **设置持久化从未生效**（用户实测发现）：`SettingWrite`/`SavePriority` 把 `FileDelete` 与 `FileAppend` 放在同一个 try 块——文件不存在时 `FileDelete` 抛 `TargetError` 整块跳过，**首次写入永远失败**。连带后果：connect_count 连接计数永远归零（求好评永远不触发）、自定义 feedback_webhook 存不下来、设备优先级排序首存即丢。改为先 `FileExist` 判断、两步各自 try，已用独立最小脚本双跑验证（修复前 readback=MISSING，修复后 readback=ok123）。
 - **SETTINGS_PATH 缺路径分隔符**：v1.9.9 清除 BEL 字符时把 `\a` 连字面反斜杠一起删了，拼出 `...BluetoothDeviceConnectorapp_settings.ini`（无 `\`），设置会写到目录名拼接出的畸形路径。补回 `\app_settings.ini`。
-- **index.html 转义实体化污染**（BEL 事故同族）：前端正则 `/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g` 的转义序列被写成**真实控制字节**（NUL/VT/FF 等 7 个），浏览器语义碰巧等价所以功能正常，但源文件被 `file` 判为二进制——grep 静默失效、编辑器/AI 工具链全线翻车（本次实测就被它骗过一轮）。还原为纯 ASCII 转义文本并重建 index_built.html；doc/05 里的同类"实物展品"字节同步替换为 `<BEL>`/`<VT>` 可读标记，仓库源码文件恢复全文本。
+- **index.html 转义实体化污染**（BEL 事故同族）：前端正则 `/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g` 的转义序列被写成**真实控制字节**（NUL/VT/FF 等 7 个），浏览器语义碰巧等价所以功能正常，但源文件被 `file` 判为二进制——grep 静默失效、编辑器/AI 工具链全线翻车（本次实测就被它骗过一轮）。还原为纯 ASCII 转义文本并重建 index_built.html；docs/05 里的同类"实物展品"字节同步替换为 `<BEL>`/`<VT>` 可读标记，仓库源码文件恢复全文本。
 
 ## [1.9.9] - 2026-09-20（补录，当时漏更 CHANGELOG；其"chunked 投递"声称与实现不符，见 1.9.10）
 
@@ -362,7 +372,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Star-ask component** (不打扰用户的求好评 spec): after the 10th successful connect (and every 50 after), a gentle card asks for a GitHub star; dismissed = 15-day cooldown, tracked in `app_settings.ini` (`stardone`/`openrepo` bridges).
 
 ### Fixed
-- **Landing page restored (rollback)**: an accidental push from a diverged local copy had replaced the interactive landing page (v2.x: clickable app-window mock with connect states / priority sorting, pet sprite demo, tray cards) with a simplified static version (-602 lines). Rolled back to the v2.2.0 interactive page and bumped its `PAGE_VER` to 2.2.1 so cached visitors auto-refresh back. Root cause + prevention rules documented in doc/05 B7.
+- **Landing page restored (rollback)**: an accidental push from a diverged local copy had replaced the interactive landing page (v2.x: clickable app-window mock with connect states / priority sorting, pet sprite demo, tray cards) with a simplified static version (-602 lines). Rolled back to the v2.2.0 interactive page and bumped its `PAGE_VER` to 2.2.1 so cached visitors auto-refresh back. Root cause + prevention rules documented in docs/05 B7.
 - **v1.9.0 GitHub Release published** — the tag had been pushed without a release, so in-app update checks and the landing version chip still saw v1.8.4 as latest. Initial publish attached a bare `AirPodsBuddy.exe`, breaking the landing-page download link (404) since both it and the in-app updater expect the asset name `AirPodsBuddy-Windows.zip`; the correctly-structured zip (exe + 使用说明.txt, same layout as v1.8.4) was uploaded and verified.
 
 
@@ -371,10 +381,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed (WebView2 Runtime 缺失自愈——0x80070002 不再劝退新手)
 - **根因**：WebView2 控件**不复用**用户已装的 Edge 浏览器（只认 WebView2 Runtime 或 Edge Beta/Dev/Canary 通道）。精简系统/服务器镜像/被"优化工具"清理过的机器上 Runtime 常缺失 → 启动即 0x80070002"找不到文件"报错退出。旧提示"请安装微软 Edge"是误导——装了也没用（2026-08-25 在一台装着 Edge 151 的机器上实证：Edge 在、Runtime 无、照样报错）。
 - **自愈流程**：启动时用官方 API `GetAvailableCoreWebView2BrowserVersionString` 探测 → 缺失则询问并自动下载微软官方 Evergreen Bootstrapper（约 2MB）`/silent /install` 静默安装后自动继续 → 断网/用户拒绝/UAC 被拒时**降级直接借用本机 Edge 目录**当运行时（同一套内核）→ 全失败才弹手动指引（一键打开官方下载页，文案明确说"装 Edge 浏览器是没用的"）。宠物窗口（PetEnsure）同样吃到降级目录。
-- **顺手排掉的隐形炸弹**：AHK v2 `DllCall` 输出参数必须传 VarRef（`"ptr*", &info`）；传值（`info := 0`）**不报错但指针永远不回填**——若未测试直接发布，探针会在**有**运行时的机器上误报缺失、每次开机弹修复窗（函数级测试实证：hr=0 成功但指针为空）。已记入 doc/05 C 节。
+- **顺手排掉的隐形炸弹**：AHK v2 `DllCall` 输出参数必须传 VarRef（`"ptr*", &info`）；传值（`info := 0`）**不报错但指针永远不回填**——若未测试直接发布，探针会在**有**运行时的机器上误报缺失、每次开机弹修复窗（函数级测试实证：hr=0 成功但指针为空）。已记入 docs/05 C 节。
 
 ### Changed
-- 构建工具链（便携 AutoHotkey v2 + Ahk2Exe，均在 `tools/`，gitignore）在本副本就位，Ahk2Exe 编译参数与 doc/02 §7 一致（`/silent /compress 0`）。
+- 构建工具链（便携 AutoHotkey v2 + Ahk2Exe，均在 `tools/`，gitignore）在本副本就位，Ahk2Exe 编译参数与 docs/02 §7 一致（`/silent /compress 0`）。
 
 ## [1.8.2] - 2026-08-19
 
@@ -427,7 +437,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Tray left-click dead**: the default menu item name (with full-width parens) failed to match and the swallowed error silently disabled single-click activation; now set via a shared variable with try/catch logging.
-- **Pet popup rendered blank**: the pet WebView2 was created on a hidden window — the same IsVisible=false suspension bug as the original main-window white screen (pitfall C in doc/05, now bitten twice). `PetShow` now re-fills bounds and forces `IsVisible := true`; background transparency is verified via a readback log line.
+- **Pet popup rendered blank**: the pet WebView2 was created on a hidden window — the same IsVisible=false suspension bug as the original main-window white screen (pitfall C in docs/05, now bitten twice). `PetShow` now re-fills bounds and forces `IsVisible := true`; background transparency is verified via a readback log line.
 
 ### Added
 - **Kawaii restyle** (user request): blush-pink candy design — cream→blush gradient with polka dots, drifting clouds and twinkling stars, sticker cards (white borders, slight tilt), candy orb button with rotating dashed ring and gloss, pink-tinted shadows, hand-drawn squiggle section title, sticker tags. All functionality unchanged.
@@ -459,7 +469,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed (macOS)
 - **Left-click toggle stuck on "connect"** (real-device bug): the toggle branched on `Watchdog.armed` instead of the headset's actual connection state, so with the watchdog pref off the icon stayed 💤 forever and left-click could never disconnect (user's log showed 6 consecutive `toggle → connected`). Toggle and icon now treat `armed || isConnected` as connected.
-- **Mac first successful build**: `swift build -c release` passes on a real Mac (arm64). Two scaffold bugs fixed: `CFString("")` is not constructible in Swift (→ `var name: CFString = "" as CFString`), and `Watchdog.tick()` was `private` while `StatusBarController` calls it on startup (→ `internal`). Smoke test passed: app boots, writes to `~/Library/Logs/AirPodsBuddyMac.log`, zero popups. Real-AirPods field testing (connect / anti-hijack / output lock) still pending — see `doc/06`. Also added `mac/AirPodsBuddyMac/.build/` to `.gitignore`.
+- **Mac first successful build**: `swift build -c release` passes on a real Mac (arm64). Two scaffold bugs fixed: `CFString("")` is not constructible in Swift (→ `var name: CFString = "" as CFString`), and `Watchdog.tick()` was `private` while `StatusBarController` calls it on startup (→ `internal`). Smoke test passed: app boots, writes to `~/Library/Logs/AirPodsBuddyMac.log`, zero popups. Real-AirPods field testing (connect / anti-hijack / output lock) still pending — see `docs/06`. Also added `mac/AirPodsBuddyMac/.build/` to `.gitignore`.
 
 ## [1.3.1] - 2026-08-19
 

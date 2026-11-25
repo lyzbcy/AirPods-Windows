@@ -1,53 +1,79 @@
 ---
 name: airpods-buddy-dev
-description: AirPods 小助手持续开发、排障与发布交接入口。
+description: AirPods 小助手的开发技能。当用户要开发、修改、排障、更新这款 Windows 蓝牙耳机管理软件，或准备发版、接入捞鱼软件中心时使用。
 ---
 
-# AirPods 小助手开发 Skill
+# AirPods 小助手 开发 Skill
 
-AirPods 小助手帮助 Windows 用户从托盘管理已配对耳机，区分真实蓝牙链路与播放路由；Mac 菜单栏实验端独立维护。Windows 使用 AutoHotkey v2、WebView2、PowerShell/C# KS 后端与 Core Audio；Mac 使用 Swift。开发版及真实安装见 [doc/04-项目进度.md](doc/04-项目进度.md)，公开版本以 GitHub 正式 Release 为准。本次源码候选 **1.9.38**，公开 **1.9.24**；不把连接不稳定的真实失败改写为通过。
+## 项目一句话
+AirPods 小助手帮助 Windows 用户从托盘一键连接已配对的蓝牙耳机，并如实区分「请求已提交 / 蓝牙链路 / 播放端点 / 默认输出 / 实际听音」五层证据；给不想装驱动、不想折腾系统设置的普通用户用。Mac 菜单栏实验端独立维护，不随 Windows 发版。
+
+## 技术栈
+- 宿主：AutoHotkey v2（x64，`tools/ahk_v2_portable`）→ Ahk2Exe 1.1.36.02f（`tools/ahk2exe_stable`）→ 单文件 exe。
+- 界面：WebView2（系统 Evergreen）+ 原生 HTML/CSS/JS，无框架；`webui/build_ui.ps1` 内联图片生成四个 `*_built.html`，`FileInstall` 内嵌，虚拟主机映射加载。
+- 蓝牙/音频：PowerShell 5.1 子进程里运行时编译 C#（`scripts/KsBluetooth.cs`：MMDevice 拓扑 + KS `KSPROPERTY_ONESHOT_RECONNECT/DISCONNECT`）+ Core Audio（`lib/AudioRouting.ahk`）。不装驱动、不要管理员。
+- 更新：`scripts/UpdateCore.psm1`（Release 元数据、SHA-256、原子替换、健康检查、回滚）。
+- 测试：Python 驱动的离线套件 `tests/run_suite.py`（.py / .ps1 / .ahk / .cjs）。
+- 独立实验室：`beta/`（.NET 8 WinForms，自包含）。Mac：Swift（`mac/`）。
 
 ## 目录地图
+- `airpods_buddy.ahk`：Windows 主程序——托盘、窗口、RPC、每设备状态机、设置；`APP_VERSION` 是版本唯一字段。
+- `lib/`：`AudioRouting.ahk`（默认设备路由）、`Diagnostics.ahk`（脱敏日志、设备发现、导出）、`BackgroundJobs.ahk`（子进程作业）、`AgentHelp.ahk`（Agent 并排窗口）、`TrayPopup.ahk`（托盘快捷弹层）、`WebView2/`、`Promise.ahk`、`ComVar.ahk`。
+- `scripts/`：`KsBluetooth.cs/.psm1`（KS 后端）、`background-worker.ps1`（阻塞调用子进程）、`UpdateCore.psm1` + `update-swap.ps1`（更新事务）、`RepairCore.psm1`（端点只读诊断与显式修复）、`build-deploy.ps1`（构建 / 事务部署）、`ui_fixture_shots.py`（无头截图核对排版）、`package-windows-release.py`（发布打包校验）、`release-precheck.py` / `strict_gate.py`（发版门禁）、`release_downloads.py`（下载趋势）。
+- `webui/`：`index.html`（整窗开盒 UI）、`pet.html`（右下角小精灵）、`tray.html`（托盘弹层）、`agent.html`（Agent 窗口）、`assets/`。
+- `assets/`：`airpods-brand.png/.ico`（程序、窗口、托盘同源图标）、`brand-tray-*.ico`、`make_brand_tray_icons.py`、`align_pet_sheets.py`。
+- `tests/`：离线套件。`verification/`：本机原始验收证据，不提交，只上传脱敏回执。
+- `docs/`：知识库，先读 `docs/agent.md`。`reference/`：深度资料（`history/`、`maintenance/`、`design/`、`verification/`）。
+- `beta/`：独立 AAP 控制实验室。`mac/`：Mac 实验端。`streamdeck-plugin/`：继承自上游，不随主程序验收。
+- `tools/`：本机构建工具（不入库）。`dist/`：临时构建，只保留最新两个 `build-*` 与正式版归档，不入库。
+- 根文件：`AGENTS.md`（协作入口）、`AI_NATIVE.md`、`CHANGELOG.md`、`HANDOFF.md`、`README.md`、`launcher-adapter.json`（软件中心适配描述）、`THIRD_PARTY_NOTICES.md`、`RELEASE_NOTES_*.md`、`AirPods小助手.bat` / `诊断模式.bat`（从源码启动）、`修复耳机无声.bat`（定点修复工具）。
 
-- `airpods_buddy.ahk`：Windows 应用与 RPC、`APP_VERSION` 版本唯一字段。
-- `lib/`：音频路由、隐私日志、后台作业、Agent 反馈窗口、WebView2。
-- `scripts/`：KS 后端、事务构建/安装、更新与回滚；`tools/`：本机构建工具。
-- `webui/`：页面和宠物，`build_ui.ps1` 内联图片并根据 APP_VERSION 生成四个 `*_built.html`。
-- `assets/`：原创品牌图标及托盘三态；`assets/make_brand_tray_icons.py` 生成 16–256px 多尺寸 ICO。
-- `tests/`：离线生产函数、UI、隐私及故障注入；`verification/`：验收证据（只上传脱敏回执）。`dist/`：临时构建，不提交仓库。
-- `mac/`、`beta/`：平台与实验方案，不随 Windows 候选自动发布。
-- `doc/README.md`：唯一文档导航；开发任何功能前先查对应模块文档。
+## docs 索引
+[docs/agent.md](docs/agent.md) 是唯一导航入口，列出每份文档的主题和「什么情况下该读它」。开发任何功能前先查对应模块文档；模块文档头部三行摘要是现状、负责人、最后更新时间。
 
-## 开发、版本与部署
+## 开发约定
+1. 开工顺序：`AGENTS.md` → 本 Skill → `docs/agent.md` → `docs/roadmap.md` → 对应模块文档。
+2. 核对现状：`git status` 看既有改动；用 `Get-Process AirPodsBuddy` 取实际 `Path`，再从同目录 `build-manifest.json`、exe 哈希和 `logs/app-YYYY-MM-DD.log` 确认运行版本。不要预设某台机器的安装路径，不要从 `dist` 推断用户当前版本。
+3. 多会话协作：同一工作树可能有另一个 Agent 会话在同时改（2026-11-25 实际发生过）。动手前看最近修改时间，不覆盖别人的改动；Windows 与 Mac 不要同时改同一文件。
+4. 分支与提交：开发在 `dev/*`；`main` 只随正式 Release 前进；`release/vX.Y.Z` 分支和 tag 对应正式版精确源码，不用当前工作树重打旧正式资产。提交信息用 `feat:` / `fix:` / `docs:` / `release:` 前缀并带 `[skip ci]`——发版优先本机构建，不走 Action。
+5. 日志：统一走 `LogMsg`——脱敏后进有界队列，批写、大小轮转、七天保留，错误只写日志不弹窗；默认只记操作摘要，排障模式才记详细。用户侧用小精灵和进度面板说明程序在干什么（第 N / M 步，不编造百分比）。
+6. 测试与构建：`python tests/run_suite.py --output <私有临时结果目录>`，串行、低负载、不连真机。页面改动后先跑 `powershell -NoProfile -ExecutionPolicy Bypass -File webui/build_ui.ps1`，再用 `python scripts/ui_fixture_shots.py --output <仓库外目录>` 无头截图看排版（离线测试只管逻辑，不管布局），然后 `scripts/build-deploy.ps1`；加 `-Deploy -Destination <实际安装目录>` 才替换本机安装（事务替换 + 健康回执 + 保留回退）。夜间不默认替换用户正在运行的安装。bat 文件保持 CRLF 与纯 ASCII。
+7. 文档同生命周期：改设计必须同步模块文档、`CHANGELOG.md`、`docs/roadmap.md`；单份文档超过 300 行就拆；进度和待办只写在 `docs/roadmap.md`。
+8. 隐私：设备地址、端点/容器、名字、路径、令牌、密钥都不进公开资料和远端；原始日志、聊天缓存、用户截图留在受控本机。仓库是公开的：`AGENTS.md` 在远端只是一份简短的英文协作指南，工作区里的完整版含所有者的内部工作说明，提交前运行 `python scripts/stage_public_agents.py`，不要让 `git add -A` 把工作区版本带上去。
 
-1. 读取 `AGENTS.md` 和 [doc/README.md](doc/README.md)，核对当前工作树、既有改动、实际进程和正式版；使用独立分支和明确提交范围，不覆盖其他平台或用户已有改动。
-2. 修改完成后同步源码、受影响模块文档、版本字段、`CHANGELOG.md`、README；没有业务改动不虚增版本。页面构建先运行 `powershell -NoProfile -ExecutionPolicy Bypass -File webui/build_ui.ps1`。
-3. 运行 `python tests/run_suite.py --output <私有临时结果目录>`。它不连接真机、不部署软件；`scripts/build-deploy.ps1` 可编译，`-Deploy -Destination <实际安装目录>` 在本机事务替换并校验健康回执。保留设置及旧 exe 回退。不要从共享目录 `dist` 推断用户当前版本；Windows 用 `Get-Process AirPodsBuddy` 获取实际 `Path`，从相邻 `logs/app-YYYY-MM-DD.log` 及安装 manifest 核对版本和哈希。
-4. 更新相关改动先读 [doc/08-更新与后台任务.md](doc/08-更新与后台任务.md)：点击时绕过旧缓存重新查新、绑定同一平台版本制品并校验、失败留当前版、重启回读实际路径/version。每日节流不能替代点击查新。未公开开发版不能写入公网下载清单。
-5. 正式 GitHub Release 先取得用户对该版本的明确授权；参见 doc/08。正式后同步独立产品页及两处下载、PAGE_VER、公开资产哈希。只发布 ZIP 不算闭环。品牌同步给软件中心及介绍页时，仅引用已经核实的正式版本；开发版单独标识并本机验收。
+## 版本号规则
+- 唯一版本字段是 `airpods_buddy.ahk` 的 `APP_VERSION := "x.y.z"`。独立实验室版本在 `beta/AirPodsBuddy.Beta/*.csproj`，Mac 在 `mac/`，互不联动。
+- 开发完成 = 代码 + 文档 + 版本号三者同步；有业务行为改动才递增 patch，只改文档不抬版本、不构建、不替换安装。
+- `build_ui.ps1` 把版本烙进页面，`build-manifest.json` 记录全部输入哈希与 exe 哈希；打包脚本拒绝与当前源码不一致的构建。
+- 版本号变化和 Git 推送本身不会让客户端发现新版。正式发版需要 Release 资产和更新元数据，流程见 [docs/08](docs/08-更新与后台任务.md)。
 
-## 连接排障与日志
+## 红线
+1. GitHub Release 必须先取得用户对该版本的明确同意；某版的同意不延续到下一版。已知问题接受路径要保留失败事实，绝不把严格五轮写成通过。
+2. 不自动重置整机蓝牙、不清配对、不切换其他设备；不安装内核驱动、不接管适配器、不降低系统保护。
+3. 更新器（`UpdateCore.psm1`、`update-swap.ps1`）是红线级改动：必须单独补 `tests/update_health_test.ps1` 的隔离夹具测试并记录回滚证据。
+4. 反馈通道由运行时本机设置 `feedback_webhook` 或环境变量 `AIRPODS_FEEDBACK_WEBHOOK` 提供；禁止在源码或构建资源里硬编码真实密钥，未配置就不读日志、不发送。
+5. 不把 GPL 实现（AirPodsDesktop、AirPodsWindows、NTPods、WPods、SoundStage、LibrePods）并入 MIT 主程序，只依据公开协议事实独立实现。
+6. 用户机桌面测试要克制：工作日 9:00–18:30 优先离线 / 无头，不用自动化脚本反复弹窗打扰；真机断开重连、录音会话都要先取得当次授权。
+7. Release 之后必须同步独立产品页、软件中心和介绍页并从公网回读，只上线 ZIP 不算闭环。
 
-- 先区分 KS 请求回执、Classic 链路状态、播放端点状态、默认输出与实际听音。`HRESULT=0` 仅表示提交被接受。链路 1/0/-1；精确端点 0=不存在、1=ACTIVE、2=DISABLED、4=NOTPRESENT、8=UNPLUGGED、-1=未知。
-- AirPods、mic-off、已确认 link=0 且 stereo UNPLUGGED、唯一同容器 HFP render 支持 reconnect、同滤波器 capture 唯一且非禁用时，HFP 引导仅发一个请求；capture ID 用于观察通话，不请求录音或切默认输入。链路 UP 后连续等待 stereo ACTIVE、预检和默认输出读回。其他设备/不符合指纹或 mic-on 保留原策略，有界回退仍只有一次。真实一次冷连接和实际听音已通过，不把其他环境推断为稳定。
-- 同目标一次有界重试；链路重试期间链接已恢复不重复发送，音频端点未就绪仍可有界重试。新操作、取消或忙状态不能留下无限进度。用户可主动「重试播放连接」而不先断开；不自动抢占用户后来手选的输出。
-- Windows 原生对照优先；若两条路线均失败，不能仅凭请求回执断定应用或驱动根因。不自动整机重置、清配对、改其他蓝牙设备；整机蓝牙关开仅限用户明确授权的一次性人工排障，绝不放入产品自动逻辑。
-- 失败连接终态不能被轮询无条件覆盖；外部原生链接恢复后转换为音频待确认，而非宣告可播放或自动切换输出。反馈附日志时，后台可查询近24小时 BTHUSB Event ID 3 的至多20条计数和最近相对分钟，原始事件正文/设备标识不采集；无事件与访问失败分开，标明非根因。
-- 日志统一 `LogMsg`：脱敏后进有界队列，批写、大小轮转、七天保留，错误不弹窗。设备地址、端点/容器、名字、路径、令牌均不写公开资料；反馈的日志选择必须尊重用户，未勾选不采。见 [doc/10](doc/10-诊断日志与隐私.md)。
-- User feedback：仅在任务需要时读已授权本地缓存，先确认当前企业/数据范围；只摘取软件反馈群症状、阶段和安全错误码。原始缓存/联系方式/附件均不进 Git；文件传输占位不当日志正文。反馈通道由运行时 `feedback_webhook` 本地设置或 `AIRPODS_FEEDBACK_WEBHOOK` 环境变量提供，禁止在源码/构建资源中硬编码真实密钥；未配置则不读日志、不发送，用户可主动走 GitHub/复制反馈。
+## 功能现状与验收入口
 
-## 视觉与资源
+| 能力 | 状态 | 代码 / 文档 | 验证 |
+|---|---|---|---|
+| 一键连接（KS） | 已实现；AirPods 冷连接在通用 USB 适配器上 4 次成功（独立实验 1 次 + 已安装产品 3 次），用户实听确认 1 次。严格五轮、其他型号未验收 | `scripts/KsBluetooth.cs`、[docs/09](docs/09-Windows连接方案选型.md) | `tests/ks_backend_test.ps1`、`tests/ks_retry_behavior.py` |
+| 通话与麦克风 | 部分实现：默认不切麦、通话中不做播放探测；10 秒真机录音会话验证 1 次。长时通话、多应用争用未验收 | `lib/AudioRouting.ahk`、[docs/11](docs/11-通话音频与麦克风.md) | `tests/call_audio_test.py` |
+| 降噪 / 通透 / 自适应 | 未实现。调研确认 Windows 微软蓝牙栈的用户态打不开 AAP 的 L2CAP 通道，所有竞品都靠内核驱动；实验室只有协议与 UI 门控 | `beta/`、[docs/13](docs/13-AAP实验版.md)、[docs/14](docs/14-竞品对标与高级能力路线.md) | `dotnet run --project beta/tests -c Release`（3115 项） |
+| 高音质耳机麦 | 未实现；需要内核驱动 + 虚拟麦克风 + AAC-ELD 解码 | [docs/14](docs/14-竞品对标与高级能力路线.md) | — |
+| 自动更新 | 已实现：每日首次查新、点击强制查新、绑定目标、SHA-256、事务替换、健康回执、失败回退；新版确认后只留最近几份回退（1.9.39 起，尚待真实升级验收） | `scripts/UpdateCore.psm1`、[docs/08](docs/08-更新与后台任务.md) | `tests/update_health_test.ps1`（8 项） |
+| 日志与排障模式 | 已实现：队列、批写、轮转、七天、脱敏、详细开关 | `lib/Diagnostics.ahk`、[docs/10](docs/10-诊断日志与隐私.md) | `tests/diagnostics_test.py`、`tests/standards_logging_test.py` |
+| 反馈 | 已实现：企业微信机器人直发文本 + 日志附件，用户勾选才附日志；未配置通道时走 GitHub / 复制。「遇到问题反馈」是主窗口左栏、失败面板和托盘菜单里的一级入口 | `airpods_buddy.ahk`、`webui/index.html`、`webui/tray.html` | `tests/feedback_consent_test.py`、`tests/rpc_test.cjs`、`tests/tray_popup_test.cjs` |
+| 求好评 | 已实现：第 10 次成功连接触发，之后每 50 次；关闭后 15 天内不再弹 | `airpods_buddy.ahk` | `tests/run_behavior.py`（7 项） |
+| 界面 / 小精灵 / 托盘 | 已实现：整窗开盒、四套 7×7 精灵、托盘快捷弹层与悬浮卡 | `webui/`、`lib/TrayPopup.ahk` | `tests/rpc_test.cjs`、`tests/pet_popup_test.cjs`、`tests/tray_popup_test.cjs` |
+| AI-Native | 已实现：Agent 并排窗口与接口说明 | `AI_NATIVE.md`、`webui/agent.html` | `tests/agent_help_test.cjs` |
+| 软件中心适配 | 产品 ID `airpods-buddy`、便携 ZIP；描述文件在根目录。严格自查 36 项中 32 项通过，其余 4 项卡在软件中心 catalog 仍是 1.9.21 | `launcher-adapter.json` | 启动器适配 Skill 的 `check_adapter.py --strict` |
+| Mac 菜单栏版 | 实验端，独立 CI | `mac/`、[docs/06](docs/06-Mac版方案.md) | 真机另验 |
 
-暖黄米白玻璃设计，静态模糊，短合成动画，隐藏宠物停止计时。`headphones-49.webp` 、`headphones-fail-49.webp`、`headphones-wait-49.webp`、`headphones-idle-49.webp` 为独立 7×7 精灵表，128px 格、20fps：连接戴上、断开逆序摘下、失败检查耳机，等待和佩戴后待机循环，不可见时停止合成；终态由后端证据决定。对齐脚底 y119–120，中心 x63.04–64.62（128px 格）。整窗开盖采用根窗口透明色键、WebView2 透明背景与 CSS 后转轴视角；先验收批准的三态设计，再实机核对透明轮廓、设备列表、实际链接 LED、详情与反馈。无实际链接不能亮绿灯。图标与托盘、软件中心及介绍页同源；托盘右键 0x404 回调单独处理，左键不拦截，共享 WebView2 environment 创建并在关闭后释放 controller；失焦须先曾获得焦点，hover 600ms 去抖、真实图标矩形验证、不激活、移出销毁。原生菜单故障回退。16/32px 检查；原始素材和来源登记由所有者本地维护，不上传私有路径。
+未完成项：把 1.9.39 装到本机验收；严格五轮冷连接与更多型号；长时通话稳定性；AAP 控制（等可信的已签名驱动通道）；高音质耳机麦；更新器的镜像下载线路；软件中心 catalog 同步；公开发版需当次授权。
 
-## 当前验收入口
-
-- Windows 连接与听音： [doc/09](doc/09-Windows连接方案选型.md)、[doc/11](doc/11-通话音频与麦克风.md)，1.9.36 已安装产品真实冷连接（HFP 引导）与用户实听通过一次、三默认输入角色不变；旧立体声路径失败及系统恢复保留，严格五轮仍未通过。
-- 本机升级、反馈分析、UI/素材、隐私审计：[2026-11-25 维护记录](doc/maintenance-20261125.md)。
-- 用户侧 Agent 指引：[AI_NATIVE.md](AI_NATIVE.md)；Agent 文本不代表已采集日志或获得 PR/系统操作授权。
-- Mac 与独立 AAP 实验： [doc/06](doc/06-Mac版方案.md)，本地实验分支按自身 `doc/13-AAP实验版.md` 维护，不以 Windows 结果代替真机验收。
-
-
-## 高级功能分层与竞品
-
-详见 [doc/14](doc/14-竞品对标与高级能力路线.md)。普通连接保持系统 Classic，不安装额外驱动。Classic HFP 只有通话级单声道，不能用混音采样率改成高品质 A2DP 双工；独立 AAP 控制与高保真输入需各自验收。独立 `beta/` 1.10.0-beta.2 已具备模式和 Adaptive Level 0–100 控制协议、会话新回读与超时；仅已有兼容控制通道且明确目标/H2 选择和实际模式上报开放。不自动安装驱动、不接管当前唯一适配器、不关闭系统保护。主程序仅可显式启动本地独立实验室，状态查询不代表接口存在。开发用 .NET SDK 8 官方包校验 SHA512，`dotnet run --project beta/tests -c Release` 后本地自包含发布；`--probe` 和 `--smoke-test` 验证时不开硬件通道。
+## 当前状态
+- 版本：源码 **1.9.39**（已构建、未安装），本机运行 **1.9.38**，公开正式 **1.9.24**，实验室 **1.10.0-beta.2** ｜ 进度与待办详见 [docs/roadmap.md](docs/roadmap.md)，最近一轮的证据见 [晚间维护记录](reference/maintenance/maintenance-20261125-evening.md)。

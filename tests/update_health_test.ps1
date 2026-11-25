@@ -54,4 +54,40 @@ try {
         -StartApp {param($path) $global:restartCount++}
     Check 'receipt_denial_does_not_block_old_app_restart' ($global:restartCount -eq 1)
 } finally {Remove-Item -LiteralPath $work -Recurse -Force}
+# Backup pruning touches only the copies this module wrote and keeps the newest ones.
+Import-Module (Join-Path $root 'scripts\UpdateCore.psm1') -Force
+$work=Join-Path ([IO.Path]::GetTempPath()) ('AirPodsBuddy_prune_test_'+[guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $work|Out-Null
+try {
+    $exe=Join-Path $work 'AirPodsBuddy.exe'
+    [IO.File]::WriteAllText($exe,'installed fixture')
+    $names=@()
+    foreach($i in 1..4){
+        $p=Join-Path $work ('AirPodsBuddy.exe.backup-'+[guid]::NewGuid().ToString('N'))
+        $names+=$p;[IO.File]::WriteAllText($p,'old '+$i)
+        [IO.File]::SetLastWriteTimeUtc($p,[DateTime]::new(2026,1,1,0,0,$i,[DateTimeKind]::Utc))
+    }
+    $stranger=Join-Path $work ('AirPodsBuddy.exe.backup-'+[guid]::NewGuid().ToString('N'))
+    [IO.File]::WriteAllText((Join-Path $work 'AirPodsBuddy.exe.backup-notours'),'user file')
+    [IO.File]::WriteAllText((Join-Path $work 'AirPodsBuddy.exe.stage-x'),'leftover')
+    [IO.File]::WriteAllText((Join-Path $work ('Other.exe.backup-'+[guid]::NewGuid().ToString('N'))),'other app')
+    $removed=Remove-UpdateBackups -Destination $exe -Keep 2
+    Check 'prune_removes_only_the_oldest_own_backups' ($removed.Count -eq 2 -and !(Test-Path -LiteralPath $names[0]) -and !(Test-Path -LiteralPath $names[1]))
+    Check 'prune_keeps_newest_backups_installed_exe_and_foreign_files' (
+        (Test-Path -LiteralPath $names[2]) -and (Test-Path -LiteralPath $names[3]) -and (Test-Path -LiteralPath $exe) -and
+        (Test-Path -LiteralPath (Join-Path $work 'AirPodsBuddy.exe.backup-notours')) -and (Test-Path -LiteralPath (Join-Path $work 'AirPodsBuddy.exe.stage-x')) -and
+        @(Get-ChildItem -LiteralPath $work -Filter 'Other.exe.backup-*').Count -eq 1)
+    $again=Remove-UpdateBackups -Destination $exe -Keep 2
+    Check 'prune_is_idempotent' ($again.Count -eq 0 -and @(Get-ChildItem -LiteralPath $work -Filter 'AirPodsBuddy.exe.backup-*').Count -eq 3)
+    $none=Remove-UpdateBackups -Destination (Join-Path $work 'Missing.exe') -Keep 2
+    Check 'prune_without_backups_returns_empty' ($none.Count -eq 0)
+    [IO.File]::WriteAllText($stranger,'locked fixture')
+    [IO.File]::SetLastWriteTimeUtc($stranger,[DateTime]::new(2025,12,31,0,0,0,[DateTimeKind]::Utc))
+    $locked=[IO.File]::Open($stranger,'Open','Read','None')
+    try {
+        $kept=Remove-UpdateBackups -Destination $exe -Keep 1
+    } finally { $locked.Dispose() }
+    Check 'prune_skips_a_backup_it_cannot_delete_without_failing' (
+        $kept.Count -eq 1 -and (Test-Path -LiteralPath $stranger) -and (Test-Path -LiteralPath $names[3]) -and !(Test-Path -LiteralPath $names[2]))
+} finally {Remove-Item -LiteralPath $work -Recurse -Force}
 Write-Output "RESULT failures=0 tests=$count"

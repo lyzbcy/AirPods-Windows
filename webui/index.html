@@ -104,7 +104,16 @@
     box-shadow:0 6px 18px rgba(70,50,0,.07);animation:progressEnter .25s var(--ease) both}
   .progress-panel[hidden]{display:none}
   .audio-retry{margin-top:5px;background:transparent;border:1px solid rgba(180,132,35,.24);border-radius:7px;padding:4px 8px;font-size:11px;font-weight:600;color:var(--honey-d);cursor:pointer;text-align:left}.audio-retry:hover{background:var(--yellow-tint)}
-  .progress-help{margin-top:8px;color:var(--honey-d);background:rgba(255,255,255,.82);border:1px solid var(--line2);padding:6px 10px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer}.progress-help[hidden]{display:none}
+  .progress-help{color:var(--honey-d);background:rgba(255,255,255,.82);border:1px solid var(--line2);padding:6px 10px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer}.progress-help[hidden]{display:none}
+  /* Failure actions share one row so they stay above the fold in the open case. */
+  .progress-actions{display:flex;gap:6px;margin-top:8px}.progress-actions[hidden]{display:none}
+  .progress-actions button{flex:1;min-width:0;margin-top:0}
+  /* Sourced self-help and a first-level way to report, shown only on failure outcomes. */
+  .progress-selfhelp{margin-top:7px;font-size:10.5px;color:#6F6554;line-height:1.5}
+  .progress-selfhelp summary{cursor:pointer;color:var(--yellow-deep);font-weight:600}
+  .progress-selfhelp ol{margin:4px 0 0 16px}
+  .progress-issue{background:transparent;border:1px solid rgba(180,132,35,.24);border-radius:7px;padding:5px 8px;font-size:11px;font-weight:600;color:var(--honey-d);cursor:pointer;text-align:center}
+  .progress-issue:hover{background:var(--yellow-tint)}
   @keyframes progressEnter{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
   .progress-pet{width:37px;height:37px;flex:none;display:grid;place-items:center;border-radius:12px;
     background:var(--yellow-soft);border:1px solid rgba(224,168,0,.15);position:relative}
@@ -326,6 +335,7 @@
   .set-row p{font-size:11.5px;color:var(--sub);margin-top:2px}
   .set-more{font-size:11.5px;color:#6F6554;margin-top:7px;line-height:1.55}
   .set-more summary{cursor:pointer;color:var(--yellow-deep);font-weight:600}
+  .set-standalone{margin:10px 2px 0;padding:9px 11px;border:1px solid #eee7da;border-radius:12px;background:#fffdf7}
   .switch{position:relative;width:44px;height:24px;flex:none;cursor:pointer}
   .switch input{opacity:0;width:0;height:0;position:absolute}
   .switch .slider{position:absolute;inset:0;background:#D8D2C6;border-radius:999px;
@@ -451,6 +461,11 @@
   .rail-manage{border:0;background:transparent;color:#846a42;font-size:11px;cursor:pointer;padding:2px}.case-shell[data-case=closed] .progress-panel{display:none}
   .device-rail footer{display:flex;flex-wrap:wrap;gap:4px;padding:4px 2px;margin:0;justify-content:center}
   .device-rail .about-link{font-size:10px;padding:3px 4px;margin:0}
+  /* "遇到问题反馈" is a first-level entry, never a small link in a corner. */
+  .rail-issue{display:flex;align-items:center;justify-content:center;gap:4px;margin:0 0 2px;padding:4px;border:1px solid rgba(224,168,0,.34);border-radius:10px;background:#fff9e8;color:#765600;font-size:11px;font-weight:600;cursor:pointer;transition:background-color .18s var(--ease),border-color .18s var(--ease),transform .18s var(--ease)}
+  .rail-issue:hover{background:#FFF0BE;border-color:rgba(255,181,0,.6)}
+  .rail-issue:active{transform:scale(.98)}
+  .rail-issue svg{width:14px;height:14px;flex:none;stroke:#B98A00;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
   .device-rail .empty{padding:8px 0;font-size:10px}
   .device-rail .empty img{width:40px;height:40px}
   .case-main{min-width:0;overflow-y:auto;scrollbar-width:thin;padding:9px 5px;justify-content:center}
@@ -461,10 +476,11 @@
   .case-main .orb::after{display:none}
   .case-main .ohint{text-align:center;font-size:11px;margin-top:8px}
   .case-summary,.case-advanced{display:none}
-  .case-shell[data-case=open] .case-lid-wrap{height:126px}
+  .case-shell[data-case=open] .case-lid-wrap{height:108px}
   .case-shell[data-case=open] .case-lid{transform:rotateX(-28deg);border-radius:58px 58px 31px 31px}
   .case-shell[data-case=open] .lid-inner{opacity:1}
-  .case-shell[data-case=open] .case-base{height:410px;border-radius:35px 35px 62px 62px}
+  .case-shell[data-case=open] .case-base{height:430px;border-radius:35px 35px 62px 62px}
+  .case-shell[data-case=open] .case-interior{padding-bottom:14px}
   .case-shell[data-case=open] .case-main{justify-content:flex-start}
   .case-shell[data-case=open] .case-main header{flex-direction:row;text-align:left;gap:7px;padding:0 0 8px}
   .case-shell[data-case=open] .appicon{width:34px;height:34px;border-radius:10px}
@@ -518,8 +534,9 @@
       <aside class="device-rail">
         <div class="sec"><h2>设备</h2><span class="cnt" id="cnt"></span><button class="refresh" id="refresh" title="刷新">↻</button></div>
         <div id="devices"></div>
-        <button class="add" onclick="doAdd()">＋ 添加新耳机</button><button class="rail-manage" onclick="toggleCaseInspect()">设备管理</button>
-        <footer><button class="about-link" onclick="openSettings()">⚙ 设置</button><button class="about-link" onclick="openAbout()">关于</button><button class="about-link" onclick="openIssue()" title="问题反馈（可附日志）">反馈</button></footer>
+        <button class="add" onclick="doAdd()">＋ 添加新耳机</button>
+        <button class="rail-issue" onclick="openIssue()" title="遇到问题？告诉我们，可附脱敏日志"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.6 5.4c3.2-1.6 11.6-1.8 14.7.2M20 6.2c.9 3.4.5 7.6-.6 10.4-3.6 1.2-10.2 1.4-13.9.3l-3 2.4c.5-2.1.9-4.3.7-6.5M12 8.2l.2 4.4M12.3 15.4l.1.1"/></svg>遇到问题反馈</button>
+        <footer><button class="about-link" onclick="toggleCaseInspect()" title="设备管理：移除耳机、调整优先级">管理</button><button class="about-link" onclick="openSettings()">⚙ 设置</button><button class="about-link" onclick="openAbout()">关于</button></footer>
       </aside>
       <main class="hero case-main">
         <header><img class="appicon" src="assets/airpods-brand.png" alt=""><div class="title"><h1>AirPods 小助手</h1><div class="ver" id="ver"></div></div><div id="badge" class="badge">未连接</div></header>
@@ -534,7 +551,14 @@
           <div class="progress-why" id="progressWhy"></div>
           <div class="progress-time" id="progressTime" aria-live="off"></div>
           <div class="progress-marks" id="progressMarks" aria-hidden="true"></div>
-          <button class="progress-help" id="progressHelp" hidden type="button">打开 Windows 设置</button>
+          <div class="progress-actions" id="progressActions" hidden>
+            <button class="progress-help" id="progressHelp" hidden type="button">打开 Windows 设置</button>
+            <button class="progress-issue" id="progressIssue" hidden type="button" onclick="openIssue()">没解决？遇到问题反馈 →</button>
+          </div>
+          <details class="progress-selfhelp" id="progressSelfhelp" hidden>
+            <summary>还是不行？按顺序试试这几步</summary>
+            <ol id="progressSelfhelpList"></ol>
+          </details>
         </div>
       </div>
 
@@ -673,6 +697,7 @@
   <div class="dlg">
     <h3>耳机高级控制 · 实验室</h3>
     <div class="desc">降噪、通透、自适应与自适应强度需要独立 AAP 控制通道。普通蓝牙已连接不代表这个通道可用；当前主程序不会自动安装驱动或发送未核实命令。</div>
+    <div class="desc">为什么现在用不了：Windows 自带的蓝牙栈不向普通应用开放这条通道，所有同类软件都靠额外的内核驱动，而那些驱动目前是测试签名。小助手不会引导你关闭系统保护。</div>
     <div class="desc" id="advancedLabStatus">正在检测本机实验室…</div>
     <div class="desc">高音质耳机麦克风是另一条独立音频通道的研究目标，不属于普通 HFP，也不是这个控制实验室已提供的功能。</div>
     <div class="row"><button class="btn ghost" onclick="closeModal('mAdvanced')">关闭</button><button class="btn primary" disabled id="advancedLaunch" onclick="launchAdvanced()">打开实验室</button></div>
@@ -697,6 +722,7 @@
       </div>
       <label class="switch"><input type="checkbox" id="swMic"><span class="slider"></span></label>
     </div>
+    <details class="set-more set-standalone"><summary>通话时音质突然变差？</summary><p>用耳机麦克风通话时，Windows 会把耳机切到电话音质（单声道）。这是经典蓝牙的协议限制，Windows 上的同类软件都一样，小助手改不了。<br><b>想让音质不变差：</b>在微信、会议或游戏语音里把麦克风选成电脑自带或外接麦克风，耳机只用来听。这样也避免了来回切换造成的掉线。<br>Mac 上效果好，是因为 Apple 设备之间有自己的宽带通话通道。</p></details>
     <div class="set-row">
       <div class="set-info">
         <b>自动重置蓝牙（已停用）</b>
@@ -922,6 +948,12 @@ function completedProgress(last){
   cancelRequestedId='';
   return {id:d.id,name:d.name,state:d.audioState,connected:d.connected,title,why};
 }
+/* Self-help steps come from Microsoft's own guidance; see docs/14 section 5. */
+const SELFHELP_LINK=['把耳机关机几秒再开机，确认在电脑附近','关闭电脑蓝牙，等 10 秒再打开，再点连接','蓝牙适配器不要紧挨 USB 3.0 设备；台式机可以换到 USB 2.0 接口','电脑同时有内置蓝牙和外接适配器时，只保留一个','设备管理器 → 蓝牙 → 适配器 → 电源管理：取消「允许计算机关闭此设备以节约电源」','都不行就重启电脑；最后才考虑移除设备后重新配对（小助手不会替你做这一步）'];
+const SELFHELP_SOUND=['确认 Windows 的输出设备选的是耳机的 Stereo，而不是 Hands-Free','列表里没有耳机时，在「更多声音设置 → 播放」显示已禁用的设备，只把这副耳机启用','耳机属性里的格式设为 2 声道、16 位、48000 Hz','仍无声就关开一次电脑蓝牙，再点「重试播放连接」'];
+const selfHelpHtml=list=>list.map(s=>'<li>'+s+'</li>').join('');
+// The open case scrolls; bring an expanded checklist into view instead of leaving it cut off.
+try{const sh=document.getElementById('progressSelfhelp');if(sh&&typeof sh.addEventListener==='function')sh.addEventListener('toggle',()=>{if(sh.open)sh.scrollIntoView({block:'nearest'})})}catch(e){}
 function renderProgress(){
   const panel=document.getElementById('progressPanel'),active=currentProgress();
   if(!panel)return;
@@ -930,11 +962,23 @@ function renderProgress(){
     if(lastActiveProgress){progressOutcome=completedProgress(lastActiveProgress);lastActiveProgress=null;if(typeof updateCaseShell==='function')updateCaseShell()}
     const d=devices.find(x=>x.id===progressOutcome?.id);
     if(!d||d.audioState!==progressOutcome.state||d.connected!==progressOutcome.connected){
-      progressOutcome=null;panel.hidden=true;panel.dataset.key='';if(typeof updateCaseShell==='function')updateCaseShell();return;
+      progressOutcome=null;panel.hidden=true;panel.dataset.key='';if(typeof updateCaseShell==='function')updateCaseShell();
+      const hintEl=document.getElementById('ohint');if(hintEl)hintEl.hidden=false;return;
     }
     panel.hidden=false;panel.dataset.mode='outcome';
+    const sound=['audio_failed','playback_unavailable','playback_unverified'].includes(d.audioState),linkFail=d.audioState==='link_failed';
     const help=document.getElementById('progressHelp');
-    if(help){const sound=['audio_failed','playback_unavailable','playback_unverified'].includes(d.audioState);help.hidden=!(sound||d.audioState==='link_failed');help.textContent=sound?'打开 Windows 声音设置':'打开 Windows 蓝牙设置';help.onclick=()=>rpc(sound?'opensound':'add').catch(()=>toast('无法打开系统设置'));}
+    if(help){help.hidden=!(sound||linkFail);help.textContent=sound?'打开 Windows 声音设置':'打开 Windows 蓝牙设置';help.onclick=()=>rpc(sound?'opensound':'add').catch(()=>toast('无法打开系统设置'));}
+    // A checklist only exists for link and sound failures; never fabricate one for other states.
+    const steps=document.getElementById('progressSelfhelp'),list=document.getElementById('progressSelfhelpList'),issue=document.getElementById('progressIssue');
+    if(steps){steps.hidden=!(sound||linkFail);if(steps.hidden)steps.open=false}
+    if(list)list.innerHTML=linkFail?selfHelpHtml(SELFHELP_LINK):sound?selfHelpHtml(SELFHELP_SOUND):'';
+    if(issue)issue.hidden=!['link_failed','audio_failed','audio_lost','playback_unavailable','playback_unverified'].includes(d.audioState);
+    // The hint line repeats what the panel says, and both failure actions share one row,
+    // so nothing a user needs falls below the open case.
+    const row=document.getElementById('progressActions');
+    if(row)row.hidden=(!help||help.hidden)&&(!issue||issue.hidden);
+    const hintEl=document.getElementById('ohint');if(hintEl)hintEl.hidden=true;
     const key='outcome|'+d.id+'|'+progressOutcome.title;
     if(panel.dataset.key!==key){
       panel.dataset.key=key;
@@ -942,15 +986,20 @@ function renderProgress(){
       document.getElementById('progressWhy').textContent=progressOutcome.why;
       document.getElementById('progressStep').textContent='结果';
       document.getElementById('progressMarks').innerHTML='';
-      document.getElementById('progressTime').textContent='状态以 Windows 当前读回为准';
+      // "以 Windows 当前读回为准" is already what the outcome text says; the clock
+      // line only matters while a request is in flight.
+      const timeEl=document.getElementById('progressTime');if(timeEl){timeEl.textContent='';timeEl.hidden=true}
     }
     return;
   }
   const {device,progress:p}=active,copy=progressCopy[p.phase]?.[p.action];
-  if(!copy){panel.hidden=true;return}
+  if(!copy){panel.hidden=true;const idleHint=document.getElementById('ohint');if(idleHint)idleHint.hidden=false;return}
   lastActiveProgress={id:device.id,action:p.action};progressOutcome=null;
   panel.hidden=false;panel.dataset.mode='active';
   const help=document.getElementById('progressHelp');if(help)help.hidden=true;
+  const busyHint=document.getElementById('ohint');if(busyHint)busyHint.hidden=true;
+  // While a request is in flight only progress is shown; help belongs to outcomes.
+  for(const id of ['progressSelfhelp','progressIssue','progressActions']){const el=document.getElementById(id);if(el){el.hidden=true;el.open=false}}
   const key=String(device.id)+'|'+p.action+'|'+p.phase+'|'+p.step;
   if(panel.dataset.key!==key){
     panel.dataset.key=key;
@@ -969,7 +1018,8 @@ function renderProgress(){
       `本阶段约剩 ${remaining} 秒观察窗口，实际以 Windows 为准`):'仍在核实；Windows 响应可能较慢';
   }
   const elapsedLabel=active.source==='legacy'?'本阶段已等待':'已等待';
-  document.getElementById('progressTime').textContent=`${elapsedLabel} ${Math.floor(elapsed/1000)} 秒 · ${estimate}（非整体完成倒计时）`;
+  const timeLine=document.getElementById('progressTime');if(timeLine)timeLine.hidden=false;
+  timeLine.textContent=`${elapsedLabel} ${Math.floor(elapsed/1000)} 秒 · ${estimate}（非整体完成倒计时）`;
 }
 function isConnecting(d){return d.progress?.action==='connect'||['connect','link_pending','link_retry_wait','link_retrying','audio_pending'].includes(d.audioState)}
 function isDisconnecting(d){return d.progress?.action==='disconnect'||['disconnect','down_pending'].includes(d.audioState)}
@@ -1221,7 +1271,7 @@ function prepareAgentPrompt(){
     types:issueTypes(),description:document.getElementById('issText').value.trim()},null,2);
   const prompt=`请帮我排查 AirPods 小助手在这台 Windows 电脑上的问题，并在属于源码缺陷时修复和验证。
 仓库：https://github.com/lyzbcy/AirPods-Windows
-先检出与本机安装版本相符的 Release tag，避免直接运行默认分支的未发布候选。阅读该 tag 下的 AGENTS.md、SKILL.md 和 AI_NATIVE.md，再按 doc/README.md 查阅相关文档；先定位本机实际安装版本、安装目录和故障阶段。没有源码时在合适的开发目录克隆，不覆盖现有安装。
+先检出与本机安装版本相符的 Release tag，避免直接运行默认分支的未发布候选。阅读该 tag 下的 AGENTS.md、SKILL.md 和 AI_NATIVE.md，再按 docs/agent.md 查阅相关文档；先定位本机实际安装版本、安装目录和故障阶段。没有源码时在合适的开发目录克隆，不覆盖现有安装。
 先做只读排查，区分环境问题、软件缺陷和硬件未验证。日志位于实际安装目录的 logs/，读取最少必要内容，分享前脱敏；不要把原始日志、设备地址、个人路径、联系方式、app_settings.ini 或 webhook/令牌放进 PR。
 不得自动重置整机蓝牙、删除配对或更改其他设备；涉及系统设置、安装替换、真实连接/断开和听音测试时先说明影响并取得我的同意。未确认听音不得声称已修复。
 若需修代码，在独立分支完成最小修改，运行相关离线验证并报告结果、局限与回滚方法，区分源码修复、本机验证和正式发布。

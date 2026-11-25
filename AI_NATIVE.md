@@ -4,7 +4,7 @@
 
 ## 先定位，再修复
 
-源码：<https://github.com/lyzbcy/AirPods-Windows>。先确认用户安装版本，检出对应 Release tag，阅读该 tag 的 `AGENTS.md`、`SKILL.md` 和 `doc/README.md`。默认分支可能含尚未发布的候选，不直接拿它覆盖用户安装。
+源码：<https://github.com/lyzbcy/AirPods-Windows>。先确认用户安装版本，检出对应 Release tag，阅读该 tag 的 `AGENTS.md`、`SKILL.md` 和 `docs/agent.md`。默认分支可能含尚未发布的候选，不直接拿它覆盖用户安装。
 
 先做只读排障，区分设备发现、配对、连接、播放端点和实际听音。日志在实际安装目录的 `logs/`；本版原有日志可能含设备标识、地址、路径，读取最少必要内容，分享前脱敏。不得自动重置整机蓝牙、删除配对或更改其他设备；有影响的系统修改、安装替换和真实设备测试先向用户说明并取得同意。没有硬件或用户听音证据时如实标记未验证。
 

@@ -23,10 +23,11 @@ button:hover,button:focus-visible{background:#fff3cc;transform:translateX(2px);b
 <div class="sep"></div>
 <button data-action="logs"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>详细排障日志<span class="check" id="logCheck"></span></button>
 <button data-action="update"><svg viewBox="0 0 24 24"><path d="M19 10a8 8 0 1 0-2 8M19 4v6h-6"/></svg>检查更新<span class="chev">›</span></button>
+<button data-action="feedback"><svg viewBox="0 0 24 24"><path d="M4.6 5.4c3.2-1.6 11.6-1.8 14.7.2M20 6.2c.9 3.4.5 7.6-.6 10.4-3.6 1.2-10.2 1.4-13.9.3l-3 2.4c.5-2.1.9-4.3.7-6.5M12 8.2l.2 4.4M12.3 15.4l.1.1"/></svg>遇到问题反馈<span class="chev">›</span></button>
 <button class="danger" data-action="quit"><svg viewBox="0 0 24 24"><path d="M12 3v9M7 6a8 8 0 1 0 10 0"/></svg>退出小助手</button>
 <div class="footer"><span>米白 · 快捷控制</span><button data-action="close" aria-label="关闭快捷菜单">收起 ×</button></div>
 </div><script>
-const allowed=new Set(['open','connect','disconnect','advanced','logs','update','quit','close']);
+const allowed=new Set(['open','connect','disconnect','advanced','logs','update','feedback','quit','close']);
 let sent=false;
 function send(action){if(!allowed.has(action)||sent)return;sent=true;try{chrome.webview.postMessage('tray:'+action)}catch(e){sent=false}}
 document.querySelectorAll('[data-action]').forEach(b=>b.addEventListener('click',()=>send(b.dataset.action)));

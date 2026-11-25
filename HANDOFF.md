@@ -1,12 +1,14 @@
 # AirPods 小助手 · 当前交接（2026-11-25）
 
-先读仓库根 [SKILL.md](SKILL.md)、[AGENTS.md](AGENTS.md) 与 [doc/README.md](doc/README.md)，以 [doc/04-项目进度.md](doc/04-项目进度.md) 核对当前部署和待办，**不要复用旧版交接里的硬编码个人路径**。
+先读仓库根 [SKILL.md](SKILL.md)、[AGENTS.md](AGENTS.md) 与[文档导航](docs/agent.md)，以[项目进度](docs/roadmap.md)核对当前部署和待办，**不要复用旧版交接里的硬编码个人路径**。
 
-- 主程序：AutoHotkey v2 / WebView2 / Core Audio / KS，Windows 本机开发版 1.9.38；公开正式 1.9.24。Mac 独立；高级控制独立实验室 1.10.0-beta.2。
+- 主程序：AutoHotkey v2 / WebView2 / Core Audio / KS。源码 1.9.39 已构建、未安装；本机运行 1.9.38；公开正式 1.9.24。Mac 独立；高级控制独立实验室 1.10.0-beta.2。
+- 开发目录已按产品名改名；文档入口是 `docs/agent.md`，待办只在 `docs/roadmap.md`，深度资料在 `reference/`。
 - 关键已证事实：旧 stereo 单请求两 USB 位置冷连接失败；HFP 单请求试验与已安装 v1.9.36 实际冷连接成功，用户确认听到声音，三默认输入角色保持。HFP 仅引导链路，不等于 HFP 高保真；短时实机 capture 1ch/8kHz、应用观察 active 并不扰动通话。严格五轮、其他型号与长时通话仍未通过。
-- 高级控制实验室有模式与 Adaptive Level 协议、会话/超时/回读、UI 测试；本机 0 AAP 接口，不自动装驱动或接管当前唯一适配器。参考 [doc/13](doc/13-AAP实验版.md)、[doc/14](doc/14-竞品对标与高级能力路线.md)；GPL 实现不直接并入 MIT 主程序。
+- 高级控制实验室有模式与 Adaptive Level 协议、会话/超时/回读、UI 测试；本机 0 AAP 接口，不自动装驱动或接管当前唯一适配器。参考[实验版与真机矩阵](docs/13-AAP实验版.md)、[竞品对标](docs/14-竞品对标与高级能力路线.md)；GPL 实现不直接并入 MIT 主程序。
 - 新开盒 UI、精灵、品牌、托盘悬浮和右键弹层已实装，按产品真实状态显示，不假报播放。原生菜单保留回退，隐藏停止/释放资源。
 - 本地以实际进程 Path、启动版本和 build-manifest 哈希核对安装；构建 `scripts/build-deploy.ps1`，全量离线 `python tests/run_suite.py --output <私有临时结果目录>`。保留真实安装设置与回退，不从 dist 推断当前版。
 - 隐私：保留匿名状态/阶段与用户同意的适配器事件摘要；不把原始聊天、设备名/地址、个人路径、反馈密钥、用户截图上传。已迁移旧反馈密钥到本地配置，缺失不采集。历史失败不能改写为通过。
 - 开发分支及确切公开版独立；公开 Release 必须获得当前版本授权，之后页面、软件中心和最新资产回读。目录与旧构建清理以所有者本地回执为准。
-- 本轮详细证据：[维护记录](doc/maintenance-20261125.md)，下一步先看现有真实差异与明确待办，不反复打扰用户做相同蓝牙实验。
+- 调研定论：降噪 / 通透 / 自适应和高音质耳机麦在 Windows 上都必须有内核驱动，不装驱动做不到；不要把时间花在 Winsock 或 WinRT 上，细节与来源见 [竞品对标](docs/14-竞品对标与高级能力路线.md)。
+- 最近一轮证据：[晚间维护记录](reference/maintenance/maintenance-20261125-evening.md)；更早的见 [日间维护记录](reference/maintenance/maintenance-20261125.md)。下一步先看待办里标 P0 的几项，不反复打扰用户做相同的蓝牙实验。
