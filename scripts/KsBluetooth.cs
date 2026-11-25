@@ -36,7 +36,7 @@ namespace AirPodsBuddy.Ks {
  public sealed class RequestResult {
   public bool Accepted; public int Requested; public string Error; public string RenderId; public string CaptureId;
   // Diagnostic-only, UTC FILETIME ticks shared with the read-only state sampler.
-  public string KsTrace=""; public string TargetEndpoints="";
+  public string KsTrace=""; public string TargetEndpoints=""; public string ConnectStrategy="";
  }
  public interface IBackend {
   Endpoint[] List(string container); int Send(string endpointId, string expectedFilterId, uint property);
@@ -107,13 +107,46 @@ namespace AirPodsBuddy.Ks {
    return render[0];
   }
   public static RequestResult Run(IBackend backend,string container,bool connect,bool microphone,int linkState) {
+   return Run(backend,container,connect,microphone,linkState,false);
+  }
+  public static RequestResult Run(IBackend backend,string container,bool connect,bool microphone,int linkState,bool preferHfp) {
    var result=new RequestResult();var rows=backend.List(container);
+   result.ConnectStrategy=connect?"stereo":"disconnect";
    Guid target; if(!Guid.TryParse(container,out target)||target==Guid.Empty)throw new ArgumentException("Invalid target container");
    Endpoint render=null;
    if(connect){render=SelectRender(rows,container);result.RenderId=render.Id;
     if(linkState<0){result.Error="Bluetooth link state unavailable";return result;}}
    var pending=new List<Endpoint>();var filters=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-   foreach(var ep in rows) {
+   // A verified AirPods cold-link comparison showed the HFP filter establishes
+   // the physical link first, then Windows activates the stereo endpoint.
+   // This is an exact-target link bootstrap, not a microphone route change.
+   Endpoint hfpBootstrap=null;
+   if(connect&&preferHfp&&!microphone&&linkState==0&&render.State==8) {
+    var candidates=new List<Endpoint>();
+    foreach(var ep in rows) {
+     Guid c;if(!Guid.TryParse(ep.ContainerId,out c)||c!=target||ep.Flow!=0||ep.State!=8)continue;
+     string filter=(ep.FilterId??"").ToUpperInvariant();
+     if(filter.Contains("BTHHFENUM")||filter.Contains("0000111E"))candidates.Add(ep);
+    }
+    if(candidates.Count==1&&candidates[0].ReconnectSupported) {
+     var captures=new List<Endpoint>();
+     foreach(var ep in rows) {
+      Guid c;if(!Guid.TryParse(ep.ContainerId,out c)||c!=target||ep.Flow!=1||ep.State!=8)continue;
+      if(String.Equals(ep.FilterId,candidates[0].FilterId,StringComparison.OrdinalIgnoreCase))captures.Add(ep);
+     }
+     // Keep an exact capture ID for call-use observation, not a capture request
+     // or automatic default-input selection. Missing/ambiguous/disabled capture
+     // falls back to the established stereo-only route.
+     if(captures.Count==1) {
+      hfpBootstrap=candidates[0];
+      result.CaptureId=captures[0].Id;
+     }
+    }
+   }
+   if(hfpBootstrap!=null) {
+    pending.Add(hfpBootstrap);
+    result.ConnectStrategy="hfp-link";
+   } else foreach(var ep in rows) {
     Guid c;if(!Guid.TryParse(ep.ContainerId,out c)||c!=target)continue;
     if(ep.State!=1&&ep.State!=8)continue; // never enable user-disabled/absent devices
     if(!connect&&(ep.Flow==0||ep.Flow==1)) {

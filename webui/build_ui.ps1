@@ -48,3 +48,9 @@ foreach ($name in @('headphones-wait-49.webp','headphones-idle-49.webp')) {
 }
 [IO.File]::WriteAllText((Join-Path $PSScriptRoot 'pet_built.html'), $pet, (New-Object System.Text.UTF8Encoding $false))
 Write-Host 'built: pet_built.html (sprite inlined)'
+
+$tray = Get-Content (Join-Path $PSScriptRoot 'tray.html') -Raw -Encoding UTF8
+$brand = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $assets 'airpods-brand.png')))
+$tray = $tray.Replace('assets/airpods-brand.png', ('data:image/png;base64,' + $brand))
+[IO.File]::WriteAllText((Join-Path $PSScriptRoot 'tray_built.html'), $tray, (New-Object System.Text.UTF8Encoding $false))
+Write-Host 'built: tray_built.html (brand image inlined)'

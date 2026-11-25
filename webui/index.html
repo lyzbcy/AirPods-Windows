@@ -485,6 +485,22 @@
   .case-main .progress-why{font-size:11px}
   .row-icon{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#eadcc7;color:#8a6e3e;font-style:normal;font-weight:700;font-size:15px}.linked{background:linear-gradient(120deg,#e7efd8,#f4f5e9)!important}.linked .row-icon{background:#83b969;color:white}.row-icon.playback{background:#efd097;color:#fff;font-size:12px}
   @media(prefers-reduced-motion:reduce){.case-lid-wrap,.case-lid,.case-base,.lid-inner{transition:none!important}}
+  .device-rail .chip{border:0;background:transparent;filter:drop-shadow(0 1px 1px #8b693422)}
+  .device-rail .chip svg{width:28px;height:28px}
+  .row-icon svg{width:17px;height:17px}
+  .case-shell[data-case=open] .case-summary{animation:caseReveal .42s .1s both cubic-bezier(.2,.8,.2,1)}
+  .case-shell[data-case=open] .case-summary .detail-row:nth-child(2){animation:caseReveal .38s .18s both cubic-bezier(.2,.8,.2,1)}
+  .case-shell[data-case=open] .case-summary .detail-row:nth-child(3){animation:caseReveal .38s .24s both cubic-bezier(.2,.8,.2,1)}
+  .call-guidance{font-size:11px;line-height:1.45;color:#74572e;background:#fff5dd;border-radius:12px;padding:9px;margin:6px 0}.case-main .ohint:empty{display:none}.call-guidance button{display:inline-block;margin-top:3px;border:0;color:#806013;background:transparent;text-decoration:underline;cursor:pointer}
+  #advancedLaunch:disabled{background:#e6e1d7;color:#7c7568;box-shadow:none;cursor:not-allowed;opacity:1}.mask.open#mAdvanced .dlg{background:#fffcf4;border:1px solid #fff}
+  .wbtn.sketch{position:relative;width:28px;height:28px;color:#9b8155;border:1px solid #e5d5b9;background:#fffdf5a0;box-shadow:inset 0 1px 1px white}
+  .wbtn.sketch svg{width:17px;height:17px}
+  .wbtn.sketch:hover{background:#fff0c3;color:#795c2e;transform:translateY(-1px)}
+  .wbtn.sketch.close:hover{background:#f9dfd6;color:#a65b50}
+  .wbtn.sketch::after{content:attr(data-tip);position:absolute;right:0;top:32px;white-space:nowrap;background:#fffdf4;border:1px solid #ecddc4;border-radius:9px;padding:5px 8px;font-size:10px;color:#67512d;opacity:0;pointer-events:none;transform:translateY(-3px);transition:opacity .18s .2s,transform .18s .2s;z-index:4}
+  .wbtn.sketch:hover::after,.wbtn.sketch:focus-visible::after{opacity:1;transform:none}
+  @keyframes caseReveal{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
+  @media(prefers-reduced-motion:reduce){.case-shell[data-case=open] .case-summary,.case-shell[data-case=open] .case-summary .detail-row{animation:none!important}}
 </style>
 </head>
 <body>
@@ -492,8 +508,8 @@
   <div class="case-lid-wrap"><div class="case-lid">
     <div class="lid-inner"></div>
     <div class="topbar" id="topbar">
-      <button class="wbtn" onclick="rpc('winmin')" title="最小化到托盘">−</button>
-      <button class="wbtn close" onclick="rpc('winclose')" title="关闭到托盘">×</button>
+      <button class="wbtn sketch" onclick="rpc('winmin')" aria-label="最小化到托盘" data-tip="最小化到托盘"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 12.5Q12 11 17.6 12.3" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/></svg></button>
+      <button class="wbtn close sketch" onclick="rpc('winclose')" aria-label="关闭到托盘" data-tip="关闭到托盘"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 6.8Q11.4 12.2 17 17.3M17 6.7Q12.1 12.8 7.3 17.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
     </div>
   </div></div>
   <div class="case-base">
@@ -652,6 +668,16 @@
   </div>
 </div>
 
+<!-- Advanced features are capability-gated; no pretend controls or automatic driver changes. -->
+<div class="mask" id="mAdvanced">
+  <div class="dlg">
+    <h3>耳机高级控制 · 实验室</h3>
+    <div class="desc">降噪、通透、自适应与自适应强度需要独立 AAP 控制通道。普通蓝牙已连接不代表这个通道可用；当前主程序不会自动安装驱动或发送未核实命令。</div>
+    <div class="desc" id="advancedLabStatus">正在检测本机实验室…</div>
+    <div class="desc">高音质耳机麦克风是另一条独立音频通道的研究目标，不属于普通 HFP，也不是这个控制实验室已提供的功能。</div>
+    <div class="row"><button class="btn ghost" onclick="closeModal('mAdvanced')">关闭</button><button class="btn primary" disabled id="advancedLaunch" onclick="launchAdvanced()">打开实验室</button></div>
+  </div>
+</div>
 <!-- settings -->
 <div class="mask" id="mSet">
   <div class="dlg">
@@ -666,7 +692,7 @@
     <div class="set-row">
       <div class="set-info">
         <b>自动选择耳机麦克风</b>
-        <p>未设置时默认关闭，保留你原来的麦克风。开启后，下次连接自动选择耳机麦克风；关闭时尝试恢复本次由小助手改过的选择，不覆盖你后来的手动选择。</p>
+        <p>未设置时默认关闭，保留你原来的麦克风。优先保留立体声和电脑/外接麦克风。开启后，下次连接尝试选择耳机麦克风（Classic 通话音质）；关闭时尝试恢复本次由小助手改过的选择，不覆盖你后来的手动选择。</p>
         <details class="set-more"><summary>通话／游戏没声音？</summary><p>微信语音或游戏使用蓝牙耳机麦克风时，Windows 可能切到通话模式。关闭此开关不禁用耳机麦克风，也不结束其他应用的录音；可改用电脑或外接麦克风，再重新开始通话。旧版本或重启前的选择需手动确认。<br>开启后若录音设备缺失，下次连接仅尝试一次恢复这副耳机的 HFP 服务，可能安装驱动；不重置整机蓝牙、不动其他设备。</p></details>
       </div>
       <label class="switch"><input type="checkbox" id="swMic"><span class="slider"></span></label>
@@ -761,24 +787,26 @@ function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t
 
 /* ---------- device art（描边换成粉调） ---------- */
 function art(kind){
-  const s='<g fill="none" stroke="#EF7FA5" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round">';
-  if(kind==='pro') return `<svg viewBox="0 0 64 64">${s}
-    <path d="M17 30V17a7 7 0 0 1 14 0v13"/><path d="M20 30l1.5 17a2.5 2.5 0 0 0 5 0L28 30"/>
-    <path d="M37 30V17a7 7 0 0 1 14 0v13"/><path d="M40 30l1.5 17a2.5 2.5 0 0 0 5 0L48 30"/>
-    <path d="M21 12c-2-3 0-6 2-4" stroke-width="3.4"/><path d="M41 12c-2-3 0-6 2-4" stroke-width="3.4"/></svg>`;
-  if(kind==='max') return `<svg viewBox="0 0 64 64">${s}
-    <path d="M14 36a18 17 0 0 1 36 0"/>
-    <path d="M12 36v8a7 7 0 0 0 14 0v-6"/><path d="M38 38v6a7 7 0 0 0 14 0v-8"/>
-    <path d="M19 40v4M45 40v4" stroke-width="3.2"/></svg>`;
-  if(kind==='beats') return `<svg viewBox="0 0 64 64">${s}
-    <path d="M14 33a18 16 0 0 1 36 0"/>
-    <circle cx="19" cy="40" r="8"/><circle cx="45" cy="40" r="8"/></svg>`;
-  if(kind==='buds') return `<svg viewBox="0 0 64 64">${s}
-    <path d="M22 18c8 0 10 12 4 17l-2 14"/><path d="M42 18c-8 0-10 12-4 17l2 14"/>
-    <circle cx="24" cy="17" r="4.5" stroke-width="3.4"/><circle cx="40" cy="17" r="4.5" stroke-width="3.4"/></svg>`;
-  return `<svg viewBox="0 0 64 64">${s}
-    <path d="M18 30V18a7 7 0 0 1 13 0v12"/><path d="M21.5 30v18"/>
-    <path d="M38 30V18a7 7 0 0 1 13 0v12"/><path d="M41.5 30v18"/></svg>`;
+  const wrap=body=>'<svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">'+body+'</svg>';
+  if(kind==='max'||kind==='beats')return wrap(`<path d="M8 26v-4C8 10 15 5 24 5s16 5 16 17v4" fill="none" stroke="#916b37" stroke-width="5" stroke-linecap="round"/>
+    <path d="M10 21C10 10 16 7 24 7s14 3 14 14" fill="none" stroke="#d6b67d" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M8 24v9m32-9v9" stroke="#ad8951" stroke-width="3.2" stroke-linecap="round"/>
+    <rect x="5" y="25" width="13" height="17" rx="6.5" fill="#ad8144" stroke="#8c6435" stroke-width="1.4"/>
+    <rect x="30" y="25" width="13" height="17" rx="6.5" fill="#ad8144" stroke="#8c6435" stroke-width="1.4"/>
+    <rect x="8" y="27" width="7" height="13" rx="3.5" fill="#f8e9c7"/><rect x="33" y="27" width="7" height="13" rx="3.5" fill="#f8e9c7"/>
+    <path d="M9 28v10m30-10v10" stroke="#fff8e8" stroke-width="1.4" stroke-linecap="round"/>`);
+  if(kind==='buds')return wrap(`<path d="M9 15q6-8 14-2 6 5 1 13l-8 8q-6 4-10-3-4-10 3-16Z" fill="#d1a363" stroke="#96703a" stroke-width="1.5"/>
+    <path d="M39 15q-6-8-14-2-6 5-1 13l8 8q6 4 10-3 4-10-3-16Z" fill="#d1a363" stroke="#96703a" stroke-width="1.5"/>
+    <ellipse cx="13" cy="19" rx="4" ry="5" fill="#fff0cb"/><ellipse cx="35" cy="19" rx="4" ry="5" fill="#fff0cb"/>
+    <circle cx="20" cy="28" r="2" fill="#8c6435"/><circle cx="28" cy="28" r="2" fill="#8c6435"/>`);
+  const pro=kind==='pro',stem=pro?37:43;
+  return wrap(`<g fill="#cda36b" stroke="#916b37" stroke-width="1.4" stroke-linejoin="round">
+    <path d="M5 17C5 11 9 7 15 7c5 0 8 4 8 9 0 4-2 7-6 8.5L17 ${stem}q0 3-3.5 3T10 37l-.5-13C6.5 22.5 5 20 5 17Z"/>
+    <path d="M43 17c0-6-4-10-10-10-5 0-8 4-8 9 0 4 2 7 6 8.5L31 ${stem}q0 3 3.5 3T38 37l.5-13C41.5 22.5 43 20 43 17Z"/>
+    </g><path d="M7.5 16c0-4 2.5-6.5 6-7.5M40.5 16c0-4-2.5-6.5-6-7.5" stroke="#fff5dd" stroke-width="1.7" fill="none" stroke-linecap="round"/>
+    <path d="M12 27v9m24-9v9" stroke="#ead2a0" stroke-width="1.4" stroke-linecap="round"/>
+    <ellipse cx="15" cy="15" rx="2.4" ry="3.5" fill="#78582f"/><ellipse cx="33" cy="15" rx="2.4" ry="3.5" fill="#78582f"/>
+    ${pro?'<path d="M18 10q4-3 5 1v6q-1 3-5 1M30 10q-4-3-5 1v6q1 3 5 1" fill="#f9e9c5" stroke="#ad8951" stroke-width="1"/>':''}`);
 }
 function kindOf(n){
   n=n.toLowerCase();
@@ -951,7 +979,7 @@ function canRetryPlayback(d){return d.connected&&!isConnecting(d)&&!isDisconnect
 function deviceAction(d){return d.connected||isConnecting(d)||isDisconnecting(d)?'disconnect':'connect'}
 function deviceActionTitle(d){return d.progress?.phase==='queued'?'取消已排队':(isDisconnecting(d)?'正在断开':(connectRequestBusy(d)?'正在提交连接请求':(isConnecting(d)?'取消连接':(d.connected?'断开':'连接'))))}
 function deviceStatus(d){
-  if(d.audioState==='call_active')return '耳机麦克风使用中 · 通话声音请试听';
+  if(d.audioState==='call_active')return '耳机麦克风使用中 · 通话音质';
   if(d.audioState==='call_unverified')return '麦克风状态未确认 · 暂缓播放预检';
   if(d.progress?.phase==='queued')return '取消已排队 · 等待当前请求结束';
   if(isDisconnecting(d))return '正在断开 · 等待 Windows 核实';
@@ -1010,11 +1038,11 @@ function renderOrb(){
   orb.className='orb'+(t.connected?' on':'')+(disabled?' busy':'')+(isConnecting(t)||isDisconnecting(t)?' inflight':'');
   orb.innerHTML=disabled?'<span class="spin" aria-hidden="true"></span>':isConnecting(t)?'取消连接':t.connected?'断开连接':'连接耳机';
   orb.onclick=disabled?null:()=>doAction(null,t.id,deviceAction(t));
-  hint.textContent=t.connected?'播放状态以 Windows 核实为准':isConnecting(t)?'正在核实连接状态':t.audioState==='link_failed'?'连接未建立，可在诊断中打开系统蓝牙设置':'连接「'+t.name+'」';
-  summary.innerHTML=`<div class="detail-row"><span>当前设备</span><strong>${esc(t.name)}</strong></div><div class="detail-row link-row ${t.connected?'linked':''}"><span><i class="row-icon">⌁</i> 蓝牙链路</span><strong>${t.connected?'已连接':'未连接'}</strong></div><div class="detail-row"><span><i class="row-icon playback">▶</i> 播放状态</span><strong>${deviceStatus(t)}</strong></div>${canRetryPlayback(t)?`<button class="audio-retry" data-act="connect" data-name="${esc(t.id)}">重试播放连接</button>`:''}`;
+  hint.textContent=t.audioState==='call_active'?'':t.connected?'播放状态以 Windows 核实为准':isConnecting(t)?'正在核实连接状态':t.audioState==='link_failed'?'连接未建立，可在诊断中打开系统蓝牙设置':'连接「'+t.name+'」';
+  summary.innerHTML=`<div class="detail-row"><span>当前设备</span><strong>${esc(t.name)}</strong></div><div class="detail-row link-row ${t.connected?'linked':''}"><span><i class="row-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18l5-5-10-9m5-4 5 5-10 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></i> 蓝牙链路</span><strong>${t.connected?'已连接':'未连接'}</strong></div><div class="detail-row"><span><i class="row-icon playback"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 12 7-12 7z" fill="currentColor"/></svg></i> 播放状态</span><strong>${deviceStatus(t)}</strong></div>${t.audioState==='call_active'?`<div class="call-guidance">Classic 通话时 Windows 使用低带宽音频。若要保持立体声，请改用电脑或外接麦克风。<button onclick="rpc('opensound')">打开声音设置</button></div>`:''}${canRetryPlayback(t)?`<button class="audio-retry" data-act="connect" data-name="${esc(t.id)}">重试播放连接</button>`:''}`;
   summary.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>doAction(b));
   const i=devices.indexOf(t);
-  tools.innerHTML=`<button onclick="rpc('opensound')">声音设置</button><button onclick="rpc('add')">蓝牙设置</button><button onclick="openIssue()">问题诊断</button><button onclick="movePrio(${i},-1)" ${i===0?'disabled':''}>提高优先级</button><button onclick="movePrio(${i},1)" ${i===devices.length-1?'disabled':''}>降低优先级</button><button data-del="${esc(t.id)}">移除设备</button>`;
+  tools.innerHTML=`<button onclick="rpc('opensound')">声音设置</button><button onclick="rpc('add')">蓝牙设置</button><button onclick="openIssue()">问题诊断</button><button onclick="openAdvanced()">降噪与高级控制</button><button onclick="movePrio(${i},-1)" ${i===0?'disabled':''}>提高优先级</button><button onclick="movePrio(${i},1)" ${i===devices.length-1?'disabled':''}>降低优先级</button><button data-del="${esc(t.id)}">移除设备</button>`;
   tools.querySelector('[data-del]').onclick=()=>askDel(t.id);
   updateCaseShell();
 }
@@ -1280,6 +1308,17 @@ async function showUpdate(d){
   openModal('mUpd');
 }
 /* ---------- 设置 ---------- */
+async function openAdvanced(){
+  openModal('mAdvanced');
+  const el=document.getElementById('advancedLabStatus'),button=document.getElementById('advancedLaunch');
+  button.disabled=true;el.textContent='正在检测本机实验室…';
+  try{const installed=await rpc('advancedstatus');button.disabled=!installed;el.textContent=installed?'已安装独立实验室；打开后先检测兼容驱动，再明确选择耳机。':'本机未安装独立实验室，普通连接与播放不受影响。'}
+  catch(e){el.textContent='实验室状态未确认；不会执行控制命令。'}
+}
+async function launchAdvanced(){
+  try{if(await rpc('openadvanced')!==true)toast('实验室未打开，请查看日志')}
+  catch(e){toast('实验室未打开，请查看日志')}
+}
 async function openSettings(){
   openModal('mSet');
   const st = await rpc('getautostart');

@@ -207,5 +207,16 @@ const rpc=(...args)=>context.rpc(...args),pending=()=>vm.runInContext('Object.ke
   await context.onAudioHeld('A');
   assert.match(heldToasts.at(-1),/播放能力尚未确认/);
   console.log('PASS audioheld_distinguishes_playback_failure');
+  const advancedCode=html.slice(html.indexOf('async function openAdvanced('),html.indexOf('async function openSettings('));
+  const labStatus={textContent:''},labLaunch={disabled:false};let opened='',launchCalls=0;
+  Object.assign(context,{openModal:id=>opened=id,document:{getElementById:id=>id==='advancedLabStatus'?labStatus:labLaunch},
+    rpc:async cmd=>{if(cmd==='openadvanced')launchCalls++;return false}});
+  vm.runInContext(advancedCode,context);await context.openAdvanced();
+  assert.equal(opened,'mAdvanced');assert.equal(labLaunch.disabled,true);assert.match(labStatus.textContent,/未安装/);assert.equal(launchCalls,0);
+  context.rpc=async cmd=>cmd==='advancedstatus'?true:(launchCalls++,true);await context.openAdvanced();
+  assert.equal(labLaunch.disabled,false);assert.match(labStatus.textContent,/先检测兼容驱动/);assert.equal(launchCalls,0);
+  await context.launchAdvanced();assert.equal(launchCalls,1);
+  console.log('PASS advanced_lab_requires_explicit_launch_and_never_claims_driver');
+
   console.log('RESULT failures=0');
 })().catch(e=>{console.error(e);process.exitCode=1});

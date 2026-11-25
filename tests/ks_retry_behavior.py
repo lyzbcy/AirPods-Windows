@@ -207,6 +207,19 @@ Check("stale_audio_tick_during_retry_wait_cannot_cancel_retry", deviceOps["AABBC
 SetOpState("AABBCCDDEEFF", gen, "audio_pending")
 AudioVerifyTick("AABBCCDDEEFF", 1, gen)
 Check("second_link_drop_after_retry_is_terminal", deviceOps["AABBCCDDEEFF"].state = "link_failed" && deviceOps["AABBCCDDEEFF"].retryCount = 1)
+busy := false, linkUp := false, micSetting := "0"
+devices[1].name := "AirPods Pro fixture"
+Check("airpods_mic_off_initial_payload_prefers_exact_hfp", DoAction("AABBCCDDEEFF", "connect") = "ok" && InStr(lastPayload, '"preferHfp":true'))
+gen := deviceOps["AABBCCDDEEFF"].gen
+deviceOps["AABBCCDDEEFF"].backend := "ks", deviceOps["AABBCCDDEEFF"].connectStrategy := "hfp-link"
+busy := false
+ScheduleKsConnectRetry("AABBCCDDEEFF", gen, "link")
+TryKsConnectRetry("AABBCCDDEEFF", gen, actionEpoch)
+Check("one_retry_after_hfp_attempt_falls_back_to_stereo", InStr(lastPayload, '"preferHfp":false') && deviceOps["AABBCCDDEEFF"].retryCount = 1)
+busy := false
+devices[1].name := "Generic headphones fixture"
+Check("other_headphone_initial_payload_stays_stereo", DoAction("AABBCCDDEEFF", "connect") = "ok" && InStr(lastPayload, '"preferHfp":false'))
+
 FileAppend("RESULT failures=" failures "`n", "*")
 ExitApp(failures ? 1 : 0)
 Check(name, ok) {

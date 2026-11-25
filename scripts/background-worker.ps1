@@ -79,16 +79,8 @@ try {
         }
         'bluetooth' {
             Import-Module (Join-Path $PSScriptRoot 'KsBluetooth.psm1') -Force
-            $ks=Invoke-KsBluetooth -Address ([string]$a.address) -Action ([string]$a.action) -Microphone ([bool]$a.mic) -MicRestore ([bool]$a.micRestore)
+            $ks=Invoke-KsBluetooth -Address ([string]$a.address) -Action ([string]$a.action) -Microphone ([bool]$a.mic) -MicRestore ([bool]$a.micRestore) -PreferHfp ([bool]$a.preferHfp)
             foreach($key in $ks.Keys){if($null -ne $ks[$key]){$result[$key]=$ks[$key]}}
-        }
-        'noise' {
-            if ($a.address -notmatch '^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$' -or $a.mode -notin 'anc','off','trans','adapt') { throw 'Invalid noise request' }
-            $noise=Join-Path $PSScriptRoot 'noise_mode.ps1'
-            if (!(Test-Path $noise)) {$noise=Join-Path (Split-Path $PSScriptRoot) 'tools\noise_mode.ps1'}
-            & $noise -Mac $a.address -Mode $a.mode
-            if ($LASTEXITCODE -ne 0) { throw 'Noise helper failed' }
-            $result.status='ok'
         }
         default { throw 'Unknown worker task' }
     }

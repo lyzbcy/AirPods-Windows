@@ -1,0 +1,57 @@
+{
+  "date": "2026-11-25",
+  "sourceVersion": "1.9.38",
+  "localInstalledVersion": "1.9.38",
+  "publicRelease": "1.9.24",
+  "exeSha256": "a3ee261fba2748acce3d1dc233dde2f6d8eaff228ee3e8b3b105ce60612557f2",
+  "offline": {
+    "suites": 31,
+    "assertions": 592,
+    "status": "pass"
+  },
+  "live": {
+    "coldConnectTestedVersion": "1.9.36",
+    "strategy": "hfp-link",
+    "ksRequests": 1,
+    "link": 1,
+    "renderState": 1,
+    "precheck": "pass",
+    "userHeard": true,
+    "defaultInputRolesUnchanged": 3,
+    "fiveRoundPass": false,
+    "laterTimingOptimizationReverifiedCold": false,
+    "captureTest": {
+      "seconds": 10,
+      "channels": 1,
+      "sampleRateHz": 8000,
+      "audioReadOrStored": false,
+      "linkStableDuringSample": true,
+      "watcherDeferred": true
+    },
+    "trayPopupButtons": 8,
+    "trayHoverNoFocusTheft": true,
+    "trayHoverHidesOnLeave": true
+  },
+  "beta": {
+    "version": "1.10.0-beta.2",
+    "offlineAssertions": 3115,
+    "installed": true,
+    "exeSha256": "d86185096f93937d02be41b9f37e2f3286d907d2203a8ec986dee8cb0255a8f4",
+    "interfaces": 0,
+    "hardwareOpened": false,
+    "controlsDisabled": true,
+    "actualNoiseControlVerified": false,
+    "hiResMicrophoneVerified": false,
+    "ownerDeferredHardwareRoute": true
+  },
+  "softwareCenter": {
+    "local": "0.10.30",
+    "public": "0.10.28"
+  },
+  "website": {
+    "public": "1.22.23",
+    "latestDirectVerified": true
+  },
+  "publicReleaseCreated": false,
+  "privacy": "No raw device identifiers, screen contents, logs, personal paths or secrets"
+}

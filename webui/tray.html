@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AirPods 小助手 · 快捷菜单</title><style>
+*{box-sizing:border-box}html,body{margin:0;height:100%;font-family:"Segoe UI","Microsoft YaHei UI",sans-serif;color:#43351e;background:transparent;user-select:none}
+body{padding:6px}.tray-card{height:100%;overflow:hidden;display:flex;flex-direction:column;padding:14px;background:linear-gradient(145deg,#fffef9,#fcf2e1 65%,#ead7bd);border:1px solid #fff;border-radius:25px;box-shadow:inset 0 1px 3px #fff,0 6px 14px #b59a7540;animation:enter .26s cubic-bezier(.2,.8,.2,1) both}
+@keyframes enter{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
+header{display:flex;align-items:center;gap:9px;padding:0 0 11px;border-bottom:1px solid #dcccaf80;margin-bottom:8px}
+header img{width:37px;height:37px;border-radius:12px;box-shadow:0 2px 5px #8c70452c}header b{font-size:13px}header small{display:block;margin-top:3px;font-size:10px;color:#897751}
+.status{margin-left:auto;width:8px;height:8px;border-radius:50%;background:#e6b24d;box-shadow:0 0 5px #e6b24d90}.status[data-state=on]{background:#75b980;box-shadow:0 0 6px #75b98080}.status[data-state=busy]{background:#e6b24d;animation:pulse 1.1s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.45}}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;display:flex;align-items:center;text-align:left;gap:8px;padding:8px 10px;border-radius:12px;width:100%;font-size:12px;min-height:34px;transition:background .18s,transform .18s,box-shadow .18s}
+button svg{width:19px;height:19px;flex:none;stroke:#986e34;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}button .chev{margin-left:auto;color:#a28a60;font-size:15px}
+button:hover,button:focus-visible{background:#fff3cc;transform:translateX(2px);box-shadow:inset 0 1px 1px #fff,0 2px 8px #b38a4022;outline:none}button:active{transform:scale(.98)}
+.primary{background:linear-gradient(#ffe49d,#ffcb53);font-weight:650;border:1px solid #fff1bd;margin-bottom:5px}.primary:hover{background:#ffda7c}
+.sep{height:1px;background:#dbcaaf80;margin:5px 7px}.footer{display:flex;justify-content:space-between;align-items:center;margin-top:auto;padding:3px 5px;color:#97815a;font-size:10px}.footer button{width:auto;min-height:24px;padding:3px 7px;font-size:10px}.check{margin-left:auto;color:#7a9d60;font-weight:700}.danger{color:#8d4840}.danger svg{stroke:#a55d52}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style></head><body><div class="tray-card">
+<header><img src="assets/airpods-brand.png" alt=""><div><b>AirPods 小助手</b><small id="stateText">正在读取状态</small></div><span class="status" id="stateLed" data-state="off"></span></header>
+<button class="primary" data-action="open"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="4"/><path d="M4 10h16"/></svg>打开小助手<span class="chev">›</span></button>
+<button data-action="connect"><svg viewBox="0 0 24 24"><path d="M12 3v18l5-5-10-9m5-4 5 5-10 9"/></svg>一键连接<span class="chev">›</span></button>
+<button data-action="disconnect"><svg viewBox="0 0 24 24"><path d="M4 12h16M12 4v4m0 8v4"/><circle cx="12" cy="12" r="9"/></svg>一键断开<span class="chev">›</span></button>
+<button data-action="advanced"><svg viewBox="0 0 24 24"><path d="M3 12c3-9 5 9 9 0s6 9 9 0"/></svg>降噪 / 通透实验室<span class="chev">›</span></button>
+<div class="sep"></div>
+<button data-action="logs"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>详细排障日志<span class="check" id="logCheck"></span></button>
+<button data-action="update"><svg viewBox="0 0 24 24"><path d="M19 10a8 8 0 1 0-2 8M19 4v6h-6"/></svg>检查更新<span class="chev">›</span></button>
+<button class="danger" data-action="quit"><svg viewBox="0 0 24 24"><path d="M12 3v9M7 6a8 8 0 1 0 10 0"/></svg>退出小助手</button>
+<div class="footer"><span>米白 · 快捷控制</span><button data-action="close" aria-label="关闭快捷菜单">收起 ×</button></div>
+</div><script>
+const allowed=new Set(['open','connect','disconnect','advanced','logs','update','quit','close']);
+let sent=false;
+function send(action){if(!allowed.has(action)||sent)return;sent=true;try{chrome.webview.postMessage('tray:'+action)}catch(e){sent=false}}
+document.querySelectorAll('[data-action]').forEach(b=>b.addEventListener('click',()=>send(b.dataset.action)));
+document.addEventListener('keydown',e=>{if(e.key==='Escape')send('close')});
+window.setTrayState=(connected,busy,logging)=>{sent=false;document.getElementById('stateText').textContent=busy?'正在处理连接…':connected?'蓝牙已连接':'等待连接';document.getElementById('stateLed').dataset.state=busy?'busy':connected?'on':'off';document.getElementById('logCheck').textContent=logging?'✓':''};
+try{chrome.webview.postMessage('tray:ready')}catch(e){}
+</script></body></html>

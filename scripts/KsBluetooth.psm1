@@ -71,14 +71,14 @@ function Wait-CaptureAfterRestore {
  return @{status='unavailable';id='';requested=[int]$requested;trace=$trace}
 }
 function Invoke-KsBluetooth {
- param([string]$Address,[ValidateSet('connect','disconnect')][string]$Action,[bool]$Microphone=$false,[bool]$MicRestore=$false)
+ param([string]$Address,[ValidateSet('connect','disconnect')][string]$Action,[bool]$Microphone=$false,[bool]$MicRestore=$false,[bool]$PreferHfp=$false)
  Initialize-KsBluetooth
  $container=Resolve-BluetoothContainer $Address
  $repair='not-requested'
  if($Action -eq 'connect' -and $Microphone -and $MicRestore){$repair=Restore-LegacyHfp -Address $Address -Container $container}
  $api=New-Object AirPodsBuddy.Ks.NativeBackend
  $linkState=[AirPodsBuddy.Ks.BluetoothLink]::Read($Address)
- $r=[AirPodsBuddy.Ks.Policy]::Run($api,$container,($Action -eq 'connect'),$Microphone,$linkState)
+ $r=[AirPodsBuddy.Ks.Policy]::Run($api,$container,($Action -eq 'connect'),$Microphone,$linkState,$PreferHfp)
  if($MicRestore -and $Microphone -and $Action -eq 'connect' -and $r.Accepted -and $repair -in 'restored','already-enabled') {
   $list={param($c)$api.List($c)}.GetNewClosure()
   $send={param($id,$property,$expectedFilterId)$api.Send($id,$expectedFilterId,[uint32]$property)}.GetNewClosure()
@@ -88,6 +88,6 @@ function Invoke-KsBluetooth {
   if($capture.status -eq 'active'){$r.CaptureId=$capture.id}
   else {$r.CaptureId='';$repair='capture-'+$capture.status}
  }
- return @{status=$(if($r.Accepted){'ok'}else{'fail'});backend='ks';container=$container;linkState=$linkState;renderId=$r.RenderId;captureId=$r.CaptureId;requested=$r.Requested;error=$r.Error;ksTrace=$r.KsTrace;targetEndpoints=$r.TargetEndpoints;micRepair=$repair}
+ return @{status=$(if($r.Accepted){'ok'}else{'fail'});backend='ks';connectStrategy=$r.ConnectStrategy;container=$container;linkState=$linkState;renderId=$r.RenderId;captureId=$r.CaptureId;requested=$r.Requested;error=$r.Error;ksTrace=$r.KsTrace;targetEndpoints=$r.TargetEndpoints;micRepair=$repair}
 }
 Export-ModuleMember -Function Initialize-KsBluetooth,Resolve-BluetoothContainer,Get-KsBluetoothProbe,Restore-LegacyHfp,Wait-CaptureAfterRestore,Invoke-KsBluetooth

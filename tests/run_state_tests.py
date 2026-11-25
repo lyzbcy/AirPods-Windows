@@ -48,6 +48,9 @@ Check("rejected_busy_action_does_not_flash_pet", petStates.Length = 1)
 busy := false, pendingRetryDisconnect := 0
 SetOpState("P", progressGen, "audio_pending")
 Check("audio_phase_is_distinct", InStr(DeviceProgressJson("P"), '"phase":"audio","step":3,"steps":4') && InStr(DeviceProgressJson("P"), '"phaseBudgetMs":13500}'))
+deviceOps["P"].connectStrategy := "hfp-link"
+Check("hfp_audio_phase_has_continuous_extended_observation_budget", InStr(DeviceProgressJson("P"), '"phaseBudgetMs":28500}'))
+deviceOps["P"].connectStrategy := "stereo"
 Check("poll_does_not_end_active_connect_without_link", DeviceAudioState("P", false) = "audio_pending" && deviceOps["P"].state = "audio_pending")
 savedDevices := devices
 devices := [{id:"P",name:"Progress Headphones",connected:false}]
@@ -147,6 +150,8 @@ Check("bridge_rejects_update_url", !ValidBridgeArgs("doupdate", ["doupdate","1",
 Check("bridge_accepts_no_url_update", ValidBridgeArgs("doupdate", ["doupdate","1",""]))
 Check("bridge_rejects_invalid_boolean", !ValidBridgeArgs("setmicswitch", ["setmicswitch","1","yes"]))
 Check("bridge_rejects_unknown_command", !ValidBridgeArgs("exec", ["exec","1","calc.exe"]))
+Check("advanced_bridge_accepts_only_fixed_no_argument_action", ValidBridgeArgs("openadvanced", ["openadvanced","1",""]) && !ValidBridgeArgs("openadvanced", ["openadvanced","1","arbitrary.exe"]))
+Check("advanced_status_read_only_bridge_accepts_no_argument", ValidBridgeArgs("advancedstatus", ["advancedstatus","1",""]))
 Check("bridge_address_not_name", ValidBridgeArgs("connect", ["connect","1","001122334455"]) && !ValidBridgeArgs("connect", ["connect","1","Same"]))
 Check("invalid_date_falls_back", DaysSince("garbage") = 999 && DaysSince("20261399999999") = 999)
 Check("calendar_day_arithmetic", DaysSince(DateAdd(A_Now, -16, "days")) = 16)

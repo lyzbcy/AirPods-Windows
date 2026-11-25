@@ -1,4 +1,0 @@
-verification/2026-09-27-release-guard/ROLLBACK.sh text eol=lf
-.gitattributes text eol=lf
-verification/2026-09-27-packaging/** -text -diff
-verification/2026-09-27-packaging/ROLLBACK.sh text eol=lf diff

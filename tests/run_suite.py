@@ -30,6 +30,8 @@ commands = [
     ('background', ['python', 'tests/run_ahk.py', 'tests/background_job_test.ahk']),
     ('rpc', ['node', 'tests/rpc_test.cjs']),
     ('agent_help', ['node', 'tests/agent_help_test.cjs']),
+    ('tray_popup', ['node', 'tests/tray_popup_test.cjs']),
+    ('tray_popup_host', ['python', 'tests/tray_popup_host_test.py']),
     ('pet_popup', ['node', 'tests/pet_popup_test.cjs']),
     ('pet_lifecycle', ['python', 'tests/pet_lifecycle_test.py']),
     ('pet_ready_race', ['python', 'tests/pet_ready_race_test.py']),

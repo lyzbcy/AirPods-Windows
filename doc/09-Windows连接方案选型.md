@@ -130,3 +130,8 @@ ToothTray 的 [issue #10](https://github.com/m2jean/ToothTray/issues/10) 报告�
 ## 10. 2026-11-25 对照复测
 
 1.9.33 精确目标断开通过；冷重连 KS 两次 HRESULT=0，link=0、render=8，终态失败。Windows 原生一键连接随后约 2 秒恢复 link=1；当日 BTHUSB ID 3 适配器命令超时共 8 次，其中一条在候选超时后 37 秒。此为系统/适配器路径不稳定的强线索，不证明因果或唯一根因。1.9.34 修复终态和外部恢复状态，原生连接后实际播放重试 requested=0、render=1、预检 PASS。冷连接与严格五轮仍不通过。在已恢复声音时不擅自再次断开或重置；后续优先用原生与不同适配器对照。
+
+
+## 11. 2026-11-25 HFP 引导突破
+
+USB 位置独立变化且同驱动，旧 stereo 路径仍冷连接超时，Windows 原生随后恢复。已知三 exact endpoints（stereo、HFP render、HFP capture）均支持 KS，HFP 两端点同滤波器。用户批准一次 HFP 专项冷链路试验：单次请求后 5 秒 link=1/HFP ACTIVE，10 秒 stereo ACTIVE，至30秒稳定。1.9.36 将同路径限于 AirPods / mic-off / 已确认链路 DOWN / 唯一明确 HFP render+capture 的场景，仅 HFP render 请求；capture ID 仅作会话观察，保持真实 stereo 端点用于输出。mic-on、其它设备或歧义/禁用目标不触发新路径。唯一有界回退保留。1.9.36 实际安装 UI 14:05:22 发起冷连接，14:05:31 hfp-link requested=1，14:05:33 link=1，14:06:00 render=1/capture=1、播放预检通过；所有者听到提示音，三个默认输入角色读回一致。迟到 stereo 在重试等待中变 ACTIVE，因此 1.9.37 将 HFP audio_pending 改为 28.5 秒连续观察；旧路径 13.5 秒不变。后续需独立验收组测延迟、连续五轮及其他型号；不再自行打断使用中的耳机。

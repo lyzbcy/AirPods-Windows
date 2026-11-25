@@ -8,3 +8,16 @@
 原始私人素材与设备实机截图只保留本机；设计稿为虚构设备。
 
 实装页面离线合成设备截图（不代表真机连接成功）：[合拢](case-closed-1933-fixture.png) · [展开](case-open-1933-fixture.png)。合拢态实测可完整显示两副耳机；更长列表滚动。
+
+
+## 1.9.38 最终实现视觉回执
+
+以下为合成设备或无驱动独立实验室截图，不含实际设备名称和桌面内容：
+
+- [合拢态](case-closed-1938-fixture.png)
+- [展开态](case-open-1938-fixture.png)
+- [通话态与说明](case-call-1938-fixture.png)
+- [快捷托盘菜单 / hover 行](tray-1938-fixture.png)
+- [独立实验室：无兼容接口时控件禁用](aap-lab-beta2-no-driver.png)
+
+真实主窗口、托盘 144 DPI、悬浮及高级实验室启动在本机核对，实际桌面截图不进仓库。

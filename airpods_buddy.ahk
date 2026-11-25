@@ -12,9 +12,10 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\BackgroundJobs.ahk
 #Include lib\Diagnostics.ahk
 #Include lib\AgentHelp.ahk
+#Include lib\TrayPopup.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.35"
+APP_VERSION   := "1.9.38"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -242,10 +243,10 @@ EnsureResources() {
             FileInstall "webui\index_built.html", appRoot "\index_built.html", 1
         if !FileExist(appRoot "\agent_built.html")
             FileInstall "webui\agent_built.html", appRoot "\agent_built.html", 1
+        if !FileExist(appRoot "\tray_built.html")
+            FileInstall "webui\tray_built.html", appRoot "\tray_built.html", 1
         if !FileExist(appRoot "\pet_built.html")
             FileInstall "webui\pet_built.html", appRoot "\pet_built.html", 1
-        if !FileExist(appRoot "\noise_mode.ps1")
-            FileInstall "tools\noise_mode.ps1", appRoot "\noise_mode.ps1", 1
         if !FileExist(appRoot "\WebView2Loader.dll")
             FileInstall "lib\WebView2\64bit\WebView2Loader.dll", appRoot "\WebView2Loader.dll", 1
         if !FileExist(appRoot "\brand-tray-off.ico")
@@ -301,7 +302,7 @@ if (A_Args.Length = 1 && A_Args[1] = "/testpet") {
 
 ; /testnoise：降噪切换自测（结果看日志与气泡）
 if (A_Args.Length = 1 && A_Args[1] = "/testnoise") {
-    RunNoiseMode("trans")
+    OpenAdvancedControl()
     ExitApp(0)
 }
 if !A_IsCompiled && FileExist(A_ScriptDir "\assets\airpods-brand.ico")
@@ -447,46 +448,26 @@ WatchAudioRoutes() {
     }
 }
 
-; 降噪/通透模式：通过 Apple 私有 L2CAP 服务（74ec2172-...）发送 0x0D 指令。
-; 协议事实来自 librepods 的逆向文档（见 README 致谢）；实现为本项目独立编写的
-; PowerShell + Winsock（tools/noise_mode.ps1，编译时内嵌）。
-DevAddrString(info) {
-    addr := NumGet(info, 8, "uint64")
-    parts := []
-    loop 6
-        parts.Push(Format("{:02X}", (addr >> ((A_Index - 1) * 8)) & 0xFF))
-    return Join(parts, ":")
+ ; Advanced AAP lab remains an optional, separate user-launched process.
+; Do not run the historical user-mode L2CAP prototype or fake success.
+AdvancedLabPath() {
+    return EnvGet("LOCALAPPDATA") "\AirPodsBuddyBeta\app\AirPodsBuddy.Beta.exe"
 }
 
-NoiseTarget() {
-    global devices
-    FindAllAudioDevices()
-    SortDevices()
-    for dev in devices {
-        if (dev.connected && IsAppleDevice(dev.name))
-            return dev
+OpenAdvancedControl() {
+    path := AdvancedLabPath()
+    if !FileExist(path) {
+        PushEvent("toast", JsonStr("高级控制实验室尚未安装；普通连接与播放仍可使用"))
+        return false
     }
-    for dev in devices {
-        if dev.connected
-            return dev
+    try {
+        Run('"' path '"')
+        LogMsg("optional AAP lab opened; no driver or control command requested")
+        return true
+    } catch as e {
+        LogMsg("optional AAP lab launch failed code=" (e.HasOwnProp("Number") ? e.Number : "unknown"), "WARN")
+        return false
     }
-    return 0
-}
-
-RunNoiseMode(mode) {
-    modes := Map("off", "关闭", "anc", "降噪", "trans", "通透", "adapt", "自适应")
-    modeName := modes[mode]
-    target := NoiseTarget()
-    if !target {
-        TrayTip("AirPods 小助手", "没有连接中的耳机，先连接再切模式", 3)
-        return
-    }
-    addr := DevAddrString(target.info)
-    ps1 := A_IsCompiled ? (appRoot "\noise_mode.ps1") : (A_ScriptDir "\tools\noise_mode.ps1")
-    LogMsg("noise mode=" mode " target=" DiagnosticAlias("device", addr))
-    payload := '{"address":' JsonStr(addr) ',"mode":' JsonStr(mode) '}'
-    StartBackgroundJob("noise", payload, (result, job) => PushEvent("toast", JsonStr(result["status"] = "ok" ? "降噪切换命令已完成" : "降噪切换未完成，请查看日志")), 20000)
-
 }
 
 ; 左键单击托盘图标 = 在"连接首选设备 / 断开全部"之间切换
@@ -998,12 +979,7 @@ A_IconTip := "AirPods 小助手 v" APP_VERSION
 trayToggleName := "⇄ 切换连接"
 A_TrayMenu.Delete()
 A_TrayMenu.Add(trayToggleName, (*) => ToggleQuickAction())
-noiseMenu := Menu()
-noiseMenu.Add("🔴 关闭", (*) => RunNoiseMode("off"))
-noiseMenu.Add("🎧 降噪", (*) => RunNoiseMode("anc"))
-noiseMenu.Add("🔊 通透", (*) => RunNoiseMode("trans"))
-noiseMenu.Add("✨ 自适应", (*) => RunNoiseMode("adapt"))
-A_TrayMenu.Add("🎧 降噪/通透模式", noiseMenu)
+A_TrayMenu.Add("🎧 降噪/通透实验室", (*) => OpenAdvancedControl())
 A_TrayMenu.Add("打开界面", (*) => (myGui.Show(), SyncWebView()))
 A_TrayMenu.Add()
 A_TrayMenu.Add("🎧 一键连接", (*) => TrayQuickAction("connect"))
@@ -1020,6 +996,7 @@ try {
 } catch as e {
     LogMsg("tray default set failed: " e.Message, "ERROR")
 }
+OnMessage(0x404, TrayNotify)
 lastTrayOn := -1
 UpdateTrayIcon(true)
 SetTimer(WatchTrayState, 2000)   ; 独立看门：托盘状态不依赖前端轮询
@@ -1403,7 +1380,7 @@ MicPreferenceSet(value) {
 BeginDeviceOp(name, action) {
     global deviceOps, operationSerial, routeOwner, actionEpoch
     gen := ++operationSerial
-    deviceOps[name] := {gen: gen, action: action, state: action, started: A_TickCount, phaseStarted: A_TickCount, backend: "", container: "", renderId: "", captureId: "", targetEndpoints: "", address: "", micRequested: false, micRestore: false, retryCount: 0, retryEpoch: actionEpoch, probeId: "", probeAt: -1, probeStatus: "unknown", probeReason: ""}
+    deviceOps[name] := {gen: gen, action: action, state: action, started: A_TickCount, phaseStarted: A_TickCount, backend: "", container: "", renderId: "", captureId: "", targetEndpoints: "", address: "", micRequested: false, micRestore: false, preferHfp: false, connectStrategy: "", retryCount: 0, retryEpoch: actionEpoch, probeId: "", probeAt: -1, probeStatus: "unknown", probeReason: ""}
     if (action = "connect")
         routeOwner := gen
     return gen
@@ -1431,7 +1408,7 @@ StartAudioVerify(name) {
     global deviceOps
     if deviceOps.Has(name) && deviceOps[name].renderId != "" {
         SetOpState(name, deviceOps[name].gen, "audio_pending")
-        AudioVerifyTick(name, 9, deviceOps[name].gen)
+        AudioVerifyTick(name, deviceOps[name].connectStrategy = "hfp-link" ? 19 : 9, deviceOps[name].gen)
     }
 }
 
@@ -1685,6 +1662,8 @@ WebMessageHandler(core, args) {
         case "remove":            Reply(id, JsonStr(RemoveDevice(arg1)))
         case "add":               Run("ms-settings:bluetooth"), Reply(id, "true")
         case "opensound":         Run("ms-settings:sound"), Reply(id, "true")
+        case "advancedstatus":    Reply(id, FileExist(AdvancedLabPath()) ? "true" : "false")
+        case "openadvanced":      Reply(id, OpenAdvancedControl() ? "true" : "false")
         case "winmin":            AgentHide(), myGui.Hide(), Reply(id, "true")   ; 最小化即缩托盘：不占任务栏（初心），随时托盘唤出
         case "winclose":          AgentHide(), myGui.Hide(), Reply(id, "true")
         case "openrelease":        Run(RELEASE_PAGE), Reply(id, "true")
@@ -1781,7 +1760,7 @@ DeviceProgressJson(name) {
         else if (state = "link_retrying")
             phase := "retrying", step := 2, budget := 30000
         else if (state = "audio_pending")
-            phase := "audio", step := 3, budget := 13500
+            phase := "audio", step := 3, budget := op.connectStrategy = "hfp-link" ? 28500 : 13500
     } else if (action = "disconnect" && state = "down_pending") {
         phase := "down", step := 2, budget := 30000
     }
@@ -1885,10 +1864,11 @@ DoAction(name, action, fromBatch := false) {
         SetTrayLoading(true)
         deviceOps[name].address := Format("{:012X}", NumGet(dev.info, 8, "uint64"))
         deviceOps[name].micRequested := SettingRead("auto_mic_switch", "0") = "1"
+        deviceOps[name].preferHfp := action = "connect" && !deviceOps[name].micRequested && dev.HasOwnProp("name") && InStr(StrLower(dev.name), "airpods") != 0
         deviceOps[name].micRestore := action = "connect" && deviceOps[name].micRequested && SettingRead("mic_restore_pending", "0") = "1"
         if (deviceOps[name].micRestore && !SettingWrite("mic_restore_pending", "0"))
             throw Error("Cannot persist one-time microphone migration receipt")
-        payload := '{"address":' JsonStr(deviceOps[name].address) ',"action":' JsonStr(action) ',"mic":' (deviceOps[name].micRequested ? "true" : "false") ',"micRestore":' (deviceOps[name].micRestore ? "true" : "false") '}'
+        payload := '{"address":' JsonStr(deviceOps[name].address) ',"action":' JsonStr(action) ',"mic":' (deviceOps[name].micRequested ? "true" : "false") ',"micRestore":' (deviceOps[name].micRestore ? "true" : "false") ',"preferHfp":' (deviceOps[name].preferHfp ? "true" : "false") '}'
         if !StartBackgroundJob("bluetooth", payload, (result, job) => FinishBluetoothAction(name, action, gen, result), 30000)
             throw Error("Bluetooth worker launch failed")
         try PetSchedule(action = "connect" ? "connecting" : "disconnecting", name, gen, fromBatch)
@@ -1930,7 +1910,7 @@ LinkVerifyTick(name, left, gen) {
         LogMsg("link verified (audio still pending): '" name "'")
         PushEvent("linkok", JsonStr(name))
         SetOpState(name, gen, "audio_pending")
-        AudioVerifyTick(name, 9, gen)
+        AudioVerifyTick(name, deviceOps[name].connectStrategy = "hfp-link" ? 19 : 9, gen)
         return
     }
     if (left <= 1) {
@@ -1991,7 +1971,10 @@ TryKsConnectRetry(name, gen, epoch) {
     busy := true
     SetOpState(name, gen, "link_retrying")
     SetTrayLoading(true)
-    payload := '{"address":' JsonStr(op.address) ',"action":"connect","mic":' (op.micRequested ? "true" : "false") '}'
+    ; Use the other compatible route after a failed HFP bootstrap; never
+    ; auto-route microphone or send more than the existing one retry.
+    preferHfp := linkState = 0 && op.preferHfp && op.connectStrategy != "hfp-link"
+    payload := '{"address":' JsonStr(op.address) ',"action":"connect","mic":' (op.micRequested ? "true" : "false") ',"preferHfp":' (preferHfp ? "true" : "false") '}' 
     if !StartBackgroundJob("bluetooth", payload, (result, job) => FinishKsConnectRetry(name, gen, epoch, result), 30000) {
         busy := false
         SetTrayLoading(false)
@@ -2372,7 +2355,7 @@ DeviceLabel(key) {
 FinishBluetoothAction(name, action, gen, result) {
     global busy, deviceOps
     detail := ""
-    for field in ["backend", "container", "renderId", "captureId", "requested", "error", "ksTrace", "targetEndpoints", "linkState", "micRepair"]
+    for field in ["backend", "connectStrategy", "container", "renderId", "captureId", "requested", "error", "ksTrace", "targetEndpoints", "linkState", "micRepair"]
         if result.Has(field)
             detail .= " " field "=" result[field]
     status := result.Get("status", "fail")
@@ -2398,6 +2381,7 @@ FinishBluetoothAction(name, action, gen, result) {
             valid := valid && result.Get("targetEndpoints", "") != ""
         if valid {
             deviceOps[name].backend := result["backend"]
+            deviceOps[name].connectStrategy := result.Get("connectStrategy", "stereo")
             deviceOps[name].container := result["container"]
             deviceOps[name].renderId := result.Get("renderId", "")
             captureId := result.Get("captureId", "")
@@ -2450,7 +2434,7 @@ DaysSince(stamp) {
 }
 
 ValidBridgeArgs(cmd, parts) {
-    counts := Map("list",0,"statuspoll",0,"getversion",0,"openagent",1,"updateagent",1,"closeagent",0,"connect",1,"disconnect",1,"remove",1,"add",0,"opensound",0,"winmin",0,"winclose",0,"openrelease",0,"openrepo",0,"stardone",0,"windrag",0,"doupdate",0,"getautostart",0,"setautostart",1,"getmicswitch",0,"setmicswitch",1,"getrescue",0,"setrescue",1,"sendfeedback",1,"sendissue",4,"getfblogs",0,"getfbwebhook",0,"openurl",1,"jserror",1)
+    counts := Map("list",0,"statuspoll",0,"getversion",0,"openagent",1,"updateagent",1,"closeagent",0,"connect",1,"disconnect",1,"remove",1,"add",0,"opensound",0,"advancedstatus",0,"openadvanced",0,"winmin",0,"winclose",0,"openrelease",0,"openrepo",0,"stardone",0,"windrag",0,"doupdate",0,"getautostart",0,"setautostart",1,"getmicswitch",0,"setmicswitch",1,"getrescue",0,"setrescue",1,"sendfeedback",1,"sendissue",4,"getfblogs",0,"getfbwebhook",0,"openurl",1,"jserror",1)
     argc := parts.Length - 2
     if (argc = 1 && parts[3] = "")
         argc := 0

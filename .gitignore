@@ -37,3 +37,7 @@ app_settings.ini
 app_settings.ini.*
 update_result.txt
 *.exe.backup-*
+
+# Raw historical/local verification is not public development source.
+verification/**
+doc/doc/
