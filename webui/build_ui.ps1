@@ -1,4 +1,4 @@
-# Build self-contained HTML: inline all images as base64 data URIs.
+﻿# Build self-contained HTML: inline all images as base64 data URIs.
 # Usage: pwsh build_ui.ps1
 $ErrorActionPreference = 'Stop'
 $src = Join-Path $PSScriptRoot 'index.html'
@@ -30,3 +30,21 @@ if (Test-Path $ahk) {
 [IO.File]::WriteAllText($out, $html, (New-Object System.Text.UTF8Encoding $false))
 $size = (Get-Item $out).Length
 Write-Host "built: $out ($size bytes, $totalReplaced images inlined)"
+
+$agent = Get-Content (Join-Path $PSScriptRoot 'agent.html') -Raw -Encoding UTF8
+$face = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $assets 'face_heart.png')))
+$agent = $agent.Replace('assets/face_heart.png', ('data:image/png;base64,' + $face))
+[IO.File]::WriteAllText((Join-Path $PSScriptRoot 'agent_built.html'), $agent, (New-Object System.Text.UTF8Encoding $false))
+Write-Host 'built: agent_built.html (brand image inlined)'
+
+$pet = Get-Content (Join-Path $PSScriptRoot 'pet.html') -Raw -Encoding UTF8
+$headphones = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $assets 'headphones-49.webp')))
+$pet = $pet.Replace('assets/headphones-49.webp', ('data:image/webp;base64,' + $headphones))
+$failure = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $assets 'headphones-fail-49.webp')))
+$pet = $pet.Replace('assets/headphones-fail-49.webp', ('data:image/webp;base64,' + $failure))
+foreach ($name in @('headphones-wait-49.webp','headphones-idle-49.webp')) {
+  $data = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $assets $name)))
+  $pet = $pet.Replace('assets/'+$name, ('data:image/webp;base64,' + $data))
+}
+[IO.File]::WriteAllText((Join-Path $PSScriptRoot 'pet_built.html'), $pet, (New-Object System.Text.UTF8Encoding $false))
+Write-Host 'built: pet_built.html (sprite inlined)'

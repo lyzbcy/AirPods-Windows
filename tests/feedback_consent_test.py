@@ -11,12 +11,18 @@ source = source_path.read_text(encoding="utf-8-sig")
 start = source.index("\nSendIssueAsync(")
 end = source.index("\n}", start) + 2
 function = source[start:end]
+webhook_start=source.index("\nFbWebhook(")
+webhook_end=source.index("\n}",webhook_start)+2
+function += source[webhook_start:webhook_end]
 
 body = r'''
 #Requires AutoHotkey v2.0
 #SingleInstance Off
 OnError((e, mode) => (FileAppend("ERROR " e.Message " line=" e.Line "`n", "*"), ExitApp(2)))
 feedbackBusy := false
+configured := "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=synthetic-test-key-12345678"
+lastReply := ""
+EnvSet("AIRPODS_FEEDBACK_WEBHOOK", "")
 gatherCalls := 0, fileCalls := 0, diagnosticCalls := 0, sentPayload := "", sentPath := ""
 SendIssueAsync(1, "连接", "测试", "00", "")
 Check("unchecked_never_reads_log_tail", gatherCalls = 0)
@@ -32,6 +38,14 @@ Check("checked_payload_has_log_tail", InStr(sentPayload, "LOG_MARKER") > 0)
 Check("checked_payload_has_file_path", InStr(sentPayload, "FILE_MARKER") > 0 && sentPath = "FILE_MARKER")
 Check("checked_collects_diagnostics_once", diagnosticCalls = 1)
 Check("checked_tail_receives_diagnostic", InStr(sentPayload, "DIAGNOSTIC_MARKER") > 0)
+configured := "", sentPayload := "", gatherCalls := 0, fileCalls := 0, diagnosticCalls := 0
+SendIssueAsync(3, "连接", "测试", "01", "")
+Check("missing_transport_never_reads_or_sends_logs", lastReply = JsonStr("notconfigured") && gatherCalls = 0 && fileCalls = 0 && diagnosticCalls = 0 && sentPayload = "")
+configured := "https://example.invalid/?key=synthetic-test-key-12345678"
+Check("untrusted_transport_rejected", FbWebhook() = "")
+configured := ""
+EnvSet("AIRPODS_FEEDBACK_WEBHOOK", "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=synthetic-env-key-12345678")
+Check("trusted_local_env_transport", InStr(FbWebhook(), "synthetic-env-key") > 0)
 FileAppend("RESULT failures=" failures "`n", "*")
 ExitApp(failures ? 1 : 0)
 Check(name, ok) {
@@ -56,10 +70,14 @@ DiagnosticCollectFeedback() {
     return "DIAGNOSTIC_MARKER"
 }
 TruncateUtf8(s, n) => s
-FbWebhook() => "WEBHOOK"
+SettingRead(*) {
+    global configured
+    return configured
+}
 JsonStr(s) => '"' s '"'
 Reply(id, result) {
-    throw Error("Unexpected busy reply")
+    global lastReply
+    lastReply := result
 }
 SendFeedbackJob(id, kind, payload, logPath := "") {
     global sentPayload, sentPath

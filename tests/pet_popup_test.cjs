@@ -24,8 +24,8 @@ function boot(reduced = false) {
   const script = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
   assert.ok(script, 'pet script exists');
   vm.runInContext(script, context);
-  const fire = () => {
-    const [id, timer] = timers.entries().next().value || [];
+  const fire = (delay) => {
+    const [id, timer] = (delay===undefined?timers.entries().next().value:[...timers.entries()].find(([,t])=>t.delay===delay)) || [];
     assert.ok(timer, 'timer available');
     timers.delete(id); timer.fn();
   };
@@ -51,6 +51,8 @@ if (mode === '--baseline') {
   assert.match(html, /id="bubbleDetail"[^>]*aria-live="off"/);
   assert.match(html, /prefers-reduced-motion: reduce/);
   const p = boot();
+  assert.equal(p.timers.size,0,'hidden pet does not animate');
+  p.window.showPopup();
   p.window.setProgress({state: 'connecting', phaseText: '正在核实链路', elapsedMs: 2500});
   assert.equal(p.elements.bubbleTitle.textContent, '连接中');
   assert.equal(p.elements.bubbleDetail.textContent, '正在核实链路 · 已等待 2 秒');
@@ -67,11 +69,16 @@ if (mode === '--baseline') {
   assert.equal(p.elements.bubbleDetail.textContent, '仍在核实 · 已等待 3 秒');
   console.log('PASS progress_update_does_not_restart_animation');
 
-  const loop = [currentFrame];
-  for (let i = 0; i < 9; i++) {p.fire(); loop.push(p.elements.sprite.style.backgroundPosition);}
-  assert.deepEqual(loop.map(pos => Number(pos.match(/-(\d+)px/)[1]) / 150),
-    [1, 4, 3, 2, 5, 2, 3, 4, 1, 0]);
-  console.log('PASS waiting_loop_uses_pose_bridge');
+  // The 49 cells are one ordered action and stop at the completed pose.
+  const frameOf = pos => { const [col,row] = [...pos.matchAll(/-(\d+)px/g)].map(x=>Number(x[1])/150); return row*7+col; };
+  assert.equal(frameOf(currentFrame),1);
+  for(let i=2;i<=48;i++){p.fire(); assert.equal(frameOf(p.elements.sprite.style.backgroundPosition),i);}
+  assert.equal(p.timers.size,1,'next wait-loop is scheduled');
+  p.fire();assert.match(p.elements.sprite.style.backgroundImage,/headphones-wait-49/);
+  assert.equal(frameOf(p.elements.sprite.style.backgroundPosition),0);
+  for(let i=1;i<=48;i++){p.fire();assert.equal(frameOf(p.elements.sprite.style.backgroundPosition),i);}
+  p.fire();assert.equal(frameOf(p.elements.sprite.style.backgroundPosition),47);
+  console.log('PASS headphones_49_frame_order_and_wait_loop');
 
   p.window.setState('disconnecting', '正在断开设备');
   assert.equal(p.elements.bubbleTitle.textContent, '断开中');
@@ -83,11 +90,33 @@ if (mode === '--baseline') {
   assert.equal(p.elements.bubbleDetail.textContent, '断开状态尚未确认');
   p.window.setState('fail', '正在重新核实');
   assert.equal(p.elements.bubbleTitle.textContent, '断开未完成');
+  assert.match(p.elements.sprite.style.backgroundImage,/headphones-fail-49/);
+  for(let i=1;i<=20;i++)p.fire();
+  assert.equal(frameOf(p.elements.sprite.style.backgroundPosition),20);
+  p.fire();assert.match(p.elements.sprite.style.backgroundImage,/headphones-wait-49/);
+  assert.equal(p.timers.size,1,'disconnect failure continues wearing loop');
   p.window.setState('off');
   assert.equal(p.elements.bubbleDetail.textContent, '设备已断开');
-  for (let i = 0; i < 3; i++) p.fire();
-  assert.equal(p.timers.size, 0, 'terminal waving animation stops after one pass');
+  assert.match(p.elements.sprite.style.backgroundImage,/headphones-idle-49/);
+  assert.equal(p.timers.size,1,'terminal off pose continues idle while visible');
+  p.window.setState('connecting');
+  assert.equal(p.timers.size,1);p.window.hidePopup();assert.equal(p.timers.size,0);
+  p.window.showPopup();assert.equal(p.timers.size,1);p.window.hidePopup();
+  console.log('PASS hidden_pet_cancels_frames_and_resumes_on_show');
   console.log('PASS terminal_animation_stops_and_text_is_plain');
+
+  const early=boot();early.window.showPopup();early.window.setState('connecting');
+  early.fire(50);early.fire(50);early.window.setState('ok');
+  assert.match(early.elements.sprite.style.backgroundImage,/headphones-49/);
+  for(let i=3;i<=48;i++)early.fire(50);early.fire(50);
+  assert.match(early.elements.sprite.style.backgroundImage,/headphones-wait-49/);
+  early.window.setState('disconnecting');assert.equal(frameOf(early.elements.sprite.style.backgroundPosition),48);
+  early.fire(50);early.window.setState('off');
+  assert.match(early.elements.sprite.style.backgroundImage,/headphones-49/);
+  for(let i=46;i>=0;i--)early.fire(50);early.fire(50);
+  assert.match(early.elements.sprite.style.backgroundImage,/headphones-idle-49/);
+  early.window.hidePopup();assert.equal(early.timers.size,0);
+  console.log('PASS early_terminal_preserves_action_then_continuous_idle');
 
   const quiet = boot(true);
   assert.equal(quiet.timers.size, 0);

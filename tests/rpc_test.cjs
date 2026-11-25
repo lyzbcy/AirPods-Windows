@@ -85,7 +85,8 @@ const rpc=(...args)=>context.rpc(...args),pending=()=>vm.runInContext('Object.ke
   }
   console.log('PASS retry_wait_and_running_show_cancellable_status');
   assert.equal(context.deviceAction({connected:false,audioState:'link_failed'}),'connect');
-  assert.equal(context.deviceStatus({connected:false,audioState:'link_failed'}),'未连接');
+  assert.match(context.deviceStatus({connected:false,audioState:'link_failed'}),/蓝牙链路未建立/);
+  assert.match(context.deviceStatus({connected:true,audioState:'audio_failed'}),/播放端点未就绪/);
   console.log('PASS exhausted_retry_restores_manual_connect');
   assert.equal(context.deviceStatus({connected:true,audioState:'ready'}),'默认输出已切耳机 · 请试听');
   assert.equal(context.deviceAction({connected:true,audioState:'ready'}),'disconnect');
@@ -95,12 +96,17 @@ const rpc=(...args)=>context.rpc(...args),pending=()=>vm.runInContext('Object.ke
   assert.equal(context.orbStatus({connected:true,audioState:'playback_unverified'}),'播放待确认');
   assert.equal(context.isPlaybackWarning({audioState:'playback_unavailable'}),true);
   assert.equal(context.isPlaybackWarning({audioState:'ready'}),false);
+  for (const state of ['unknown','audio_failed','playback_unavailable','playback_unverified']) assert.equal(context.canRetryPlayback({connected:true,audioState:state}),true);
+  for (const state of ['ready','call_active','call_unverified','audio_pending','down_pending']) assert.equal(context.canRetryPlayback({connected:true,audioState:state}),false);
+  assert.equal(context.canRetryPlayback({connected:false,audioState:'unknown'}),false);
+  assert.match(html,/data-act="connect"[^>]+>重试播放连接/);
+  console.log('PASS connected_playback_recovery_does_not_require_disconnect');
   console.log('PASS playback_states_do_not_claim_audible_sound');
   assert.match(html,/id="progressPanel"[^>]*hidden/);
   assert.match(html,/id="progressTitle"[^>]*aria-live="polite"/);
   assert.match(html,/prefers-reduced-motion:reduce/);
   assert.match(html,/\.orb\.inflight::after/);
-  const progressNodes=Object.fromEntries(['progressPanel','progressTitle','progressStep','progressWhy','progressTime','progressMarks']
+  const progressNodes=Object.fromEntries(['progressPanel','progressTitle','progressStep','progressWhy','progressTime','progressMarks','progressHelp']
     .map(id=>[id,{hidden:true,dataset:{},textContent:'',innerHTML:''}]));
   Object.assign(context,{document:{getElementById:id=>progressNodes[id],querySelector:()=>false},
     progressSnapshotAt:Date.now(),localAction:null,lastActiveProgress:null,progressOutcome:null,cancelRequestedId:'',downConfirmed:new Set()});
@@ -129,6 +135,17 @@ const rpc=(...args)=>context.rpc(...args),pending=()=>vm.runInContext('Object.ke
   context.devices=[{...audio,audioState:'ready',progress:null}];context.renderProgress();
   assert.match(progressNodes.progressTitle.textContent,/连接检查完成 · 请试听/);
   assert.match(progressNodes.progressWhy.textContent,/实际听到声音才算有声/);
+  assert.equal(progressNodes.progressHelp.hidden,true);
+  context.devices=[connect];context.renderProgress();
+  context.devices=[{...connect,audioState:'link_failed',progress:null}];context.renderProgress();
+  assert.match(progressNodes.progressTitle.textContent,/蓝牙链路未建立/);
+  assert.equal(progressNodes.progressHelp.hidden,false);
+  assert.equal(progressNodes.progressHelp.textContent,'打开 Windows 蓝牙设置');
+  context.devices=[audio];context.renderProgress();
+  context.devices=[{...audio,audioState:'audio_failed',progress:null}];context.renderProgress();
+  assert.match(progressNodes.progressTitle.textContent,/播放端点未就绪/);
+  assert.equal(progressNodes.progressHelp.textContent,'打开 Windows 声音设置');
+  console.log('PASS link_and_audio_failure_have_distinct_system_actions');
   console.log('PASS progress_clock_does_not_rebuild_device_cards');
   const disconnect={...connect,connected:true,audioState:'down_pending',
     progress:{action:'disconnect',phase:'down',step:2,steps:3,elapsedMs:12000,phaseElapsedMs:6000,phaseBudgetMs:30000}};
@@ -160,6 +177,23 @@ const rpc=(...args)=>context.rpc(...args),pending=()=>vm.runInContext('Object.ke
   context.devices=[{id:'first',connected:false,audioState:'disconnected'},disconnect];
   assert.equal(context.orbTarget().id,'A');
   console.log('PASS connect_disconnect_progress_and_terminal_outcome');
+  const caseCode=html.slice(html.indexOf('function updateCaseShell('),html.indexOf('function render(){'));
+  const shell={dataset:{}},led={dataset:{}};
+  Object.assign(context,{selectedDeviceId:'B',document:{getElementById:id=>id==='caseShell'?shell:id==='caseLed'?led:null},currentProgress:()=>null,progressOutcome:null});
+  vm.runInContext(caseCode,context);
+  context.devices=[{id:'A',connected:false,audioState:'disconnected'},{id:'B',connected:false,audioState:'disconnected'}];
+  assert.equal(context.orbTarget().id,'B');
+  context.updateCaseShell();assert.equal(shell.dataset.case,'closed');assert.equal(led.dataset.status,'off');
+  context.currentProgress=()=>({device:context.devices[1]});context.updateCaseShell();
+  assert.equal(shell.dataset.case,'open');assert.equal(led.dataset.status,'busy');
+  context.currentProgress=()=>null;context.devices[1].connected=true;context.updateCaseShell();
+  assert.equal(shell.dataset.case,'open');assert.equal(led.dataset.status,'on');
+  context.devices[1].connected=false;context.progressOutcome={id:'B',connected:false,title:'蓝牙链路未建立'};context.updateCaseShell();
+  assert.equal(shell.dataset.case,'open');assert.equal(led.dataset.status,'off');
+  context.progressOutcome={id:'B',connected:false,title:'已确认断开'};context.updateCaseShell();
+  assert.equal(shell.dataset.case,'closed');
+  console.log('PASS case_shell_selected_device_and_truthful_led');
+
   const heldCode=html.slice(html.indexOf('async function onAudioHeld('),html.indexOf('let delTarget='));
   const heldToasts=[];
   Object.assign(context,{refreshList:async()=>{},toast:m=>heldToasts.push(m),

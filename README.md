@@ -7,7 +7,7 @@
 <div align="center">
   <img src="https://img.shields.io/badge/Platform-Windows-blue?style=for-the-badge" alt="Platform">
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="MIT License">
-  <img src="https://img.shields.io/badge/Version-1.9.20-brightgreen?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/badge/Version-1.9.24-brightgreen?style=for-the-badge" alt="Version">
   <img src="https://img.shields.io/badge/%E5%8D%95%E6%96%87%E4%BB%B6-3.4MB-orange?style=for-the-badge" alt="Single exe 3.4MB">
 </div>
 
@@ -21,6 +21,8 @@
 ---
 
 > v1.9.20 已接受偶发 Windows 蓝牙/音频路由失效作为[已知问题](RELEASE_NOTES_v1.9.20.md)公开披露；严格五轮真机验收没有通过。下载请以 [Release 页面](https://github.com/lyzbcy/AirPods-Windows/releases/latest)为准，验收证据见[开发清单](doc/07-审计修复清单.md)。
+
+> 本机开发版 1.9.33 尚未公开：整个窗口采用充电盒启合设计，左侧选择设备，中心单键连接；连接期间和连接后展开真实状态，详见 [维护记录](doc/maintenance-20261125.md)。
 
 ## 🤔 为什么需要它？（和系统设置比一比）
 
@@ -98,6 +100,8 @@ AirPods 5 可以作为蓝牙耳机与非 Apple 设备配对；本程序目前只
 仍未恢复时，在程序底部点「问题反馈（可附日志）」，选相符问题并保留日志勾选，填写 Windows 版本、耳机在 Windows 显示的**准确名称**、失败发生在发现/配对/连接/播放哪一步。只有口头「AirPods 5 不支持」反馈，尚无法做型号专属真机结论。
 
 ## 🛠 开发者
+
+遇到问题也可以请自己的 Agent 排查、修复，并在你同意后用你的 GitHub 账号代交 PR，参与项目贡献。操作入口与验证、隐私、PR 说明见 [AI_NATIVE.md](AI_NATIVE.md)。v1.9.24 正式版已加入反馈与 Agent 并排窗口、同步提示词和复制入口。精确发布源码请检出 tag v1.9.24；此工作树仍含未来候选。PR 合并由维护者审核。
 
 - 技术栈：AutoHotkey v2 + WebView2（系统自带 Edge 内核），编译为单文件 exe
 - 完整文档在 [`doc/`](doc/README.md)（渐进式披露：初心 / 原理 / 技术方案 / 进度 / 踩坑记录）

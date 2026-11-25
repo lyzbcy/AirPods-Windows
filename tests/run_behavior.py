@@ -123,6 +123,8 @@ DeviceLabel(name) {
 }
 LogMsg(*) {
 }
+DiagnosticLinkObservation(*) {
+}
 RenderSwitchToId(id) {
     global routeWorks, renderSwitchCalls
     renderSwitchCalls++

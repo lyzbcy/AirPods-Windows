@@ -1,4 +1,4 @@
-; Privacy-first diagnostics. No discovery inquiry, connection, pairing or routing writes.
+﻿; Privacy-first diagnostics. No discovery inquiry, connection, pairing or routing writes.
 ; Persistent device identifiers are used only as in-memory keys, never emitted.
 DiagnosticSession() {
     static value := "s" Format("{:08X}", Random(0, 0xFFFFFFFF))
@@ -258,4 +258,23 @@ DiagnosticCollectFeedback(backend?) {
     } catch as e {
         return "=== Privacy diagnostic schema=1 status=unavailable code=" (e.HasOwnProp("Number") ? e.Number : "unknown") " ==="
     }
+}
+
+
+; Read exact MMDevice state without enumeration or route changes. -1 is query
+; unavailable; 0 absent, 1 ACTIVE, 2 DISABLED, 4 NOTPRESENT, 8 UNPLUGGED.
+DiagnosticEndpointState(id, backend?) {
+    if id = ""
+        return -1
+    try {
+        api := IsSet(backend) ? backend : CoreAudioBackend()
+        value := api.EndpointState(id)
+        return (value = 0 || value = 1 || value = 2 || value = 4 || value = 8) ? value : -1
+    } catch {
+        return -1
+    }
+}
+
+DiagnosticLinkObservation(name, op, state, remaining) {
+    try LogMsg("link observation target=" DiagnosticAlias("device", name) " state=" state " renderState=" DiagnosticEndpointState(op.renderId) " captureState=" DiagnosticEndpointState(op.captureId) " retry=" op.retryCount " remaining=" remaining)
 }

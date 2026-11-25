@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data:; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Agent 排障 · AirPods 小助手</title>
+<style>
+:root{--ink:#2a241a;--sub:#93876f;--gold:#ffc53d;--line:rgba(70,50,0,.1)}
+*{box-sizing:border-box;margin:0;padding:0}html,body{height:100%}body{color:var(--ink);font:13px/1.6 'Segoe UI Variable Display','Segoe UI','Microsoft YaHei UI',sans-serif;background:radial-gradient(480px 240px at 50% -80px,rgba(255,197,61,.19),transparent 70%),linear-gradient(180deg,#fffdf4,#fffcf0 60%,#fff7dc);overflow:hidden;border-radius:14px}
+button{font-family:inherit;cursor:pointer}button:focus-visible{outline:2px solid #b98a00;outline-offset:3px}
+.app{height:100%;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.topbar{height:38px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 12px 0 20px;user-select:none}.topbar span{font-size:10px;color:#a79e8f;letter-spacing:1px}.close{width:28px;height:28px;border:0;border-radius:50%;background:transparent;color:#a79e8f;font-size:12px}.close:hover{background:#e2483d;color:#fff}
+.content{flex:1;min-height:0;overflow-y:auto;padding:0 24px 14px}*{scrollbar-width:thin;scrollbar-color:#e2cf9b transparent}::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:#e2cf9b;border-radius:8px}::-webkit-scrollbar-track{background:transparent}
+.brand{display:flex;align-items:center;gap:10px;margin:2px 0 15px}.brand img{width:38px;height:38px;border-radius:11px;box-shadow:0 2px 5px #4632000b;border:1px solid var(--line)}.brand b{font-size:14px;font-weight:600}.brand small{display:block;font-size:10px;color:var(--sub);margin-top:1px}.badge{margin-left:auto;background:#fff3c4;border:1px solid #edce70;color:#97710b;border-radius:20px;font-size:10px;padding:3px 9px;white-space:nowrap}
+h1{font-size:25px;line-height:1.38;font-weight:650;letter-spacing:-.5px}h1 em{font-style:normal;color:#b98a00}.intro{font-size:12px;color:#80735e;line-height:1.75;margin:9px 0 15px}
+.route{display:flex;gap:8px;align-items:center;padding:12px;background:rgba(255,255,255,.8);border:1px solid var(--line);border-radius:13px}.step{flex:1;text-align:center;font-size:11px;line-height:1.5}.step span{display:block;font-size:17px;margin-bottom:3px}.arrow{color:#d3bd84;font-size:12px}.step b{font-weight:600}.step small{display:block;color:var(--sub);font-size:9px;margin-top:2px}
+.contribute{margin-top:13px;padding:12px 14px;background:#fff3c4;border:1px solid #ecdca8;border-radius:13px}.contribute b{font-size:12px;font-weight:650}.contribute p{font-size:11px;line-height:1.7;margin-top:4px;color:#7e6936}.contribute strong{font-weight:650;color:#6f5010}
+label{display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:600;margin:15px 0 7px}label span{font-weight:400;font-size:9px;color:var(--sub)}textarea{display:block;width:100%;height:100px;min-height:75px;resize:vertical;padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:#ffffffa6;color:#756a56;font-family:inherit;font-size:11px;line-height:1.65;user-select:text}textarea:focus{outline:2px solid #e5c86c;outline-offset:1px}
+.privacy{font-size:10px;color:#9b8c70;line-height:1.65;margin-top:7px}.foot{flex:none;padding:12px 24px 15px;background:#fff9e5;border-top:1px solid var(--line)}.copy{width:100%;padding:11px 14px;border:0;border-radius:11px;background:linear-gradient(#ffd24a,#ffc53d);color:#4a3600;font-size:12px;font-weight:600;box-shadow:0 4px 10px #4632000c;transition:transform .15s}.copy:hover{transform:translateY(-1px)}.copy:active{transform:scale(.98)}.copy:disabled{opacity:.5;cursor:wait;transform:none}#status{min-height:17px;font-size:10px;color:#8a701f;text-align:center;margin-top:5px}.foot small{display:block;text-align:center;color:#a39477;font-size:9px;line-height:1.5}
+@media(prefers-reduced-motion:reduce){.copy{transition:none;transform:none!important}}
+</style>
+<div class="app">
+<div class="topbar" id="dragbar"><span>AIRPODS BUDDY · 一起改进</span><button class="close" aria-label="关闭 Agent 排障窗口" onclick="send('agentclose')">✕</button></div>
+<main class="content">
+<div class="brand"><img src="assets/face_heart.png" alt="星星布丁"><div><b>AirPods 小助手</b><small>你的问题，也可以变成一次贡献</small></div><span class="badge">AI-Native</span></div>
+<h1>让 Agent 帮你修好，<br>也成为<em>项目贡献者</em></h1>
+<p class="intro">左边可以反馈给捞鱼。想先自己解决？把问题交给你的 Agent，让它帮你排查、修复，再把改进带给大家。</p>
+<div class="route"><div class="step"><span>🔎</span><b>排查原因</b><small>先查清楚，再动手</small></div><span class="arrow">→</span><div class="step"><span>🛠️</span><b>修复并验证</b><small>Agent 帮你完成</small></div><span class="arrow">→</span><div class="step"><span>🌱</span><b>提交 PR</b><small>参与开源贡献</small></div></div>
+<div class="contribute"><b>不用会写代码，也能参与贡献</b><p>修复完成后，对 Agent 说：<strong>「帮我提交 PR」</strong>。它会用<strong>你的 GitHub 账号</strong>代劳，你就参与了这个项目的贡献。PR 合并后，你的提交署名会进入贡献记录；Contributors 展示以 GitHub 统计为准。</p></div>
+<label for="prompt">给 Agent 的排障提示词<span>随左侧问题说明同步</span></label>
+<textarea id="prompt" readonly placeholder="正在准备提示词…"></textarea>
+<p class="privacy">仅带版本、问题类型和说明，不自动附日志或联系方式。复制前请检查个人信息。合并由维护者审核。</p>
+</main>
+<footer class="foot"><button class="copy" id="copy" disabled onclick="copyPrompt()">复制提示词，交给我的 Agent ↗</button><div id="status" role="status" aria-live="polite"></div><small>不会自动启动 Agent 或提交 PR · 关闭此窗仍可正常反馈</small></footer>
+</div>
+<script>
+function send(message){if(window.chrome?.webview)chrome.webview.postMessage(message)}
+document.getElementById('dragbar').addEventListener('mousedown',e=>{if(e.button===0&&!e.target.closest('button'))send('agentdrag')});
+window.setPrompt=text=>{document.getElementById('prompt').value=text;document.getElementById('copy').disabled=!text;document.getElementById('status').textContent=''};
+function copyPrompt(){
+  const field=document.getElementById('prompt');field.focus();field.select();
+  try{if(!document.execCommand('copy'))throw Error('copy failed');document.getElementById('status').textContent='已复制，粘贴给你的 Agent 即可'}
+  catch(e){document.getElementById('status').textContent='复制未成功，请在提示词框内手动全选复制'}
+}
+send('agentready');
+</script>
+</html>

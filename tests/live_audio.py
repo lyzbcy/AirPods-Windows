@@ -45,7 +45,7 @@ backgroundJobs := [], appRoot := A_ScriptDir
 OnExit(StopBackgroundJobs)
 devices := [], busy := false, maxRetries := 10
 deviceOps := Map(), operationSerial := 0, routeOwner := 0, actionEpoch := 0, pendingRetryDisconnect := 0
-SETTINGS_PATH := A_Args.Length > 1 ? A_Args[2] : "C:\Users\24676\Desktop\AirPodsBuddy\app_settings.ini"
+SETTINGS_PATH := A_Args.Length > 1 ? A_Args[2] : A_ScriptDir "\verification\live-audio-settings.ini"
 FindAllAudioDevices()
 targets := []
 targetAddress := A_Args.Length ? StrUpper(A_Args[1]) : ""

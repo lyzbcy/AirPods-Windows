@@ -27,3 +27,13 @@ chk_*.ahk
 
 # Python test bytecode
 __pycache__/
+
+# Isolated Windows AAP Beta build intermediates
+beta/**/bin/
+beta/**/obj/
+
+# Local configuration and rollback
+app_settings.ini
+app_settings.ini.*
+update_result.txt
+*.exe.backup-*

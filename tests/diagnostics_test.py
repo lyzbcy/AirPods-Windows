@@ -38,6 +38,7 @@ body = r'''
 OnError((e, mode) => (FileAppend("ERROR " e.Message " line=" e.Line "`n", "*"), ExitApp(2)))
 failures := 0, APP_VERSION := "1.9.22"
 LOG_DIR := A_ScriptDir "\logs"
+LOG_QUEUE := [], LOG_VERBOSE := false, LOG_MAX_BYTES := 2097152, LOG_FLUSHING := false
 DirCreate(LOG_DIR)
 logFile := LOG_DIR "\app-" FormatTime(A_Now, "yyyy-MM-dd") ".log"
 privateName := "私密测试用户的耳机"
@@ -68,7 +69,14 @@ Check("redacts_legacy_js_payload", !InStr(DiagnosticSanitize('[JS-ERROR] rawlist
 Check("redacts_legacy_noise_label", !InStr(DiagnosticSanitize("noise mode auto -> OtherPrivateName (" address ")"),"OtherPrivateName"))
 Check("keeps_hresult_and_technical_phase", InStr(DiagnosticSanitize("link_pending HRESULT=0x88890008 requested=2"),"HRESULT=0x88890008 requested=2"))
 
+for state in [0,1,2,4,8,-1,99] {
+    expected := state = 99 ? -1 : state
+    Check("exact_endpoint_state_" state, DiagnosticEndpointState(endpoint, FakeExactEndpoint(state)) = expected)
+}
+Check("endpoint_unknown_on_error", DiagnosticEndpointState(endpoint, FakeExactEndpoint("error")) = -1)
+Check("endpoint_empty_not_absent", DiagnosticEndpointState("") = -1)
 LogMsg(raw)
+FlushLogs()
 Check("local_log_privacy_boundary_works", !InStr(FileRead(logFile,"UTF-8"),privateName) && !InStr(FileRead(logFile,"UTF-8"),address))
 stats := DiagnosticNewStats("authenticated"), rows := []
 info := MakeInfo(privateName " AirPods Pro", address, 0, 32, 1, 1)
@@ -145,6 +153,14 @@ MakeInfo(name,address,cod,connected,remembered,authenticated) {
     StrPut(name,info.Ptr+64,248,"UTF-16")
     return info
 }
+class FakeExactEndpoint {
+    __New(state) => this.state := state
+    EndpointState(id) {
+        if this.state = "error"
+            throw Error("synthetic endpoint failure")
+        return this.state
+    }
+}
 class FakeBackend {
     Classic(mode) {
         global privateName,address
@@ -173,7 +189,7 @@ class PartialBackend extends FakeBackend {
 '''
 body = body.replace('DIAGNOSTIC_LIB', str(ROOT/'lib/Diagnostics.ahk'))
 body = body.replace('AUDIO_LIB', str(ROOT/'lib/AudioRouting.ahk'))
-body += '\n'.join(function(n) for n in ('LogMsg','IsAppleDevice','IsAudioCandidate','GatherLogTail','BuildIssueLogFile'))
+body += '\n'.join(function(n) for n in ('LogMsg','FlushLogs','IsAppleDevice','IsAudioCandidate','GatherLogTail','BuildIssueLogFile'))
 with tempfile.TemporaryDirectory(prefix='apb_private_diagnostics_') as directory:
     script = Path(directory)/'diagnostics.ahk'
     script.write_text(body,encoding='utf-8-sig')

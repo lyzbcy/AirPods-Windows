@@ -196,6 +196,17 @@ linkUp := 1, micSetting := "1"
 MicSwitchTick("AABBCCDDEEFF", 1, gen)
 Check("missing_target_microphone_reports_without_changing_default", events[events.Length].name = "toast" && audioChecks = 2)
 micSetting := "0", linkUp := 0
+gen := BeginDeviceOp("AABBCCDDEEFF", "connect")
+deviceOps["AABBCCDDEEFF"].backend := "ks", deviceOps["AABBCCDDEEFF"].address := "AABBCCDDEEFF"
+deviceOps["AABBCCDDEEFF"].renderId := "{0.0.0.00000000}.{AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA}"
+linkUp := false, renderActive := false, busy := false
+AudioVerifyTick("AABBCCDDEEFF", 8, gen)
+Check("transient_link_drop_during_audio_gets_one_bounded_retry", deviceOps["AABBCCDDEEFF"].state = "link_retry_wait" && deviceOps["AABBCCDDEEFF"].retryReason = "link" && deviceOps["AABBCCDDEEFF"].retryCount = 1)
+AudioVerifyTick("AABBCCDDEEFF", 1, gen)
+Check("stale_audio_tick_during_retry_wait_cannot_cancel_retry", deviceOps["AABBCCDDEEFF"].state = "link_retry_wait")
+SetOpState("AABBCCDDEEFF", gen, "audio_pending")
+AudioVerifyTick("AABBCCDDEEFF", 1, gen)
+Check("second_link_drop_after_retry_is_terminal", deviceOps["AABBCCDDEEFF"].state = "link_failed" && deviceOps["AABBCCDDEEFF"].retryCount = 1)
 FileAppend("RESULT failures=" failures "`n", "*")
 ExitApp(failures ? 1 : 0)
 Check(name, ok) {
@@ -205,6 +216,8 @@ Check(name, ok) {
     FileAppend((ok ? "PASS " : "FAIL ") name "`n", "*")
 }
 LogMsg(*) {
+}
+DiagnosticLinkObservation(*) {
 }
 PetUpdate(*) {
 }

@@ -10,7 +10,7 @@ try {
     if (!(Test-Path $compiler) -or !(Test-Path $base)) {throw 'Build tools missing; installed application untouched'}
     # Snapshot every source/embedded resource/tool consumed by Ahk2Exe after
     # the UI build. Do not deploy an exe assembled from drifting inputs.
-    $inputPaths=@('airpods_buddy.ahk','webui\index.html','webui\index_built.html',
+    $inputPaths=@('airpods_buddy.ahk','webui\agent.html','webui\agent_built.html','webui\index.html','webui\index_built.html',
         'webui\pet.html','webui\pet_built.html','webui\build_ui.ps1','tools\noise_mode.ps1',
         'tools\ahk2exe_stable\Ahk2Exe.exe','tools\ahk_v2_portable\AutoHotkey64.exe',
         'scripts\background-worker.ps1','scripts\KsBluetooth.cs','scripts\KsBluetooth.psm1','THIRD_PARTY_NOTICES.md','scripts\UpdateCore.psm1','scripts\update-swap.ps1')
@@ -30,7 +30,7 @@ try {
     $build=Join-Path $root ('dist\build-'+[guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $build -Force | Out-Null
     $candidate=Join-Path $build 'AirPodsBuddy.exe'
-    $arguments='/silent /compress 0 /in "'+(Join-Path $root 'airpods_buddy.ahk')+'" /out "'+$candidate+'" /base "'+$base+'" /icon "'+(Join-Path $root 'assets\star_pudding.ico')+'"'
+    $arguments='/silent /compress 0 /in "'+(Join-Path $root 'airpods_buddy.ahk')+'" /out "'+$candidate+'" /base "'+$base+'" /icon "'+(Join-Path $root 'assets\airpods-brand.ico')+'"'
     $process=Start-Process -FilePath $compiler -ArgumentList $arguments -WorkingDirectory $root -WindowStyle Hidden -PassThru
     if (!$process.WaitForExit(60000)) {$process.Kill();throw 'Compiler timed out; installed application untouched'}
     if ($process.ExitCode -ne 0 -or !(Test-Path -LiteralPath $candidate)) {throw 'Compile failed; installed application untouched'}

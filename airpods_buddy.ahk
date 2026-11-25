@@ -11,9 +11,10 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\AudioRouting.ahk
 #Include lib\BackgroundJobs.ahk
 #Include lib\Diagnostics.ahk
+#Include lib\AgentHelp.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.23"
+APP_VERSION   := "1.9.33"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -40,9 +41,17 @@ SEP := Chr(31)
 ; 日志统一写入 <脚本目录>\logs\app-YYYYMMDD.log，保留 7 天。
 ; 日志写入本身永不抛错（全部 try 保护），避免"为了记日志反而弹窗"。
 LOG_DIR := A_ScriptDir "\logs"
+LOG_QUEUE := []
+LOG_VERBOSE := EnvGet("AIRPODS_DIAGNOSTIC_LOG") = "1"
+LOG_MAX_BYTES := 2 * 1024 * 1024
+LOG_FLUSHING := false
+SetTimer(FlushLogs, 2000)
+OnExit(FlushLogs)
 
 LogMsg(msg, level := "INFO") {
-    global LOG_DIR
+    global LOG_QUEUE, LOG_VERBOSE
+    if level = "DEBUG" && !LOG_VERBOSE
+        return
     ; One boundary for local logs too; legacy files are sanitized again on export.
     try msg := DiagnosticSanitize(msg)
     catch
@@ -50,17 +59,44 @@ LogMsg(msg, level := "INFO") {
     if StrLen(msg) > 4096
         msg := SubStr(msg, 1, 4096) " [bounded]"
     line := Format("[{}] [{}] {}`r`n", FormatTime(, "yyyy-MM-dd HH:mm:ss"), level, msg)
+    if LOG_QUEUE.Length >= 512
+        LOG_QUEUE.RemoveAt(1)
+    LOG_QUEUE.Push(line)
+    if LOG_QUEUE.Length >= 128 || level = "ERROR"
+        FlushLogs()
+}
+
+FlushLogs(*) {
+    global LOG_DIR, LOG_QUEUE, LOG_MAX_BYTES, LOG_FLUSHING
+    if LOG_FLUSHING || !LOG_QUEUE.Length
+        return
+    LOG_FLUSHING := true
+    batch := LOG_QUEUE
+    LOG_QUEUE := []
+    line := ""
+    for entry in batch
+        line .= entry
     path := LOG_DIR "\app-" FormatTime(, "yyyy-MM-dd") ".log"
     ; 三级回退：本机安全软件可能间歇性拦截文件写入（0x800704C7），
     ; 日志系统绝不允许自己把程序搞挂。
     try {
         DirCreate(LOG_DIR)
+        if FileExist(path) && FileGetSize(path) + StrPut(line, "UTF-8") > LOG_MAX_BYTES {
+            Loop 3 {
+                n := 4 - A_Index
+                source := n = 1 ? path : path "." (n - 1)
+                if FileExist(source)
+                    FileMove(source, path "." n, true)
+            }
+        }
         FileAppend(line, path, "UTF-8")
+        LOG_FLUSHING := false
         return
     }
     try FileAppend(line, path)                       ; CP0 兜底
     catch
         DllCall("OutputDebugString", "str", "AirPodsBuddy " line)   ; 最后手段，永不失败
+    LOG_FLUSHING := false
 }
 
 ; 全局错误拦截：任何未捕获错误写入日志而不是弹出 AHK 报错对话框。
@@ -75,7 +111,7 @@ CleanOldLogs() {
     global LOG_DIR
     try {
         cutoff := DateAdd(A_Now, -7, "days")
-        loop files, LOG_DIR "\app-*.log"
+        loop files, LOG_DIR "\app-*.log*"
         {
             if (A_LoopFileTimeModified < cutoff)
                 FileDelete(A_LoopFileFullPath)
@@ -88,6 +124,7 @@ CleanManagedTemp()
 ; ------------------------- Device priority ---------------------------
 ; 用户自定义的"一键连接"优先顺序（每行一个设备名），Apple 设备默认排前。
 SETTINGS_PATH := A_ScriptDir "\app_settings.ini"
+try LOG_VERBOSE := IniRead(SETTINGS_PATH, "Diagnostics", "detailed", "0") = "1"
 PRIO_PATH := A_ScriptDir "\device_priority.txt"
 priorityList := []
 LoadPriority()
@@ -203,28 +240,30 @@ EnsureResources() {
         DirCreate(appRoot)
         if !FileExist(appRoot "\index_built.html")
             FileInstall "webui\index_built.html", appRoot "\index_built.html", 1
+        if !FileExist(appRoot "\agent_built.html")
+            FileInstall "webui\agent_built.html", appRoot "\agent_built.html", 1
         if !FileExist(appRoot "\pet_built.html")
             FileInstall "webui\pet_built.html", appRoot "\pet_built.html", 1
         if !FileExist(appRoot "\noise_mode.ps1")
             FileInstall "tools\noise_mode.ps1", appRoot "\noise_mode.ps1", 1
         if !FileExist(appRoot "\WebView2Loader.dll")
             FileInstall "lib\WebView2\64bit\WebView2Loader.dll", appRoot "\WebView2Loader.dll", 1
-        if !FileExist(appRoot "\face_off.ico")
-            FileInstall "assets\face_off.ico", appRoot "\face_off.ico", 1
-        if !FileExist(appRoot "\face_on.ico")
-            FileInstall "assets\face_on.ico", appRoot "\face_on.ico", 1
-        if !FileExist(appRoot "\loading_0.ico")
-            FileInstall "assets\loading_0.ico", appRoot "\loading_0.ico", 1
-        if !FileExist(appRoot "\loading_1.ico")
-            FileInstall "assets\loading_1.ico", appRoot "\loading_1.ico", 1
-        if !FileExist(appRoot "\loading_2.ico")
-            FileInstall "assets\loading_2.ico", appRoot "\loading_2.ico", 1
-        if !FileExist(appRoot "\loading_3.ico")
-            FileInstall "assets\loading_3.ico", appRoot "\loading_3.ico", 1
-        if !FileExist(appRoot "\loading_4.ico")
-            FileInstall "assets\loading_4.ico", appRoot "\loading_4.ico", 1
-        if !FileExist(appRoot "\loading_5.ico")
-            FileInstall "assets\loading_5.ico", appRoot "\loading_5.ico", 1
+        if !FileExist(appRoot "\brand-tray-off.ico")
+            FileInstall "assets\brand-tray-off.ico", appRoot "\brand-tray-off.ico", 1
+        if !FileExist(appRoot "\brand-tray-on.ico")
+            FileInstall "assets\brand-tray-on.ico", appRoot "\brand-tray-on.ico", 1
+        if !FileExist(appRoot "\brand-tray-loading-0.ico")
+            FileInstall "assets\brand-tray-loading-0.ico", appRoot "\brand-tray-loading-0.ico", 1
+        if !FileExist(appRoot "\brand-tray-loading-1.ico")
+            FileInstall "assets\brand-tray-loading-1.ico", appRoot "\brand-tray-loading-1.ico", 1
+        if !FileExist(appRoot "\brand-tray-loading-2.ico")
+            FileInstall "assets\brand-tray-loading-2.ico", appRoot "\brand-tray-loading-2.ico", 1
+        if !FileExist(appRoot "\brand-tray-loading-3.ico")
+            FileInstall "assets\brand-tray-loading-3.ico", appRoot "\brand-tray-loading-3.ico", 1
+        if !FileExist(appRoot "\brand-tray-loading-4.ico")
+            FileInstall "assets\brand-tray-loading-4.ico", appRoot "\brand-tray-loading-4.ico", 1
+        if !FileExist(appRoot "\brand-tray-loading-5.ico")
+            FileInstall "assets\brand-tray-loading-5.ico", appRoot "\brand-tray-loading-5.ico", 1
         if !FileExist(appRoot "\background-worker.ps1")
             FileInstall "scripts\background-worker.ps1", appRoot "\background-worker.ps1", 1
         if !FileExist(appRoot "\KsBluetooth.cs")
@@ -265,8 +304,8 @@ if (A_Args.Length = 1 && A_Args[1] = "/testnoise") {
     RunNoiseMode("trans")
     ExitApp(0)
 }
-if !A_IsCompiled && FileExist(A_ScriptDir "\assets\star_pudding.ico")
-    TraySetIcon(A_ScriptDir "\assets\star_pudding.ico")
+if !A_IsCompiled && FileExist(A_ScriptDir "\assets\airpods-brand.ico")
+    TraySetIcon(A_ScriptDir "\assets\airpods-brand.ico")
 
 devices := []
 busy := false
@@ -285,8 +324,8 @@ AnyConnected() {
 }
 
 ; ------------------------- Tray icon state machine --------------------
-; 三态（学习 Mac 版）：未连接=可爱脸 / 已连接=心动脸+绿环 /
-; 连接中=加油脸+旋转弧动画（防用户在慢连接期间重复操作）
+; 三态：统一原创耳机 Logo，未连接=品牌图标 / 已连接=品牌图标+绿点 /
+; 连接中=品牌图标+旋转弧动画（防用户在慢连接期间重复操作）
 TrayIconDir() {
     global appRoot
     EnsureResources()
@@ -305,7 +344,7 @@ UpdateTrayIcon(force := false) {
     if (!force && on = lastTrayOn)
         return
     lastTrayOn := on
-    p := TrayIconDir() . (on ? "\face_on.ico" : "\face_off.ico")
+    p := TrayIconDir() . (on ? "\brand-tray-on.ico" : "\brand-tray-off.ico")
     if FileExist(p)
         TraySetIcon(p)
     A_IconTip := on ? "AirPods 小助手 · 已连接（左键断开）" : "AirPods 小助手 · 未连接（左键连接）"
@@ -327,7 +366,7 @@ SetTrayLoading(on) {
 
 TrayLoadingTick() {
     global trayLoadFrame
-    p := TrayIconDir() "\loading_" trayLoadFrame ".ico"
+    p := TrayIconDir() "\brand-tray-loading-" trayLoadFrame ".ico"
     if FileExist(p)
         TraySetIcon(p)
     A_IconTip := "AirPods 小助手 · 连接中…"
@@ -816,7 +855,7 @@ PetHideNow() {
 }
 
 ; ------------------------- Window ------------------------------------
-WinW := 460, WinH := 600
+WinW := 560, WinH := 580
 
 ; 手动拖动循环：WebView2 子窗口持有鼠标捕获，WM_NCLBUTTONDOWN 桥无效，
 ; 直接按全局光标位移移动窗口（GetCursorPos 不受捕获影响）。
@@ -837,6 +876,7 @@ StartWindowDrag() {
 }
 myGui := Gui("-Caption +MinSize" WinW, "AirPods 小助手")
 myGui.MarginX := 0, myGui.MarginY := 0
+myGui.BackColor := "FDEEFF"
 myGui.Show("w" WinW " h" WinH " Hide")
 
 ; Win11 rounded corners for the borderless window
@@ -909,6 +949,12 @@ loop 3 {
     }
 }
 wv := wvc.CoreWebView2
+try {
+    wvc.DefaultBackgroundColor := 0x00000000
+    WinSetTransColor("FDEEFF", myGui)
+} catch as e {
+    LogMsg("case transparency fallback: " e.Message, "WARN")
+}
 wvc.Fill()   ; explicit: ensure bounds match client area even when created hidden
 try {
     wv.Settings.AreDevToolsEnabled := false
@@ -927,7 +973,7 @@ LogMsg("loading UI html chars=" StrLen(htmlText))
 wv.SetVirtualHostNameToFolderMapping("app.airpods.local", A_IsCompiled ? appRoot : A_ScriptDir "\webui", 0)
 wv.Navigate("https://app.airpods.local/index_built.html")
 
-myGui.OnEvent("Close", (*) => myGui.Hide())
+myGui.OnEvent("Close", (*) => (AgentHide(), myGui.Hide()))
 myGui.OnEvent("Size", SyncWebView)
 
 ; ---------------------------------------------------------------------
@@ -963,6 +1009,9 @@ A_TrayMenu.Add()
 A_TrayMenu.Add("🎧 一键连接", (*) => TrayQuickAction("connect"))
 A_TrayMenu.Add("🚫 一键断开", (*) => TrayQuickAction("disconnect"))
 A_TrayMenu.Add()
+A_TrayMenu.Add("详细排障日志", ToggleDiagnosticLogging)
+if LOG_VERBOSE
+    A_TrayMenu.Check("详细排障日志")
 A_TrayMenu.Add("检查更新", (*) => CheckUpdate(true))
 A_TrayMenu.Add("退出", (*) => ExitApp())
 try {
@@ -1039,8 +1088,8 @@ SetTimer(CheckUpdateReceipt, -3500)   ; v1.9.2：核对上次自动更新回执�
 FbWebhook() {
     webhook := SettingRead("feedback_webhook", "")
     if (webhook = "")
-        webhook := "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=93bbfb6e-6d93-437e-a8ab-605062cc5db5"
-    return webhook
+        webhook := EnvGet("AIRPODS_FEEDBACK_WEBHOOK")
+    return RegExMatch(webhook, "i)^https://qyapi\.weixin\.qq\.com/cgi-bin/webhook/send\?key=[A-Za-z0-9_-]{16,128}$") ? webhook : ""
 }
 
 
@@ -1411,7 +1460,8 @@ ProbeDeviceRender(name, gen, minInterval := 30000) {
 
 AudioVerifyTick(name, left, gen) {
     global deviceOps, actionEpoch
-    if (!CanRoute(name, gen) || deviceOps[name].retryEpoch != actionEpoch || deviceOps[name].state = "retry_cancelled")
+    if (!CanRoute(name, gen) || deviceOps[name].retryEpoch != actionEpoch || deviceOps[name].state = "retry_cancelled"
+        || deviceOps[name].state = "link_retry_wait" || deviceOps[name].state = "link_retrying")
         return
     epoch := deviceOps[name].retryEpoch
     renderId := deviceOps[name].renderId
@@ -1420,6 +1470,10 @@ AudioVerifyTick(name, left, gen) {
         || deviceOps[name].renderId != renderId || deviceOps[name].state = "retry_cancelled")
         return
     if linkState = 0 {
+        DiagnosticLinkObservation(name, deviceOps[name], linkState, left)
+        LogMsg("Bluetooth link dropped during audio verification target=" name, "WARN")
+        if ScheduleKsConnectRetry(name, gen, "link")
+            return
         SetOpState(name, gen, "link_failed")
         PushEvent("linkfail", JsonStr(name))
         return
@@ -1460,8 +1514,11 @@ AudioVerifyTick(name, left, gen) {
             return
         }
         if (freshLink != 1) {
-            SetOpState(name, gen, "link_failed")
+            DiagnosticLinkObservation(name, deviceOps[name], freshLink, left)
             LogMsg("Bluetooth link not up after playback precheck address=" name " state=" freshLink, "WARN")
+            if (freshLink = 0 && ScheduleKsConnectRetry(name, gen, "link"))
+                return
+            SetOpState(name, gen, "link_failed")
             PushEvent("linkfail", JsonStr(name))
             return
         }
@@ -1619,13 +1676,17 @@ WebMessageHandler(core, args) {
         ; wrapped with JsonStr(), otherwise the frontend receives bare identifiers
         ; (ReferenceError) or pre-parsed objects (JSON.parse throws "[object Object]").
         case "list", "statuspoll": Reply(id, JsonStr(BuildDevicesJson())), UpdateTrayIcon()
+        case "openagent":         AgentQueue(arg1, true), Reply(id, "true")
+        case "updateagent":       AgentQueue(arg1), Reply(id, "true")
+        case "closeagent":        AgentHide(), Reply(id, "true")
         case "getversion":        Reply(id, JsonStr(APP_VERSION))
         case "connect":           Reply(id, JsonStr(DoAction(arg1, "connect")))
         case "disconnect":        Reply(id, JsonStr(DoAction(arg1, "disconnect")))
         case "remove":            Reply(id, JsonStr(RemoveDevice(arg1)))
         case "add":               Run("ms-settings:bluetooth"), Reply(id, "true")
-        case "winmin":            myGui.Hide(), Reply(id, "true")   ; 最小化即缩托盘：不占任务栏（初心），随时托盘唤出
-        case "winclose":          myGui.Hide(), Reply(id, "true")
+        case "opensound":         Run("ms-settings:sound"), Reply(id, "true")
+        case "winmin":            AgentHide(), myGui.Hide(), Reply(id, "true")   ; 最小化即缩托盘：不占任务栏（初心），随时托盘唤出
+        case "winclose":          AgentHide(), myGui.Hide(), Reply(id, "true")
         case "openrelease":        Run(RELEASE_PAGE), Reply(id, "true")
         case "openrepo":           Run("https://github.com/lyzbcy/AirPods-Windows"), Reply(id, "true")
         case "stardone":           StarAskShown(), Reply(id, "true")
@@ -1858,6 +1919,12 @@ LinkVerifyTick(name, left, gen) {
     if (!CanRoute(name, gen) || deviceOps[name].retryEpoch != actionEpoch || deviceOps[name].state = "retry_cancelled")
         return
     linkState := GetLinkState(name)
+    if (!CanRoute(name, gen) || deviceOps[name].retryEpoch != actionEpoch || deviceOps[name].state = "retry_cancelled")
+        return
+    if (left = 8 || left = 1 || linkState = 1)
+        DiagnosticLinkObservation(name, deviceOps[name], linkState, left)
+    if (!CanRoute(name, gen) || deviceOps[name].retryEpoch != actionEpoch || deviceOps[name].state = "retry_cancelled")
+        return
     if linkState = 1 {
         SetOpState(name, gen, "link_up")
         LogMsg("link verified (audio still pending): '" name "'")
@@ -1901,19 +1968,25 @@ TryKsConnectRetry(name, gen, epoch) {
     if (!CanRoute(name, gen) || actionEpoch != epoch || deviceOps[name].state != "link_retry_wait")
         return
     linkState := GetLinkState(name)
+    if (!CanRoute(name, gen) || actionEpoch != epoch || deviceOps[name].state != "link_retry_wait")
+        return
     if linkState = -1 {
         SetOpState(name, gen, "link_failed")
         LogMsg("KS retry skipped because Bluetooth link query is unavailable: '" name "'", "WARN")
         PushEvent("linkfail", JsonStr(name))
         return
     }
-    if (linkState = 1 && AudioEndpointIdActive(deviceOps[name].renderId, 0)) {
-        LogMsg("KS link and exact render active during retry wait; no second request: '" name "'")
+    if (linkState = 1 && (deviceOps[name].retryReason = "link" || AudioEndpointIdActive(deviceOps[name].renderId, 0))) {
+        LogMsg("KS link recovered or playback endpoint active during retry wait; verify without second request: '" name "'")
         LinkVerifyTick(name, 1, gen)
         return
     }
-    if busy
+    if busy {
+        SetOpState(name, gen, "link_failed")
+        LogMsg("KS retry skipped: another operation is busy", "WARN")
+        PushEvent("linkfail", JsonStr(name))
         return
+    }
     op := deviceOps[name]
     busy := true
     SetOpState(name, gen, "link_retrying")
@@ -2082,8 +2155,37 @@ RemoveDevice(name) {
 
 ; ------------------------- Update system ------------------------------
 CheckUpdate(manual := false) {
-    global APP_VERSION
-    StartBackgroundJob("checkupdate", '{"version":' JsonStr(APP_VERSION) '}', (result, job) => OnUpdateCheck(result, manual), 30000)
+    global APP_VERSION, updateCheckBusy
+    if IsSet(updateCheckBusy) && updateCheckBusy
+        return
+    updateCheckBusy := true
+    if !ShouldCheckUpdate(manual) {
+        updateCheckBusy := false
+        return
+    }
+    if !StartBackgroundJob("checkupdate", '{"version":' JsonStr(APP_VERSION) '}', (result, job) => OnUpdateCheck(result, manual), 30000)
+        updateCheckBusy := false
+}
+
+ShouldCheckUpdate(manual := false, today := "") {
+    global SETTINGS_PATH, APP_VERSION
+    static lastAttempt := ""
+    if manual
+        return true
+    if today = ""
+        today := FormatTime(DateAdd(A_NowUTC, 8, "hours"), "yyyy-MM-dd")
+    key := today "|" APP_VERSION
+    if lastAttempt = key
+        return false
+    persisted := ""
+    try persisted := IniRead(SETTINGS_PATH, "Updates", "lastAttempt", "")
+    if persisted = key {
+        lastAttempt := key
+        return false
+    }
+    lastAttempt := key
+    try IniWrite(key, SETTINGS_PATH, "Updates", "lastAttempt")
+    return true
 }
 
 
@@ -2341,7 +2443,7 @@ DaysSince(stamp) {
 }
 
 ValidBridgeArgs(cmd, parts) {
-    counts := Map("list",0,"statuspoll",0,"getversion",0,"connect",1,"disconnect",1,"remove",1,"add",0,"winmin",0,"winclose",0,"openrelease",0,"openrepo",0,"stardone",0,"windrag",0,"doupdate",0,"getautostart",0,"setautostart",1,"getmicswitch",0,"setmicswitch",1,"getrescue",0,"setrescue",1,"sendfeedback",1,"sendissue",4,"getfblogs",0,"getfbwebhook",0,"openurl",1,"jserror",1)
+    counts := Map("list",0,"statuspoll",0,"getversion",0,"openagent",1,"updateagent",1,"closeagent",0,"connect",1,"disconnect",1,"remove",1,"add",0,"opensound",0,"winmin",0,"winclose",0,"openrelease",0,"openrepo",0,"stardone",0,"windrag",0,"doupdate",0,"getautostart",0,"setautostart",1,"getmicswitch",0,"setmicswitch",1,"getrescue",0,"setrescue",1,"sendfeedback",1,"sendissue",4,"getfblogs",0,"getfbwebhook",0,"openurl",1,"jserror",1)
     argc := parts.Length - 2
     if (argc = 1 && parts[3] = "")
         argc := 0
@@ -2359,6 +2461,8 @@ ValidBridgeArgs(cmd, parts) {
         return parts[3] = "0" || parts[3] = "1"
     if (cmd = "connect" || cmd = "disconnect" || cmd = "remove")
         return RegExMatch(parts[3], "^[0-9A-F]{12}$") != 0
+    if (cmd = "openagent" || cmd = "updateagent")
+        return StrLen(parts[3]) <= 6000
     if (cmd = "sendfeedback")
         return StrLen(parts[3]) <= 1000
     if (cmd = "sendissue")
@@ -2377,7 +2481,25 @@ OpenApprovedUrl(url) {
     }
 }
 
+ToggleDiagnosticLogging(*) {
+    global LOG_VERBOSE, SETTINGS_PATH
+    next := !LOG_VERBOSE
+    try IniWrite(next ? "1" : "0", SETTINGS_PATH, "Diagnostics", "detailed")
+    catch {
+        LogMsg("diagnostic preference save failed", "ERROR")
+        return
+    }
+    LOG_VERBOSE := next
+    A_TrayMenu.ToggleCheck("详细排障日志")
+    LogMsg("diagnostic mode changed")
+    LogMsg("diagnostic mode enabled", "DEBUG")
+}
+
 OnUpdateCheck(result, manual) {
+    global updateCheckBusy, SETTINGS_PATH
+    updateCheckBusy := false
+    if result["status"] = "available" || result["status"] = "current"
+        try IniWrite(FormatTime(DateAdd(A_NowUTC, 8, "hours"), "yyyy-MM-dd"), SETTINGS_PATH, "Updates", "lastSuccess")
     if result["status"] = "available"
         PushEvent("update", '{"ver":' JsonStr(result["version"]) ',"url":""}')
     else if manual
@@ -2414,8 +2536,13 @@ MarkUpdateHealthy(core, args) {
 
 SendFeedbackAsync(id, text) {
     global APP_VERSION
+    webhook := FbWebhook()
+    if webhook = "" {
+        Reply(id, JsonStr("notconfigured"))
+        return
+    }
     content := "AirPodsBuddy v" APP_VERSION " 意见反馈`n" text
-    payload := '{"webhook":' JsonStr(FbWebhook()) ',"payload":{"msgtype":"markdown","markdown":{"content":' JsonStr(content) '}}}'
+    payload := '{"webhook":' JsonStr(webhook) ',"payload":{"msgtype":"markdown","markdown":{"content":' JsonStr(content) '}}}'
     SendFeedbackJob(id, "feedback", payload)
 }
 SendIssueAsync(id, types, note, flags, contact) {
@@ -2424,13 +2551,18 @@ SendIssueAsync(id, types, note, flags, contact) {
         Reply(id, JsonStr("busy"))
         return
     }
+    webhook := FbWebhook()
+    if webhook = "" {
+        Reply(id, JsonStr("notconfigured"))
+        return
+    }
     wantFile := SubStr(flags, 2, 1) = "1"
     diagnostic := wantFile ? DiagnosticCollectFeedback() : ""
     content := "问题反馈：" types "`n" note "`n联系方式：" contact
     if wantFile
         content .= "`n" TruncateUtf8(GatherLogTail(diagnostic), 2200)
     logPath := wantFile ? BuildIssueLogFile(diagnostic) : ""
-    payload := '{"webhook":' JsonStr(FbWebhook()) ',"payload":{"msgtype":"markdown","markdown":{"content":' JsonStr(content) '}},"wantFile":' (wantFile ? 'true' : 'false') ',"logPath":' JsonStr(logPath) '}'
+    payload := '{"webhook":' JsonStr(webhook) ',"payload":{"msgtype":"markdown","markdown":{"content":' JsonStr(content) '}},"wantFile":' (wantFile ? 'true' : 'false') ',"logPath":' JsonStr(logPath) '}'
     SendFeedbackJob(id, "issue", payload, logPath)
 }
 SendFeedbackJob(id, kind, payload, logPath := "") {
