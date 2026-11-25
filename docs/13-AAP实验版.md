@@ -68,6 +68,7 @@
 完整证据与来源在 [14 · 第 2 节](14-竞品对标与高级能力路线.md)。
 
 - `tools/noise_mode.ps1` 那条 Winsock 原型从原理上走不通：微软蓝牙栈的用户态 Winsock 只支持 `BTHPROTO_RFCOMM`，L2CAP 只能由内核 profile 驱动通过 BRB 提交。实测现象是 `socket()` 成功、`connect()` 报 `WSAENETDOWN (10050)`，与适配器品牌无关，Windows 11 24H2 也一样。[官方文档] [issue 用户报告]
+- 本机补测（2026-11-25 晚，只读、未向耳机寻呼）：32 位和 64 位进程里 `socket(AF_BTH, SOCK_STREAM, BTHPROTO_L2CAP)` 与 `BTHPROTO_RFCOMM` 都返回 `WSAEAFNOSUPPORT (10047)`，而 `netsh winsock show catalog` 里列着 `MSAFD L2CAP [Bluetooth]` 和 `MSAFD RfComm [Bluetooth]`，蓝牙适配器在线且可连接。也就是说这台机器上用户态蓝牙套接字整体不可用，调研里建议的「WinSock 探测」在本机用不了。原因未查，可能与通用适配器的微软通用驱动有关。[推测]
 - 因此本机「0 个 AAP 接口」不是这台机器的特殊情况：不装内核驱动，任何 Windows 机器都是 0 个。换适配器、换厂商驱动、改注册表、换 Windows 版本都没有用。
 - 所有做成的竞品都靠内核驱动：MagicAAP、NTPodsAAP、SoundStage 是 KMDF profile 驱动（测试签名，需 Test Mode）；WPods 靠 WinUSB 接管适配器加 usbip-win2。
 - MagicAAP 官方驱动未签名；社区签名版自 2026 年 4 月安全更新后默认不被信任。本项目不引导用户去关驱动策略或开 Test Mode。
