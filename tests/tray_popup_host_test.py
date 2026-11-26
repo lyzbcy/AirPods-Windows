@@ -9,6 +9,7 @@ main=(root/'airpods_buddy.ahk').read_text(encoding='utf-8-sig')
 for name,ok in {
     'main_interactive_surface_opaque': 'WinSetTransColor("FDEEFF", myGui)' not in main and 'wvc.DefaultBackgroundColor := 0xFFFFF7E8' in main,
     'custom_popup_interactive_surface_opaque': 'WinSetTransColor("FDEEFF", trayPopupGui)' not in source and 'trayPopupWvc.DefaultBackgroundColor := 0xFFFFF7E8' in source,
+    'tray_advanced_opens_explanation_before_external_lab': 'case "advanced": ShowAdvancedExplanation()' in source and 'A_TrayMenu.Add("🎧 降噪/通透实验室", (*) => ShowAdvancedExplanation())' in main,
     'custom_popup_idle_reuse': 'SetTimer(TrayPopupDestroy,-60000)' in source,
 }.items():
     print(('PASS ' if ok else 'FAIL ')+name)

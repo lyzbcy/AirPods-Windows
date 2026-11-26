@@ -15,7 +15,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\TrayPopup.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.43"
+APP_VERSION   := "1.9.45"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -452,6 +452,46 @@ WatchAudioRoutes() {
 ; Do not run the historical user-mode L2CAP prototype or fake success.
 AdvancedLabPath() {
     return EnvGet("LOCALAPPDATA") "\AirPodsBuddyBeta\app\AirPodsBuddy.Beta.exe"
+}
+
+ShowAdvancedExplanation(*) {
+    global myGui, wv
+    myGui.Show()
+    SyncWebView()
+    try wv.ExecuteScriptAsync("openAdvanced()")
+}
+; Native window region clips only the outer silhouette while keeping WebView opaque.
+; Whitelisted logical modes; no arbitrary region coordinates from the page.
+SetCaseWindowShape(mode) {
+    global myGui
+    if !IsObject(myGui)
+        return false
+    try {
+        rect := Buffer(16, 0)
+        if !DllCall("user32\GetClientRect", "ptr", myGui.Hwnd, "ptr", rect, "int")
+            return false
+        w := NumGet(rect, 8, "int"), h := NumGet(rect, 12, "int")
+        if w <= 0 || h <= 0
+            return false
+        sx := w / 560, sy := h / 580
+        ; Conservative physical envelope: never clip the animated lid or buttons.
+        x := Round((mode = "modal" ? 0 : 8)*sx)
+        y := Round((mode = "closed" ? 120 : 0)*sy)
+        right := w-x, bottom := h-Round((mode = "modal" ? 0 : 6)*sy)
+        rgn := DllCall("gdi32\CreateRoundRectRgn","int",x,"int",y,"int",right,"int",bottom,
+            "int",Round(80*sx),"int",Round(80*sy),"ptr")
+        if !rgn
+            return false
+        if !DllCall("user32\SetWindowRgn","ptr",myGui.Hwnd,"ptr",rgn,"int",true,"int") {
+            DllCall("gdi32\DeleteObject","ptr",rgn)
+            return false
+        }
+        ; Windows owns rgn after success; do not delete it.
+        return true
+    } catch as e {
+        LogMsg("case window region unavailable; opaque fallback", "WARN")
+        return false
+    }
 }
 
 OpenAdvancedControl() {
@@ -978,7 +1018,7 @@ A_IconTip := "AirPods 小助手 v" APP_VERSION
 trayToggleName := "⇄ 切换连接"
 A_TrayMenu.Delete()
 A_TrayMenu.Add(trayToggleName, (*) => ToggleQuickAction())
-A_TrayMenu.Add("🎧 降噪/通透实验室", (*) => OpenAdvancedControl())
+A_TrayMenu.Add("🎧 降噪/通透实验室", (*) => ShowAdvancedExplanation())
 A_TrayMenu.Add("打开界面", (*) => (myGui.Show(), SyncWebView()))
 A_TrayMenu.Add("遇到问题反馈", (*) => (myGui.Show(), SyncWebView(), TrayOpenIssue()))
 A_TrayMenu.Add("美化快捷菜单", (*) => SetTimer(TrayPopupShow, -1))
@@ -1663,6 +1703,7 @@ WebMessageHandler(core, args) {
         case "remove":            Reply(id, JsonStr(RemoveDevice(arg1)))
         case "add":               Run("ms-settings:bluetooth"), Reply(id, "true")
         case "opensound":         Run("ms-settings:sound"), Reply(id, "true")
+        case "windowshape":       Reply(id, SetCaseWindowShape(arg1) ? "true" : "false")
         case "advancedstatus":    Reply(id, FileExist(AdvancedLabPath()) ? "true" : "false")
         case "openadvanced":      Reply(id, OpenAdvancedControl() ? "true" : "false")
         case "winmin":            AgentHide(), myGui.Hide(), Reply(id, "true")   ; 最小化即缩托盘：不占任务栏（初心），随时托盘唤出
@@ -2435,7 +2476,7 @@ DaysSince(stamp) {
 }
 
 ValidBridgeArgs(cmd, parts) {
-    counts := Map("list",0,"statuspoll",0,"getversion",0,"openagent",1,"updateagent",1,"closeagent",0,"connect",1,"disconnect",1,"remove",1,"add",0,"opensound",0,"advancedstatus",0,"openadvanced",0,"winmin",0,"winclose",0,"openrelease",0,"openrepo",0,"stardone",0,"windrag",0,"doupdate",0,"getautostart",0,"setautostart",1,"getmicswitch",0,"setmicswitch",1,"getrescue",0,"setrescue",1,"sendfeedback",1,"sendissue",4,"getfblogs",0,"getfbwebhook",0,"openurl",1,"jserror",1)
+    counts := Map("list",0,"statuspoll",0,"getversion",0,"openagent",1,"updateagent",1,"closeagent",0,"connect",1,"disconnect",1,"remove",1,"add",0,"opensound",0,"windowshape",1,"advancedstatus",0,"openadvanced",0,"winmin",0,"winclose",0,"openrelease",0,"openrepo",0,"stardone",0,"windrag",0,"doupdate",0,"getautostart",0,"setautostart",1,"getmicswitch",0,"setmicswitch",1,"getrescue",0,"setrescue",1,"sendfeedback",1,"sendissue",4,"getfblogs",0,"getfbwebhook",0,"openurl",1,"jserror",1)
     argc := parts.Length - 2
     if (argc = 1 && parts[3] = "")
         argc := 0
@@ -2449,6 +2490,8 @@ ValidBridgeArgs(cmd, parts) {
     }
     if (!counts.Has(cmd) || argc != counts[cmd])
         return false
+    if cmd = "windowshape"
+        return parts[3] = "closed" || parts[3] = "open" || parts[3] = "modal"
     if (cmd = "setautostart" || cmd = "setmicswitch" || cmd = "setrescue")
         return parts[3] = "0" || parts[3] = "1"
     if (cmd = "connect" || cmd = "disconnect" || cmd = "remove")

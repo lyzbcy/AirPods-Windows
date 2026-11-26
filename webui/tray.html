@@ -14,6 +14,7 @@ button:hover,button:focus-visible{background:#fff3cc;transform:translateX(2px);b
 .primary{background:linear-gradient(#ffe49d,#ffcb53);font-weight:650;border:1px solid #fff1bd;margin-bottom:5px}.primary:hover{background:#ffda7c}
 .sep{height:1px;background:#dbcaaf80;margin:5px 7px}.footer{display:flex;justify-content:space-between;align-items:center;margin-top:auto;padding:3px 5px;color:#97815a;font-size:10px}.footer button{width:auto;min-height:24px;padding:3px 7px;font-size:10px}.check{margin-left:auto;color:#7a9d60;font-weight:700}.danger{color:#8d4840}.danger svg{stroke:#a55d52}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+:root{--curve:40px}.tray-card,button,header img,.check{border-radius:var(--curve)}
 </style></head><body><div class="tray-card">
 <header><img src="assets/airpods-brand.png" alt=""><div><b>AirPods 小助手</b><small id="stateText">正在读取状态</small></div><span class="status" id="stateLed" data-state="off"></span></header>
 <button class="primary" data-action="open"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="4"/><path d="M4 10h16"/></svg>打开小助手<span class="chev">›</span></button>

@@ -152,6 +152,7 @@ Check("bridge_rejects_invalid_boolean", !ValidBridgeArgs("setmicswitch", ["setmi
 Check("bridge_rejects_unknown_command", !ValidBridgeArgs("exec", ["exec","1","calc.exe"]))
 Check("advanced_bridge_accepts_only_fixed_no_argument_action", ValidBridgeArgs("openadvanced", ["openadvanced","1",""]) && !ValidBridgeArgs("openadvanced", ["openadvanced","1","arbitrary.exe"]))
 Check("advanced_status_read_only_bridge_accepts_no_argument", ValidBridgeArgs("advancedstatus", ["advancedstatus","1",""]))
+Check("window_shape_accepts_only_three_named_modes", ValidBridgeArgs("windowshape", ["windowshape","1","closed"]) && ValidBridgeArgs("windowshape", ["windowshape","1","open"]) && ValidBridgeArgs("windowshape", ["windowshape","1","modal"]) && !ValidBridgeArgs("windowshape", ["windowshape","1","0-0 W99999 H99999"]))
 Check("bridge_address_not_name", ValidBridgeArgs("connect", ["connect","1","001122334455"]) && !ValidBridgeArgs("connect", ["connect","1","Same"]))
 Check("invalid_date_falls_back", DaysSince("garbage") = 999 && DaysSince("20261399999999") = 999)
 Check("calendar_day_arithmetic", DaysSince(DateAdd(A_Now, -16, "days")) = 16)

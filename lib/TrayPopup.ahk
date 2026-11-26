@@ -152,7 +152,7 @@ TrayPopupAction(action) {
         case "open": myGui.Show(), SyncWebView()
         case "connect": TrayQuickAction("connect")
         case "disconnect": TrayQuickAction("disconnect")
-        case "advanced": OpenAdvancedControl()
+        case "advanced": ShowAdvancedExplanation()
         case "logs": ToggleDiagnosticLogging()
         case "update": CheckUpdate(true)
         ; Lands on the first-level "遇到问题反馈" form instead of a hidden corner.

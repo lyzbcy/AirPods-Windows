@@ -221,7 +221,8 @@ const rpc=(...args)=>context.rpc(...args),pending=()=>vm.runInContext('Object.ke
   assert.equal(context.orbTarget().id,'A');
   console.log('PASS connect_disconnect_progress_and_terminal_outcome');
   const caseCode=html.slice(html.indexOf('function updateCaseShell('),html.indexOf('function render(){'));
-  const shell={dataset:{}},led={dataset:{}};
+  const motionCalls=[]; const shell={dataset:{}},led={dataset:{}};
+  context.animateCaseTransition=(_shell,next)=>motionCalls.push(next);
   Object.assign(context,{selectedDeviceId:'B',document:{getElementById:id=>id==='caseShell'?shell:id==='caseLed'?led:null},currentProgress:()=>null,progressOutcome:null});
   vm.runInContext(caseCode,context);
   context.devices=[{id:'A',connected:false,audioState:'disconnected'},{id:'B',connected:false,audioState:'disconnected'}];
@@ -237,7 +238,9 @@ const rpc=(...args)=>context.rpc(...args),pending=()=>vm.runInContext('Object.ke
   assert.equal(shell.dataset.case,'closed');
   context.progressOutcome=null;context.devices[1].audioState='link_failed';context.updateCaseShell();assert.equal(shell.dataset.case,'open');assert.equal(led.dataset.status,'off');
   assert.equal(context.canRetryPlayback({connected:true,audioState:'audio_lost'}),true);
+  assert.deepEqual(motionCalls,['closed','open','closed','open']);
   console.log('PASS case_shell_selected_device_and_truthful_led');
+  console.log('PASS case_animation_only_on_state_transition');
 
   const heldCode=html.slice(html.indexOf('async function onAudioHeld('),html.indexOf('let delTarget='));
   const heldToasts=[];

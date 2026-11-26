@@ -560,17 +560,72 @@
   .wbtn.sketch:hover::after,.wbtn.sketch:focus-visible::after{opacity:1;transform:none}
   @keyframes caseReveal{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
   @media(prefers-reduced-motion:reduce){.case-shell[data-case=open] .case-summary,.case-shell[data-case=open] .case-summary .detail-row{animation:none!important}}
+
+  /* Shared shape tokens: capsules are deliberate; everything else is layered. */
+  :root{--r-control:12px;--r-card:18px;--r-panel:24px;--r-outer:32px;--ease-cinema:cubic-bezier(.19,1,.22,1)}
+  *{scrollbar-width:thin;scrollbar-color:#d6b77366 transparent}
+  *::-webkit-scrollbar{width:6px;height:6px}
+  *::-webkit-scrollbar-track{background:transparent}
+  *::-webkit-scrollbar-thumb{background:#d6b77399;border:1px solid #fff9ee;border-radius:999px}
+  *::-webkit-scrollbar-thumb:hover{background:#bd933e}
+  .dlg,.device-rail,.progress-panel,.flow-card{border-radius:var(--r-panel)}
+  .setting-row,.set-row,.setrow,.sw-row,.setting,.setting-card{border-radius:var(--r-card)}
+  .detail-row,.device-rail .card,.flow-sub,.flow-details,.adv-status,.call-guidance{border-radius:var(--r-card)}
+  .btn,.case-advanced summary,#caseTools button,.audio-retry,.dlg input,.dlg textarea,.dlg select{border-radius:var(--r-control)}
+  .dlg{background:linear-gradient(145deg,#fffdf7,#fff4d9)}
+  .case-shell{perspective:760px}.case-lid-wrap{perspective:none;isolation:isolate}
+  .case-lid-wrap,.case-base{transition:height .82s var(--ease-cinema),border-radius .82s var(--ease-cinema)}
+  .case-lid{transition:transform .82s var(--ease-cinema),border-radius .82s var(--ease-cinema);overflow:hidden;transform-style:preserve-3d}
+  .case-shell[data-case=open] .case-lid{transform:perspective(960px) rotateX(-38deg) scaleX(.94) translateY(-2px)}
+  .case-shell.case-opening .case-lid{animation:lidOpen .82s var(--ease-cinema) both}
+  .case-shell.case-closing .case-lid{animation:lidClose .72s var(--ease-cinema) both}
+  @keyframes lidOpen{0%{transform:rotateX(0)}64%{transform:perspective(960px) rotateX(-44deg) scaleX(.94) translateY(-4px)}100%{transform:perspective(960px) rotateX(-38deg) scaleX(.94) translateY(-2px)}}
+  @keyframes lidClose{0%{transform:perspective(960px) rotateX(-38deg) scaleX(.94) translateY(-2px)}80%{transform:rotateX(2deg)}100%{transform:rotateX(0)}}
+  .case-shell.case-opening .case-base::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(115deg,transparent 25%,#fff9 48%,transparent 62%);transform:translateX(-110%);animation:caseGlint .85s .12s both ease-out}
+  @keyframes caseGlint{to{transform:translateX(110%)}}
+  .case-shell.case-opening .case-main header,.case-shell.case-opening .case-summary,.case-shell.case-opening .case-advanced{animation:cinematicReveal .55s .18s both var(--ease-cinema)}
+  .case-shell.case-opening .case-summary .detail-row{animation:cinematicReveal .48s both var(--ease-cinema)}
+  .case-shell.case-opening .case-summary .detail-row:nth-child(1){animation-delay:.25s}
+  .case-shell.case-opening .case-summary .detail-row:nth-child(2){animation-delay:.32s}
+  .case-shell.case-opening .case-summary .detail-row:nth-child(3){animation-delay:.39s}
+  @keyframes cinematicReveal{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
+  @media(prefers-reduced-motion:reduce){.case-shell *, .case-shell *::after{animation:none!important;transition:none!important}}
+
+  /* One curvature family, native envelope matches the 40px outer radius.
+     Window controls are siblings of the transforming lid, so their hit boxes
+     never inherit the 3D projection or get clipped by the lid. */
+  :root{--curve:40px}
+  .case-lid,.case-base,.case-shell[data-case=open] .case-lid,.case-shell[data-case=open] .case-base,
+  .lid-inner,.dlg,.device-rail,.progress-panel,.flow-card,.flow-sub,.flow-details,.adv-status,
+  .detail-row,.case-summary .detail-row,.device-rail .card,.rail-issue,.case-main .appicon,
+  .case-shell[data-case=open] .appicon,.case-advanced summary,#caseTools button,.audio-retry,
+  .case-summary .audio-retry,.btn,.case-main .orb,.dlg input,.dlg textarea,.dlg select,
+  .setrow,.setting-row,.set-row,.sw-row,.setting,.setting-card,.call-guidance,.wbtn.sketch,
+  .flow-node,.flow-hero strong,.flow-facts em,.flow-sub i,.badge,.progress-issue,
+  .switch .slider,.switch .slider::after,.row-icon,.wbtn.sketch::after{border-radius:var(--curve)}
+  .case-lid-wrap>.topbar{position:absolute;top:13px;right:42px;height:38px;width:88px;padding:0;gap:8px;z-index:8;display:flex;justify-content:flex-end;align-items:center}
+  .case-shell[data-case=open] .case-lid-wrap>.topbar{top:34px}
+  .wbtn.sketch{width:36px;height:36px;min-width:36px;min-height:36px;flex:none;transform:none!important;touch-action:manipulation}
+  .wbtn.sketch svg{pointer-events:none;width:19px;height:19px}
+  .case-lid{pointer-events:none;z-index:0}
+  .case-lid-wrap>.topbar{isolation:isolate;transform:none!important;pointer-events:auto}
+  .case-interior{min-height:0;grid-template-rows:minmax(0,1fr)}
+  .case-main{min-height:0;overflow-y:auto;overscroll-behavior:contain}
+  .case-main>*{flex-shrink:0}
+  .case-shell[data-case=open] .case-main{padding-bottom:16px}
+  .case-shell[data-case=open] .case-base{height:430px}
 </style>
 </head>
 <body>
 <div class="app case-shell" id="caseShell" data-case="closed">
   <div class="case-lid-wrap"><div class="case-lid">
     <div class="lid-inner"></div>
+  </div>
     <div class="topbar" id="topbar">
       <button class="wbtn sketch" onclick="rpc('winmin')" aria-label="最小化到托盘" data-tip="最小化到托盘"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 12.5Q12 11 17.6 12.3" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/></svg></button>
       <button class="wbtn close sketch" onclick="rpc('winclose')" aria-label="关闭到托盘" data-tip="关闭到托盘"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 6.8Q11.4 12.2 17 17.3M17 6.7Q12.1 12.8 7.3 17.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
     </div>
-  </div></div>
+  </div>
   <div class="case-base">
     <div class="case-seam"><span id="caseLed" data-status="off"></span></div>
     <div class="case-interior">
@@ -817,7 +872,7 @@
     </details>
     <div class="adv-status"><b>独立实验室</b><span id="advancedLabStatus">正在检测本机实验室…</span><br>实验室是单独的组件：普通连接不受影响，主程序不会自动安装驱动，也不会发送未核实的控制命令。</div>
 
-    <div class="row"><button class="btn ghost" onclick="closeModal('mAdvanced')">关闭</button><button class="btn primary" disabled id="advancedLaunch" onclick="launchAdvanced()">打开实验室</button></div>
+    <div class="row"><button class="btn ghost" onclick="closeModal('mAdvanced')">关闭</button><button class="btn primary" disabled id="advancedLaunch" onclick="launchAdvanced()">进入独立实验室</button></div>
 
   </div>
 
@@ -1179,11 +1234,27 @@ function toggleCaseInspect(){
   if(!orbTarget()||currentProgress())return;
   caseInspect=!caseInspect;document.getElementById('caseAdvanced').open=caseInspect;updateCaseShell();
 }
+let shapeTimer=0,shapeLast='',caseMotionTimer=0;
+function syncWindowShape(){
+  const shell=document.getElementById('caseShell');if(!shell)return;
+  clearTimeout(shapeTimer);
+  const modal=!!document.querySelector('.mask.open');
+  const mode=modal?'modal':shell.dataset.case==='open'?'open':'closed';
+  const send=()=>{if(shapeLast!==mode){shapeLast=mode;rpc('windowshape',mode).catch(()=>{shapeLast=''})}};
+  if(mode==='closed')shapeTimer=setTimeout(send,850);else send();
+}
+function animateCaseTransition(shell,next){
+  clearTimeout(caseMotionTimer);shell.classList.remove('case-opening','case-closing');
+  shell.classList.add(next==='open'?'case-opening':'case-closing');
+  syncWindowShape();
+  caseMotionTimer=setTimeout(()=>shell.classList.remove('case-opening','case-closing'),950);
+}
 function updateCaseShell(){
   const shell=document.getElementById('caseShell');if(!shell)return;
   const t=orbTarget(),active=currentProgress();
   const failure=!!t&&(['link_failed','service_failed','disconnect_failed'].includes(t.audioState)||(progressOutcome?.id===t.id&&progressOutcome?.connected!==undefined&&!/已确认断开|已取消连接/.test(progressOutcome.title)));
-  shell.dataset.case=(t?.connected||active||failure||(typeof caseInspect!=='undefined'&&caseInspect&&t))?'open':'closed';
+  const next=(t?.connected||active||failure||(typeof caseInspect!=='undefined'&&caseInspect&&t))?'open':'closed';
+  if(shell.dataset.case!==next){shell.dataset.case=next;if(typeof animateCaseTransition==='function')animateCaseTransition(shell,next)}
   document.getElementById('caseLed').dataset.status=t?.connected?'on':active?'busy':'off';
 }
 function render(){
@@ -1284,10 +1355,10 @@ document.getElementById('refresh').onclick=e=>{
   refreshList()};
 
 /* ---------- modal helpers ---------- */
-function openModal(id){const m=document.getElementById(id);m.classList.add('open');
+function openModal(id){const m=document.getElementById(id);m.classList.add('open');syncWindowShape();
   requestAnimationFrame(()=>requestAnimationFrame(()=>m.classList.add('in')))}
 function closeModal(id){if(id==='mIssue'){clearTimeout(agentSyncTimer);rpc('closeagent').catch(()=>{})}const m=document.getElementById(id);m.classList.remove('in');
-  setTimeout(()=>m.classList.remove('open'),260)}
+  setTimeout(()=>{m.classList.remove('open');syncWindowShape()},260)}
 document.querySelectorAll('.mask').forEach(m=>m.onclick=e=>{if(e.target===m)closeModal(m.id)});
 function qrZoom(card){
   document.getElementById('qrBigImg').src=card.querySelector('img').src;
@@ -1546,9 +1617,8 @@ function applyPolledDevices(d){
   try { rpc('bootok','vp='+innerWidth+'x'+innerHeight+' dpr='+devicePixelRatio); } catch(e) {}
   const v=await rpc('getversion');
   document.getElementById('ver').textContent='v'+v;
-  refreshList();
-  setInterval(()=>rpc('statuspoll').then(r=>applyPolledDevices(parseList(r)))
-    .catch(()=>{document.getElementById('badge').textContent='状态待刷新'}),4000);
+  refreshList();syncWindowShape();
+  let pollBusy=false;setInterval(async()=>{if(pollBusy||document.hidden)return;pollBusy=true;try{applyPolledDevices(parseList(await rpc('statuspoll')))}catch(e){document.getElementById('badge').textContent='状态待刷新'}finally{pollBusy=false}},4000);
   setInterval(renderProgress,1000);
 })();
 </script>
