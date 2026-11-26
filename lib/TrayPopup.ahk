@@ -49,11 +49,10 @@ TrayNotify(wParam, lParam, msg, hwnd) {
         return
     event := lParam & 0xFFFF
     if event = 0x205 || event = 0x7B {
-        if A_TickCount - trayPopupLastNotify > 250 {
-            trayPopupLastNotify := A_TickCount
-            SetTimer(TrayPopupShow, -1)
-        }
-        return 0
+        ; Do not intercept native right-click. The custom WebView is opt-in
+        ; from the menu; never make cold controller creation a prerequisite.
+        SetTimer(TrayHoverHide, -1)
+        return
     }
     if event = 0x200 && !trayPopupVisible && !trayHoverPending && !trayHoverVisible {
         trayHoverPending := true
@@ -185,12 +184,11 @@ TrayPopupShow(*) {
         if !IsObject(trayPopupWvc) {
             EnsureResources()
             trayPopupGui := Gui("-DPIScale -Caption +AlwaysOnTop +ToolWindow", "AirPods 小助手 · 快捷菜单")
-            trayPopupGui.MarginX := 0, trayPopupGui.MarginY := 0, trayPopupGui.BackColor := "FDEEFF"
+            trayPopupGui.MarginX := 0, trayPopupGui.MarginY := 0, trayPopupGui.BackColor := "FFF7E8"
             trayPopupGui.Show("w" w " h" h " Hide")
             trayPopupWvc := WebView2.create(trayPopupGui.Hwnd,, wv.Environment, EnvGet("LOCALAPPDATA") "\AirPodsBuddy_webview", wv2Fallback, 0, wvDll)
             trayPopupWv := trayPopupWvc.CoreWebView2
-            trayPopupWvc.DefaultBackgroundColor := 0x00000000
-            WinSetTransColor("FDEEFF", trayPopupGui)
+            trayPopupWvc.DefaultBackgroundColor := 0xFFFFF7E8
             trayPopupWv.Settings.AreDevToolsEnabled := false
             trayPopupWv.Settings.AreDefaultContextMenusEnabled := false
             trayPopupWv.add_NavigationStarting((core,args) => (args.Cancel := args.Uri != "https://app.airpods.local/tray_built.html"))
@@ -245,7 +243,7 @@ TrayPopupHide(*) {
         try trayPopupWvc.IsVisible := false
     if IsObject(trayPopupGui)
         try trayPopupGui.Hide()
-    SetTimer(TrayPopupDestroy,-200)
+    SetTimer(TrayPopupDestroy,-60000) ; reuse controller for nearby opens; release after idle
 }
 TrayPopupDestroy(*) {
     global trayPopupVisible, trayPopupGui, trayPopupWv, trayPopupWvc, trayPopupReady

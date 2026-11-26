@@ -15,7 +15,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\TrayPopup.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.42"
+APP_VERSION   := "1.9.43"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -857,7 +857,7 @@ StartWindowDrag() {
 }
 myGui := Gui("-Caption +MinSize" WinW, "AirPods 小助手")
 myGui.MarginX := 0, myGui.MarginY := 0
-myGui.BackColor := "FDEEFF"
+myGui.BackColor := "FFF7E8"
 myGui.Show("w" WinW " h" WinH " Hide")
 
 ; Win11 rounded corners for the borderless window
@@ -931,10 +931,9 @@ loop 3 {
 }
 wv := wvc.CoreWebView2
 try {
-    wvc.DefaultBackgroundColor := 0x00000000
-    WinSetTransColor("FDEEFF", myGui)
+    wvc.DefaultBackgroundColor := 0xFFFFF7E8  ; opaque interactive surface, no color-key hit-through
 } catch as e {
-    LogMsg("case transparency fallback: " e.Message, "WARN")
+    LogMsg("case background fallback: " e.Message, "WARN")
 }
 wvc.Fill()   ; explicit: ensure bounds match client area even when created hidden
 try {
@@ -981,6 +980,8 @@ A_TrayMenu.Delete()
 A_TrayMenu.Add(trayToggleName, (*) => ToggleQuickAction())
 A_TrayMenu.Add("🎧 降噪/通透实验室", (*) => OpenAdvancedControl())
 A_TrayMenu.Add("打开界面", (*) => (myGui.Show(), SyncWebView()))
+A_TrayMenu.Add("遇到问题反馈", (*) => (myGui.Show(), SyncWebView(), TrayOpenIssue()))
+A_TrayMenu.Add("美化快捷菜单", (*) => SetTimer(TrayPopupShow, -1))
 A_TrayMenu.Add()
 A_TrayMenu.Add("🎧 一键连接", (*) => TrayQuickAction("connect"))
 A_TrayMenu.Add("🚫 一键断开", (*) => TrayQuickAction("disconnect"))
