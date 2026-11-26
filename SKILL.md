@@ -74,11 +74,11 @@ AirPods 小助手帮助 Windows 用户从托盘一键连接已配对的蓝牙耳
 | 求好评 | 已实现：第 10 次成功连接触发，之后每 50 次；关闭后 15 天内不再弹 | `airpods_buddy.ahk` | `tests/run_behavior.py`（7 项） |
 | 界面 / 小精灵 / 托盘 | 已实现：整窗开盒、四套 7×7 精灵、托盘快捷弹层与悬浮卡 | `webui/`、`lib/TrayPopup.ahk` | `tests/rpc_test.cjs`、`tests/pet_popup_test.cjs`、`tests/tray_popup_test.cjs` |
 | AI-Native | 已实现：Agent 并排窗口与接口说明 | `AI_NATIVE.md`、`webui/agent.html` | `tests/agent_help_test.cjs` |
-| 软件中心适配 | 产品 ID `airpods-buddy`、便携 ZIP；描述文件在根目录。权威软件中心工程严格自查 36 项通过；无关联自动探测不覆盖受管便携目录；生产路径解析现有关联通过，运行版本与哈希一致 | `launcher-adapter.json` | 启动器适配 Skill 的 `check_adapter.py --strict` |
+| 软件中心适配 | 产品 ID `airpods-buddy`、便携 ZIP；描述文件在根目录。权威软件中心工程严格自查 36 项通过；生产 scanInstalled 补搜受管目录；在内存删除关联/来源/回执后恢复 1.9.50 真实路径，状态文件不变，不伪造正式发行回执 | `launcher-adapter.json` | 启动器适配 Skill 的 `check_adapter.py --strict` |
 | 系统电量 | 独立工具已核对本机指定目标节点和容器均无值；主程序不展示；无扫描、无左右耳推断 | `scripts/probe-os-battery.ps1`、[docs/14](docs/14-竞品对标与高级能力路线.md) | `tests/os_battery_probe_test.ps1`（8 项） |
 | Mac 菜单栏版 | 实验端，独立 CI | `mac/`、[docs/06](docs/06-Mac版方案.md) | 真机另验 |
 
-未完成项：严格五轮冷连接与更多型号；长时通话稳定性；AAP 控制（等可信的已签名驱动通道）；高音质耳机麦；更新器的镜像下载线路；软件中心自动探测安装；公开发版需当次授权。
+未完成项：严格五轮冷连接与更多型号；长时通话稳定性；AAP 控制（等可信的已签名驱动通道）；高音质耳机麦；更新器的镜像下载线路；软件中心发布后目录/网页同步；公开发版需当次授权。
 
 ## 当前状态
 - 版本：源码 **1.9.50**（已构建），本机运行 **1.9.50**，公开正式 **1.9.24**，实验室 **1.10.0-beta.3** ｜ 进度与待办详见 [docs/roadmap.md](docs/roadmap.md)，最近一轮见 [1.9.50 维护记录](reference/maintenance/maintenance-20261126-pet-reverse.md)。
