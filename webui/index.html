@@ -938,12 +938,19 @@
     <div class="set-row">
       <div class="set-info">
         <b>自动选择耳机麦克风</b>
-        <p>未设置时默认关闭，保留你原来的麦克风。优先保留立体声和电脑/外接麦克风。开启后，下次连接尝试选择耳机麦克风（Classic 通话音质）；关闭时尝试恢复本次由小助手改过的选择，不覆盖你后来的手动选择。</p>
-        <details class="set-more"><summary>通话／游戏没声音？</summary><p>微信语音或游戏使用蓝牙耳机麦克风时，Windows 可能切到通话模式。关闭此开关不禁用耳机麦克风，也不结束其他应用的录音；可改用电脑或外接麦克风，再重新开始通话。旧版本或重启前的选择需手动确认。<br>开启后若录音设备缺失，下次连接仅尝试一次恢复这副耳机的 HFP 服务，可能安装驱动；不重置整机蓝牙、不动其他设备。</p></details>
+        <p>未设置时默认关闭，保留你原来的麦克风。优先保留立体声和电脑/外接麦克风。开启后，下次连接尝试选择耳机麦克风；未选立体声实验模式时使用 Windows 常规耳机麦克风。关闭时尝试恢复本次由小助手改过的选择，不覆盖你后来的手动选择。</p>
+        <details class="set-more"><summary>通话／游戏没声音？</summary><p>微信语音或游戏使用蓝牙耳机麦克风时，Windows 可能切到通话模式。关闭此开关不禁用耳机麦克风，也不结束其他应用的录音；可改用电脑或外接麦克风，再重新开始通话。旧版本或重启前的选择需手动确认。<br>普通模式下，若录音设备缺失，下次连接仅尝试一次恢复这副耳机的 HFP 服务，可能安装驱动；不重置整机蓝牙、不动其他设备。</p></details>
       </div>
       <label class="switch"><input type="checkbox" id="swMic"><span class="slider"></span></label>
     </div>
-    <details class="set-more set-standalone"><summary>通话时音质突然变差？</summary><p>用耳机麦克风通话时，Windows 会把耳机切到电话音质（单声道）。这是经典蓝牙的协议限制，Windows 上的同类软件都一样，小助手改不了。<br><b>想让音质不变差：</b>在微信、会议或游戏语音里把麦克风选成电脑自带或外接麦克风，耳机只用来听。这样也避免了来回切换造成的掉线。<br>Mac 上效果好，是因为 Apple 设备之间有自己的宽带通话通道。</p></details>
+    <div class="set-row">
+      <div class="set-info">
+        <b>WPods 立体声通话（实验）</b>
+        <p>适用于 Win11 和兼容耳机。需自行配置 WPods，并同时开启「自动选择耳机麦克风」；设置在下次连接生效。找不到这副耳机的 A2DP 麦时保留原麦，不自动切到免提。小助手不安装驱动，也不保证各型号都适用。</p>
+      </div>
+      <label class="switch"><input type="checkbox" id="swStereoMic" aria-label="WPods 立体声通话"><span class="slider"></span></label>
+    </div>
+    <details class="set-more set-standalone"><summary>通话时音质突然变差？</summary><p>普通蓝牙耳机麦常使 Windows 使用单声道免提。可在通话软件中选电脑或外接麦克风，AirPods 只用来听。使用 WPods 实验模式时，可在通话软件里确认输入是耳机的 A2DP 麦，而不是免提麦。</p></details>
     <div class="set-row">
       <div class="set-info">
         <b>自动重置蓝牙（已停用）</b>
@@ -1616,9 +1623,10 @@ async function openSettings(){
   document.getElementById('autoHint').textContent =
     st==='disabled' ? '开机自启动当前被系统标记为禁用：请在 任务管理器 → 启动应用 里重新开启' : '';
   document.getElementById('swMic').checked = (await rpc('getmicswitch'))==='1';
+  document.getElementById('swStereoMic').checked = (await rpc('getwpodsstereomic'))==='1';
   document.getElementById('swRescue').checked = (await rpc('getrescue'))==='1';
 }
-for(const [id,cmd,success] of [['swAuto','setautostart','ok'],['swMic','setmicswitch',true]]){
+for(const [id,cmd,success] of [['swAuto','setautostart','ok'],['swMic','setmicswitch',true],['swStereoMic','setwpodsstereomic',true]]){
   document.getElementById(id).addEventListener('change',async e=>{
     const chosen=e.target.checked;e.target.disabled=true;
     try{if(await rpc(cmd,chosen?'1':'0')!==success)throw new Error('设置保存失败');toast('设置已保存')}

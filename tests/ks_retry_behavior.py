@@ -195,6 +195,22 @@ gen := BeginDeviceOp("AABBCCDDEEFF", "connect")
 linkUp := 1, micSetting := "1"
 MicSwitchTick("AABBCCDDEEFF", 1, gen)
 Check("missing_target_microphone_reports_without_changing_default", events[events.Length].name = "toast" && audioChecks = 2)
+ownedMicRoute := CaptureRouteFixture(), stereoSetting := "1"
+stereoService := "running", stereoFixture := ""
+gen := BeginDeviceOp("AABBCCDDEEFF", "connect")
+op := deviceOps["AABBCCDDEEFF"], op.stereoCall := true, op.address := "AABBCCDDEEFF"
+op.captureId := "{0.0.1.00000000}.{CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC}"
+MicSwitchTick("AABBCCDDEEFF", 1, gen)
+Check("stereo_missing_does_not_fall_back_to_classic", ownedMicRoute.writes = 0 && op.captureId = "" && events[events.Length].name = "toast")
+stereoFixture := "{0.0.1.00000000}.{DDDDDDDD-DDDD-DDDD-DDDD-DDDDDDDDDDDD}"
+MicSwitchTick("AABBCCDDEEFF", 1, gen)
+Check("stereo_routes_exact_capture_and_watches_same_id", ownedMicRoute.writes = 1 && ownedMicRoute.target = stereoFixture && op.captureId = stereoFixture)
+stereoService := "inactive"
+MicSwitchTick("AABBCCDDEEFF", 1, gen)
+Check("stereo_service_loss_blocks_default_write", ownedMicRoute.writes = 1)
+stereoSetting := "0", stereoService := "running"
+MicSwitchTick("AABBCCDDEEFF", 1, gen)
+Check("mode_change_cancels_stale_route", ownedMicRoute.writes = 1)
 micSetting := "0", linkUp := 0
 gen := BeginDeviceOp("AABBCCDDEEFF", "connect")
 deviceOps["AABBCCDDEEFF"].backend := "ks", deviceOps["AABBCCDDEEFF"].address := "AABBCCDDEEFF"
@@ -234,6 +250,15 @@ SetOpState("AABBCCDDEEFF", gen, "disconnected")
 eventCount := events.Length
 Check("unverified_down_does_not_emit_reappearance", DeviceAudioState("AABBCCDDEEFF", true) = "unknown" && events.Length = eventCount)
 
+busy := false, linkUp := 0, micSetting := "1", stereoSetting := "1"
+devices[1].name := "AirPods Pro fixture"
+Check("stereo_connect_worker_does_not_request_hfp_capture", DoAction("AABBCCDDEEFF", "connect") = "ok" && InStr(lastPayload, '"mic":false') && InStr(lastPayload, '"micRestore":false') && InStr(lastPayload, '"preferHfp":false'))
+gen := deviceOps["AABBCCDDEEFF"].gen
+deviceOps["AABBCCDDEEFF"].backend := "ks", deviceOps["AABBCCDDEEFF"].connectStrategy := "stereo"
+busy := false
+ScheduleKsConnectRetry("AABBCCDDEEFF", gen, "link")
+TryKsConnectRetry("AABBCCDDEEFF", gen, actionEpoch)
+Check("stereo_retry_worker_does_not_request_hfp_capture", InStr(lastPayload, '"mic":false') && InStr(lastPayload, '"preferHfp":false') && deviceOps["AABBCCDDEEFF"].retryCount = 1)
 FileAppend("RESULT failures=" failures "`n", "*")
 ExitApp(failures ? 1 : 0)
 Check(name, ok) {
@@ -308,9 +333,32 @@ FindDevByName(name) {
 DeviceKey(dev) {
     return dev.id
 }
-SettingRead(*) {
-    global micSetting
-    return micSetting
+SettingRead(key, fallback := "") {
+    global micSetting, stereoSetting
+    if key = "auto_mic_switch" || key = "mic_restore_pending"
+        return micSetting
+    return key = "wpods_stereo_mic" && IsSet(stereoSetting) ? stereoSetting : fallback
+}
+ResolveWPodsStereoCapture(address) {
+    global stereoFixture
+    return address = "AABBCCDDEEFF" ? stereoFixture : ""
+}
+WPodsStereoServiceState() {
+    global stereoService
+    return stereoService
+}
+class CaptureRouteFixture {
+    __New() {
+        this.writes := 0
+        this.target := ""
+    }
+    Switch(ep, backend?, guard?) {
+        if !IsSet(guard) || !guard.Call()
+            return false
+        this.writes += 1
+        this.target := ep
+        return true
+    }
 }
 '''
 for name in ["BeginDeviceOp", "OpCurrent", "CanRoute", "SetOpState", "ProbeDeviceRender", "DoAction", "LinkVerifyTick", "ScheduleKsConnectRetry", "TryKsConnectRetry", "FinishKsConnectRetry", "DrainRetryDisconnect", "RunQueuedRetryDisconnect", "AudioVerifyTick", "MicSwitchTick", "StartDownVerify", "DownVerifyTick", "FinishBluetoothAction", "ValidEndpointId", "DeviceAudioState", "DeviceProgressJson", "JsonStr"]:

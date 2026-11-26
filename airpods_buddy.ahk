@@ -9,13 +9,14 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 ; =====================================================================
 #Include lib\WebView2\WebView2.ahk
 #Include lib\AudioRouting.ahk
+#Include lib\WPodsStereoCapture.ahk
 #Include lib\BackgroundJobs.ahk
 #Include lib\Diagnostics.ahk
 #Include lib\AgentHelp.ahk
 #Include lib\TrayPopup.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.50"
+APP_VERSION   := "1.9.51"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -1451,7 +1452,7 @@ MicPreferenceSet(value) {
 BeginDeviceOp(name, action) {
     global deviceOps, operationSerial, routeOwner, actionEpoch
     gen := ++operationSerial
-    deviceOps[name] := {gen: gen, action: action, state: action, started: A_TickCount, phaseStarted: A_TickCount, backend: "", container: "", renderId: "", captureId: "", targetEndpoints: "", address: "", micRequested: false, micRestore: false, preferHfp: false, connectStrategy: "", retryCount: 0, retryEpoch: actionEpoch, probeId: "", probeAt: -1, probeStatus: "unknown", probeReason: ""}
+    deviceOps[name] := {gen: gen, action: action, state: action, started: A_TickCount, phaseStarted: A_TickCount, backend: "", container: "", renderId: "", captureId: "", targetEndpoints: "", address: "", micRequested: false, stereoCall: false, micRestore: false, preferHfp: false, connectStrategy: "", retryCount: 0, retryEpoch: actionEpoch, probeId: "", probeAt: -1, probeStatus: "unknown", probeReason: ""}
     if (action = "connect")
         routeOwner := gen
     return gen
@@ -1642,16 +1643,36 @@ MicSwitchTick(name, left, gen) {
             LogMsg("mic route skipped: Bluetooth link " (linkState = -1 ? "unknown" : "down") " '" name "'", "WARN")
         return
     }
-    ep := deviceOps[name].captureId
+    op := deviceOps[name]
+    ; Preserve the mode selected at connect start. A new preference applies next connect.
+    if (op.stereoCall != (SettingRead("wpods_stereo_mic", "0") = "1"))
+        return
+    ep := op.stereoCall ? ResolveWPodsStereoCapture(op.address) : op.captureId
+    if !CanRoute(name, gen)
+        return
+    if op.stereoCall {
+        op.captureId := ep
+        if ep = "" {
+            if left > 1
+                SetTimer(() => MicSwitchTick(name, left - 1, gen), -2000)
+            else {
+                LogMsg("stereo mic selection unavailable; defaults unchanged", "WARN")
+                PushEvent("toast", JsonStr("未找到这副耳机的 WPods 立体声麦克风；保留原麦，不切免提"))
+            }
+            return
+        }
+    }
     if (ep = "") {
         LogMsg("mic route unavailable: target capture endpoint missing '" name "'", "WARN")
         PushEvent("toast", JsonStr("耳机已连接，但 Windows 没有提供这副耳机的麦克风；原默认麦克风保持不变"))
         return
     }
     global ownedMicRoute
-    if (ownedMicRoute.Switch(ep, , () => CanRoute(name, gen) && SettingRead("auto_mic_switch", "0") = "1")) {
-        LogMsg("mic route verified (roles 0/1/2): '" name "'")
-        PushEvent("toast", JsonStr("麦克风默认设备已确认切到耳机"))
+    if ownedMicRoute.Switch(ep, , () => CanRoute(name, gen) && SettingRead("auto_mic_switch", "0") = "1"
+        && (op.stereoCall = (SettingRead("wpods_stereo_mic", "0") = "1"))
+        && (!op.stereoCall || WPodsStereoServiceState() = "running")) {
+        LogMsg(op.stereoCall ? "stereo mic default routes verified; acoustic result not observed" : "mic route verified (roles 0/1/2): '" name "'")
+        PushEvent("toast", JsonStr(op.stereoCall ? "已选 WPods 立体声麦克风，请在通话里确认" : "麦克风默认设备已确认切到耳机"))
         return
     }
     if (left > 1)
@@ -1761,6 +1782,8 @@ WebMessageHandler(core, args) {
         case "setautostart":      Reply(id, JsonStr(AutostartSet(arg1 = "1")))
         case "getmicswitch":      Reply(id, JsonStr(SettingRead("auto_mic_switch", "0")))
         case "setmicswitch":      Reply(id, MicPreferenceSet(arg1) ? "true" : "false")
+        case "getwpodsstereomic": Reply(id, JsonStr(SettingRead("wpods_stereo_mic", "0")))
+        case "setwpodsstereomic": Reply(id, SettingWrite("wpods_stereo_mic", arg1) ? "true" : "false")
         case "getrescue":         Reply(id, JsonStr("0"))
         case "setrescue":         Reply(id, "false")
         case "sendfeedback":      SendFeedbackAsync(id, arg1)
@@ -1938,10 +1961,11 @@ DoAction(name, action, fromBatch := false) {
         deviceOps[name].address := Format("{:012X}", NumGet(dev.info, 8, "uint64"))
         deviceOps[name].micRequested := SettingRead("auto_mic_switch", "0") = "1"
         deviceOps[name].preferHfp := action = "connect" && !deviceOps[name].micRequested && dev.HasOwnProp("name") && InStr(StrLower(dev.name), "airpods") != 0
-        deviceOps[name].micRestore := action = "connect" && deviceOps[name].micRequested && SettingRead("mic_restore_pending", "0") = "1"
+        deviceOps[name].stereoCall := action = "connect" && deviceOps[name].micRequested && SettingRead("wpods_stereo_mic", "0") = "1"
+        deviceOps[name].micRestore := action = "connect" && !deviceOps[name].stereoCall && deviceOps[name].micRequested && SettingRead("mic_restore_pending", "0") = "1"
         if (deviceOps[name].micRestore && !SettingWrite("mic_restore_pending", "0"))
             throw Error("Cannot persist one-time microphone migration receipt")
-        payload := '{"address":' JsonStr(deviceOps[name].address) ',"action":' JsonStr(action) ',"mic":' (deviceOps[name].micRequested ? "true" : "false") ',"micRestore":' (deviceOps[name].micRestore ? "true" : "false") ',"preferHfp":' (deviceOps[name].preferHfp ? "true" : "false") '}'
+        payload := '{"address":' JsonStr(deviceOps[name].address) ',"action":' JsonStr(action) ',"mic":' (deviceOps[name].micRequested && !deviceOps[name].stereoCall ? "true" : "false") ',"micRestore":' (deviceOps[name].micRestore ? "true" : "false") ',"preferHfp":' (deviceOps[name].preferHfp ? "true" : "false") '}'
         if !StartBackgroundJob("bluetooth", payload, (result, job) => FinishBluetoothAction(name, action, gen, result), 30000)
             throw Error("Bluetooth worker launch failed")
         try PetSchedule(action = "connect" ? "connecting" : "disconnecting", name, gen, fromBatch)
@@ -2047,7 +2071,7 @@ TryKsConnectRetry(name, gen, epoch) {
     ; Use the other compatible route after a failed HFP bootstrap; never
     ; auto-route microphone or send more than the existing one retry.
     preferHfp := linkState = 0 && op.preferHfp && op.connectStrategy != "hfp-link"
-    payload := '{"address":' JsonStr(op.address) ',"action":"connect","mic":' (op.micRequested ? "true" : "false") ',"preferHfp":' (preferHfp ? "true" : "false") '}' 
+    payload := '{"address":' JsonStr(op.address) ',"action":"connect","mic":' (op.micRequested && !op.stereoCall ? "true" : "false") ',"preferHfp":' (preferHfp ? "true" : "false") '}'
     if !StartBackgroundJob("bluetooth", payload, (result, job) => FinishKsConnectRetry(name, gen, epoch, result), 30000) {
         busy := false
         SetTrayLoading(false)
@@ -2466,6 +2490,11 @@ FinishBluetoothAction(name, action, gen, result) {
             deviceOps[name].container := result["container"]
             deviceOps[name].renderId := result.Get("renderId", "")
             captureId := result.Get("captureId", "")
+            ; The call probe must watch the same A2DP capture endpoint as the route switch.
+            if action = "connect" && deviceOps[name].stereoCall
+                captureId := ResolveWPodsStereoCapture(deviceOps[name].address)
+            if !OpCurrent(name, gen)
+                return
             deviceOps[name].captureId := ValidEndpointId(captureId, 1) ? captureId : ""
             deviceOps[name].targetEndpoints := result.Get("targetEndpoints", "")
             if action = "connect"
@@ -2515,7 +2544,7 @@ DaysSince(stamp) {
 }
 
 ValidBridgeArgs(cmd, parts) {
-    counts := Map("list",0,"statuspoll",0,"getversion",0,"openagent",1,"updateagent",1,"closeagent",0,"connect",1,"disconnect",1,"remove",1,"add",0,"opensound",0,"windowshape",1,"advancedstatus",0,"openadvanced",0,"winmin",0,"winclose",0,"openrelease",0,"openrepo",0,"stardone",0,"windrag",0,"winresize",0,"doupdate",0,"getautostart",0,"setautostart",1,"getmicswitch",0,"setmicswitch",1,"getrescue",0,"setrescue",1,"sendfeedback",1,"sendissue",4,"getfblogs",0,"getfbwebhook",0,"openurl",1,"jserror",1)
+    counts := Map("list",0,"statuspoll",0,"getversion",0,"openagent",1,"updateagent",1,"closeagent",0,"connect",1,"disconnect",1,"remove",1,"add",0,"opensound",0,"windowshape",1,"advancedstatus",0,"openadvanced",0,"winmin",0,"winclose",0,"openrelease",0,"openrepo",0,"stardone",0,"windrag",0,"winresize",0,"doupdate",0,"getautostart",0,"setautostart",1,"getmicswitch",0,"setmicswitch",1,"getwpodsstereomic",0,"setwpodsstereomic",1,"getrescue",0,"setrescue",1,"sendfeedback",1,"sendissue",4,"getfblogs",0,"getfbwebhook",0,"openurl",1,"jserror",1)
     argc := parts.Length - 2
     if (argc = 1 && parts[3] = "")
         argc := 0
@@ -2531,7 +2560,7 @@ ValidBridgeArgs(cmd, parts) {
         return false
     if cmd = "windowshape"
         return parts[3] = "closed" || parts[3] = "open" || parts[3] = "modal"
-    if (cmd = "setautostart" || cmd = "setmicswitch" || cmd = "setrescue")
+    if (cmd = "setautostart" || cmd = "setmicswitch" || cmd = "setwpodsstereomic" || cmd = "setrescue")
         return parts[3] = "0" || parts[3] = "1"
     if (cmd = "connect" || cmd = "disconnect" || cmd = "remove")
         return RegExMatch(parts[3], "^[0-9A-F]{12}$") != 0
