@@ -38,7 +38,9 @@
 - [ ] Win11 原生路线：另行核对测试机蓝牙、驱动及目标 AirPods 的 LE Audio/TMAP 支持。
 - [x] 第三方依赖版本与公开摘要核对：WPods 0.4.4 源码固定 usbip-win2 0.9.8.1 x64，固定 SHA256 与上游 GitHub 摘要一致，WPods GPL-3.0、USB/IP BSD-2-Clause；上游公开认证报告链接存在。后续完整下载、核验 SHA256、安装器及两个内核驱动 CAT/SYS 的 Authenticode 有效；未执行安装器或证明本机兼容。
 - [x] 固定依赖二进制签名：完整官方资产 SHA256 一致，离线提取实际 usbip2_filter/usbip2_ude 两套 CAT/SYS，四个 Authenticode 为 Valid，Microsoft Windows Hardware Compatibility Publisher；两份 INF/SYS 的四个目录哈希均匹配各自签名 CAT。未执行安装器、未安装驱动。
-- [ ] 独立实验可分发许可及实机兼容验收：核对依赖的分发条件、音频编解码许可、实际目标系统驱动加载与可逆退路；不直接合并 GPL 源码。
+- [x] 许可证初步核对：USB/IP 源许可 BSD-2-Clause 允许带声明的二进制分发；WPods 实际依赖 FFmpeg 7.1.5 LGPL DLL，AAC-ELD 专利与开源许可分开。微软原生 AAC 解码器未确认 ELD。详见 docs/14。
+- [ ] 产品化分发与实机兼容：确认最终采用依赖完整分发条件及 AAC-ELD 专利适用性，验证目标系统实际驱动加载与可逆退路；不直接合并 GPL 源码。
+- [ ] 独立硬件对照（备选、非主目标）：USBPods-Pico2W 作者报告 Win11/Pro3 双向音频；若拥有兼容硬件再实测，不要求购买，不以硬件方案冒充纯软件完成。
 - [x] 独立只读双向音频验收工具：`tests/duplex_call_observation.py` 核对精确播放/录音端点、格式查询前后活动状态；不打开麦或播放，不泄露标识，明确不以混音格式代替实际听音。新增 7 项离线断言与本机只读运行验证。
 - [x] 本机当前适配器基线：只读 PnP 复查唯一现存 USB 蓝牙设备，Microsoft BTHUSB 通用驱动；历史 Realtek 记录不代表当前适配器。未找到 WPods 作者对当前 USB 型号的确认。
 - [ ] 独立实验方案：在可控的 Windows 11 测试机或备用适配器上验证真实耳机麦与立体声同时工作；不改变当前免驱动主程序，不在日常使用环境未经同意部署驱动或接管适配器。

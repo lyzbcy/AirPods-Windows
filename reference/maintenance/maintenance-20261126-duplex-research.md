@@ -16,3 +16,6 @@
 签名证据补齐：从维护者公开仓库按 Git blob ID 读取支持 Inno 7 的 Innounp 2.71.4；提取器无 Authenticode 签名，独立临时运行，仅提取六个指定文件，没有执行 USB/IP 安装器。usbip2_filter.cat/.sys 与 usbip2_ude.cat/.sys 真实四项 Authenticode Valid，签名者均 Microsoft Windows Hardware Compatibility Publisher，哈希见 docs/14。未安装、未加载驱动，商业分发许可或硬件实测尚未确认。无需再以“没有已签名驱动”解释停滞；需要有条件的实机通话验收。
 
 随后以 Windows 目录哈希 API 重新计算两份 INF/SYS，四个哈希全部在各自已验证 CAT 成员中匹配（未修改系统目录数据库）。
+
+
+许可证和备选路线复核：固定 USB/IP BSD-2-Clause、WPods GPL-3.0+FFmpeg 7.1.5 LGPL DLL；Via LA 官方明确 AAC-ELD 在其专利范围内，普通软件分发条件需要核实，不能冒充无需许可。微软 Media Foundation AAC 解码器文档未确认 ELD。另有 Pico 2 W 硬件桥实验作者声称 Win11/Pro3 双向音频，Windows 10 已自带标准 USB Audio 类驱动，列为证实技术边界的备选，不替代纯软件目标。未购买、未安装、未提交外部许可申请。详见 docs/14。
