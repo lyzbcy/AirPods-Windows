@@ -13,6 +13,7 @@ contracts = {
     'discovery_has_deduplicated_diagnostics': 'try DiagnosticObserveDiscovery(diagnostic, diagnosticRows)' in source,
     'feedback_snapshot_requires_log_consent': 'diagnostic := wantFile ? DiagnosticCollectFeedback() : ""' in source,
     'legacy_logs_resanitized_on_export': 'fw.Write(DiagnosticSanitize(body))' in source,
+    'link_transition_logs_only_context': 'DiagnosticLinkTransition(key, flapPrev[key], now, deviceOps.Has(key) ? deviceOps[key] : 0)' in source,
     'rpc_does_not_log_raw_message': ' : "rpc: " msg)' not in source and '"rpc: " cmd " id=" id' in source,
 }
 failed = 0
@@ -53,6 +54,14 @@ Check("redacts_raw_and_colon_mac", !InStr(safe, address) && !InStr(safe, "70:AE:
 Check("redacts_endpoint_and_container", !InStr(safe, endpoint) && !InStr(safe, "12345678") && !InStr(safe, "87654321"))
 Check("preserves_alias_correlation", InStr(safe,"address=device#1") && InStr(safe,"mac=device#1"))
 Check("alias_not_raw_or_persistent_hash", DiagnosticAlias("device", address) = "device#1")
+transition := DiagnosticLinkTransition(address, 0, 1, {action:"disconnect",state:"disconnected",phaseStarted:100}, 150)
+Check("link_transition_captures_last_local_operation", InStr(transition, "lastLocalAction=disconnect lastLocalPhase=disconnected phaseAgeMs=50"))
+Check("link_transition_never_claims_origin", InStr(transition, "origin=unverified") && InStr(transition, "connected=1 previous=0"))
+Check("link_transition_alias_only", !InStr(transition,address) && InStr(transition,"address=device#1"))
+Check("link_transition_without_local_operation", InStr(DiagnosticLinkTransition(address,1,0), "lastLocalAction=none lastLocalPhase=none phaseAgeMs=-1"))
+badTransition := DiagnosticLinkTransition(address,0,1,{action:privateName,state:endpoint,phaseStarted:200},150)
+Check("link_transition_rejects_free_form_values", !InStr(badTransition,privateName) && !InStr(badTransition,endpoint) && InStr(badTransition,"lastLocalAction=unknown lastLocalPhase=unknown phaseAgeMs=-1"))
+
 Check("session_random_format", RegExMatch(DiagnosticSession(),"^s[0-9A-F]{8}$"))
 Check("redacts_profile_path_spaces", !InStr(DiagnosticSanitize("failed C:\Users\Private Owner\Documents\secret.log status=fail"),"Private Owner"))
 Check("path_redaction_keeps_numeric_status", InStr(DiagnosticSanitize("failed C:\Users\Private Owner\secret.log HRESULT=0x80070005"),"HRESULT=0x80070005"))

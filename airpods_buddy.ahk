@@ -15,7 +15,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\TrayPopup.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.41"
+APP_VERSION   := "1.9.42"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -395,7 +395,7 @@ flapPrev := Map()     ; name -> 上次连接状态(1/0)
 flapAdvised := Map()  ; name -> 上次提示时刻
 
 WatchFlap() {
-    global devices, flapLog, flapPrev, flapAdvised
+    global devices, flapLog, flapPrev, flapAdvised, deviceOps
     for dev in devices {
         key := DeviceKey(dev)
         now := dev.connected ? 1 : 0
@@ -405,7 +405,7 @@ WatchFlap() {
         }
         if (flapPrev[key] = now)
             continue
-        LogMsg("bluetooth link changed address=" key " connected=" now)
+        try LogMsg(DiagnosticLinkTransition(key, flapPrev[key], now, deviceOps.Has(key) ? deviceOps[key] : 0))
         flapPrev[key] := now
         stamps := flapLog.Has(key) ? flapLog[key] : ""
         stamps .= (stamps = "" ? "" : "|") A_Now

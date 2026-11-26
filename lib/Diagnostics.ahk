@@ -1,4 +1,4 @@
-﻿; Privacy-first diagnostics. No discovery inquiry, connection, pairing or routing writes.
+; Privacy-first diagnostics. No discovery inquiry, connection, pairing or routing writes.
 ; Persistent device identifiers are used only as in-memory keys, never emitted.
 DiagnosticSession() {
     static value := "s" Format("{:08X}", Random(0, 0xFFFFFFFF))
@@ -277,4 +277,25 @@ DiagnosticEndpointState(id, backend?) {
 
 DiagnosticLinkObservation(name, op, state, remaining) {
     try LogMsg("link observation target=" DiagnosticAlias("device", name) " state=" state " renderState=" DiagnosticEndpointState(op.renderId) " captureState=" DiagnosticEndpointState(op.captureId) " retry=" op.retryCount " remaining=" remaining)
+}
+
+; Context only: this is the last operation known to this process, not the
+; origin of a Bluetooth link transition. Do not query hardware from this path.
+DiagnosticLinkTransition(name, previous, current, op := 0, tick := A_TickCount) {
+    action := "none", state := "none", age := -1
+    if IsObject(op) {
+        action := "unknown", state := "unknown"
+        try {
+            if (op.action = "connect" || op.action = "disconnect")
+                action := op.action
+            if RegExMatch(op.state, "^(connect|disconnect|link_pending|link_up|link_retry_wait|link_retrying|retry_cancelled|audio_pending|ready|audio_failed|link_failed|service_failed|playback_unavailable|playback_unverified|down_pending|disconnected|disconnect_failed|superseded)$")
+                state := op.state
+            if IsInteger(op.phaseStarted) && tick >= op.phaseStarted
+                age := Min(86400000, tick - op.phaseStarted)
+        }
+    }
+    return "bluetooth link changed address=" DiagnosticAlias("device", name)
+        . " connected=" (current = 1 ? 1 : 0) " previous=" (previous = 1 ? 1 : 0)
+        . " lastLocalAction=" action " lastLocalPhase=" state " phaseAgeMs=" age
+        . " origin=unverified"
 }
