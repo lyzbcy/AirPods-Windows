@@ -25,6 +25,7 @@
 
 - 1.9.50 构建目录与安装 EXE SHA256：AA69539409E42C2CDEB76DBF044D6859886C8AFA58BA037D90BF495DB709C4E9。
 - 本地候选 ZIP 固定名 AirPodsBuddy-Windows.zip，6418089 bytes，SHA256：0C3C244ABB8909C1FBCDC8BB3EE11849B53554FE0521C0A5B0B514044CDDC87C；构建来源、根 EXE、CRC、runtime inputs 均通过验证。
+- 候选 ZIP 内 PE 主图标七个尺寸（16/24/32/48/64/128/256）与品牌 ICO 的图像资源逐字节一致；WebView 128px 品牌与源图 Lanczos 缩小结果逐像素一致，软件中心目录 512px 图标与品牌源图逐像素一致。程序/托盘 16px、32px 样本已目视核对；未因此声称实际任务栏或公网页面已刷新。
 - 32 套 649 项离线测试通过。实际安装启动/导航回读已核实；当前版本听音、当前版本反馈入口人工验收及明确正式发行决策仍缺失。
 - 历史验收失败原始记录存在且回读匹配：第 3 轮 delayed-disconnect link=1/render=8，15 秒等待后读回不符合 gate；结果 SHA256 C5B616C67700ED40B08A808F9D061F74DB148E309F6FA61B643BBDCA68E6B7C2。未生成 gate-pass。
 - 候选只有本地资产；不得将草案、包或历史听音当成当前版公开授权，也没有生成接受已知问题的人工回执。
