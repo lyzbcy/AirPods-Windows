@@ -118,6 +118,20 @@ if (mode === '--baseline') {
   early.window.hidePopup();assert.equal(early.timers.size,0);
   console.log('PASS early_terminal_preserves_action_then_continuous_idle');
 
+  const reverse=boot();reverse.window.showPopup();reverse.window.setState('connecting');
+  for(let i=1;i<=12;i++)reverse.fire(50);
+  assert.equal(frameOf(reverse.elements.sprite.style.backgroundPosition),12);
+  reverse.window.setState('disconnecting');
+  assert.equal(frameOf(reverse.elements.sprite.style.backgroundPosition),12);
+  reverse.fire(50);assert.equal(frameOf(reverse.elements.sprite.style.backgroundPosition),11);
+  assert.equal(reverse.timers.size,1);
+  console.log('PASS cancelling_mid_wear_reverses_from_displayed_frame');
+  reverse.window.setState('connecting');
+  assert.equal(frameOf(reverse.elements.sprite.style.backgroundPosition),11);
+  for(let i=12;i<=48;i++){reverse.fire(50);assert.equal(frameOf(reverse.elements.sprite.style.backgroundPosition),i);}
+  reverse.fire(50);assert.match(reverse.elements.sprite.style.backgroundImage,/headphones-wait-49/);
+  reverse.window.hidePopup();assert.equal(reverse.timers.size,0);
+  console.log('PASS reconnecting_mid_remove_resumes_forward_motion_then_wait');
   const quiet = boot(true);
   assert.equal(quiet.timers.size, 0);
   quiet.window.setProgress({state: 'connecting', phaseText: '正在连接', elapsedMs: 0});

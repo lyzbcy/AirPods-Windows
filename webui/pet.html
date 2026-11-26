@@ -95,11 +95,12 @@ let reducedMotion = !!(motionQuery && motionQuery.matches);
 const heartTimers=new Set(),heartNodes=new Set();
 function clearHearts(){for(const id of heartTimers)clearTimeout(id);heartTimers.clear();for(const node of heartNodes)node.remove();heartNodes.clear();}
 function laterHeart(delay,fn){const id=setTimeout(()=>{heartTimers.delete(id);fn();},delay);heartTimers.add(id);}
-let activeAnim = '', activeState = '', lastOperation = '', timer = null, step = 0, heartToken = 0, visible = false;
+let activeAnim = '', activeState = '', lastOperation = '', timer = null, step = 0, displayedFrame = null, heartToken = 0, visible = false;
 
-function playRow(name) {
+function playRow(name, startFrame = null) {
   const r = ROWS[name]; if (!r || activeAnim === name) return;
-  activeAnim = name; step = 0;
+  activeAnim = name; step = startFrame === null ? 0 : Math.max(0, r.order.indexOf(startFrame));
+  displayedFrame = null;
   clearTimeout(timer);
   sprite.style.backgroundImage = SHEETS[r.sheet];
   sprite.style.backgroundSize = '1050px 1050px';
@@ -110,6 +111,7 @@ function tick() {
   const r = ROWS[activeAnim];
   const order = r.order;
   const frame = reducedMotion ? (r.loop ? order[0] : order[order.length-1]) : order[step];
+  displayedFrame = frame;
   sprite.style.backgroundPosition = `-${(frame%7)*FW}px -${Math.floor(frame/7)*FH}px`;
   /* 小幅位移由 CSS 插值；精灵帧保持不透明，透明颜色键不会出现叠影。 */
   sprite.style.transform = ''; 
@@ -159,8 +161,15 @@ window.setState = function (state, detail = '') {
   if (changed || !activeAnim) {
     const completingOn=state==='ok'&&activeAnim==='headphonesOn'&&!reducedMotion;
     const completingOff=state==='off'&&activeAnim==='headphonesOff'&&!reducedMotion;
-    if (!completingOn&&!completingOff)
-      playRow(state === 'fail' && lastOperation === 'disconnecting' ? 'failedDisconnect' : cfg.anim);
+    if (!completingOn&&!completingOff) {
+      const next=state === 'fail' && lastOperation === 'disconnecting' ? 'failedDisconnect' : cfg.anim;
+      // Ordered on/off paths share exactly the same cells. Reverse from the
+      // displayed cell, not the opposite end, for a fast cancellation/retry.
+      const reversing=visible&&!reducedMotion&&(
+        (activeAnim==='headphonesOn'&&next==='headphonesOff')||
+        (activeAnim==='headphonesOff'&&next==='headphonesOn'));
+      playRow(next,reversing?displayedFrame:null);
+    }
   }
   title.className = 'bubble-title' + (cfg.dots ? ' dots' : '');
   title.textContent = state === 'fail'
