@@ -25,6 +25,7 @@ commands = [
     ('release_precheck', ['python', 'tests/release_precheck_test.py']),
     ('package_windows_release', ['python', 'tests/package_windows_release_test.py']),
     ('audio_sessions', ['python', 'tests/audio_sessions.py', '--self-test']),
+    ('duplex_call_observation', ['python', 'tests/duplex_call_observation.py', '--self-test']),
     ('target_endpoint', ['python', 'tests/target_endpoint_test.py']),
     ('audio', ['python', 'tests/run_ahk.py', 'tests/audio_routing_test.ahk']),
     ('background', ['python', 'tests/run_ahk.py', 'tests/background_job_test.ahk']),

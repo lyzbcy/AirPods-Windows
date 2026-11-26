@@ -67,7 +67,7 @@ AirPods 小助手帮助 Windows 用户从托盘一键连接已配对的蓝牙耳
 | 一键连接（KS） | 已实现；AirPods 冷连接在通用 USB 适配器上 4 次成功（独立实验 1 次 + 已安装产品 3 次），用户实听确认 1 次。1.9.41 复测两轮完整通过，第 3 轮失败；其他型号未验收 | `scripts/KsBluetooth.cs`、[docs/09](docs/09-Windows连接方案选型.md) | `tests/ks_backend_test.ps1`、`tests/ks_retry_behavior.py` |
 | 通话与麦克风 | 部分实现：默认不切麦、通话中不做播放探测；10 秒真机录音会话验证 1 次。长时通话、多应用争用未验收 | `lib/AudioRouting.ahk`、[docs/11](docs/11-通话音频与麦克风.md) | `tests/call_audio_test.py` |
 | 降噪 / 通透 / 自适应 | 未实现。调研确认 Windows 微软蓝牙栈的用户态打不开 AAP 的 L2CAP 通道，所有竞品都靠内核驱动；实验室只有协议与 UI 门控 | `beta/`、[docs/13](docs/13-AAP实验版.md)、[docs/14](docs/14-竞品对标与高级能力路线.md) | `dotnet run --project beta/tests -c Release`（3115 项） |
-| 高音质耳机麦 | 未实现；WPods 声明通过已签名第三方驱动实现独立麦克风与立体声，须评估隔离方案和原生 LE Audio；不是必须自研签名 | [docs/14](docs/14-竞品对标与高级能力路线.md) | — |
+| 高音质耳机麦 | 未实现；WPods 声明通过已签名第三方驱动实现独立麦克风与立体声，独立工具 tests/duplex_call_observation.py 已就绪；本机 Win10 不支持原生 LE Audio，待 Win11 实机验证已签名依赖路线；不是必须自研签名 | [docs/14](docs/14-竞品对标与高级能力路线.md) | — |
 | 自动更新 | 已实现：每日首次查新、点击强制查新、绑定目标、SHA-256、事务替换、健康回执、失败回退；新版确认后只留最近几份回退（1.9.39 起，尚待真实升级验收） | `scripts/UpdateCore.psm1`、[docs/08](docs/08-更新与后台任务.md) | `tests/update_health_test.ps1`（8 项） |
 | 日志与排障模式 | 已实现：队列、批写、轮转、七天、脱敏、详细开关 | `lib/Diagnostics.ahk`、[docs/10](docs/10-诊断日志与隐私.md) | `tests/diagnostics_test.py`、`tests/standards_logging_test.py` |
 | 反馈 | 已实现：企业微信机器人直发文本 + 日志附件，用户勾选才附日志；未配置通道时走 GitHub / 复制。「遇到问题反馈」是主窗口左栏、失败面板和托盘菜单里的一级入口 | `airpods_buddy.ahk`、`webui/index.html`、`webui/tray.html` | `tests/feedback_consent_test.py`、`tests/rpc_test.cjs`、`tests/tray_popup_test.cjs` |
