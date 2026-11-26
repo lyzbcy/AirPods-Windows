@@ -158,6 +158,86 @@ def verify_acceptance(receipt_path, package, gate):
     return receipt
 
 
+def verify_historical_readback_failure(folder, rows, failure_text):
+    """A successful inspect process can still prove a failed strict gate.
+
+    Reparse every inspected log, verify the exact ordered prefix and require
+    that only the terminal readback violates the same hardware predicates.
+    This never generates a pass record, accepts consent, or authorizes release.
+    """
+    folder = Path(folder)
+    expected = [(0, 'baseline', 'inspect')]
+    expected += [(cycle, phase, phase if phase in ('connect', 'disconnect') else 'inspect')
+                 for cycle in range(1, 6) for phase in PHASES]
+    require(3 <= len(rows) <= len(expected), 'invalid failed readback phase count')
+    require(rows[-1].get('phase') in ('after-disconnect', 'delayed-disconnect',
+                                    'after-connect', 'delayed-connect'),
+            'terminal failure is not a hardware readback')
+    first = rows[0]
+    command = first.get('command')
+    require(isinstance(command, list) and len(command) == 5
+            and command[:3] == ['python', 'tests/live_audio.py', 'inspect']
+            and isinstance(command[3], str) and ADDRESS.fullmatch(command[3])
+            and isinstance(command[4], str) and command[4],
+            'invalid historical readback baseline command')
+    address, settings = command[3:]
+    output = first.get('outputRoles')
+    require(isinstance(output, list) and len(output) == 3
+            and all(isinstance(value, str) for value in output)
+            and all(value.lower() == output[0].lower() for value in output)
+            and re.fullmatch(r'\{0\.0\.0\.00000000\}\.\{[0-9a-fA-F-]{36}\}', output[0]),
+            'historical baseline lacks exact default render')
+    render = output[0]
+    parser_spec = importlib.util.spec_from_file_location(
+        'strict_gate_readback_parser', ROOT / 'tests/strict_gate.py')
+    parser = importlib.util.module_from_spec(parser_spec)
+    parser_spec.loader.exec_module(parser)
+    baseline_mic = first.get('micRoles')
+    require(isinstance(baseline_mic, list) and len(baseline_mic) == 3,
+            'historical baseline lacks microphone roles')
+    for i, (row, (cycle, phase, mode)) in enumerate(zip(rows, expected)):
+        require(row.get('cycle') == cycle and row.get('phase') == phase
+                and type(row.get('exit')) is int and row['exit'] == 0
+                and row.get('command') == ['python', 'tests/live_audio.py', mode, address, settings],
+                'historical readback prefix diverges from strict gate')
+        filename = f'{cycle}-{phase}.txt'
+        log = folder / filename
+        require(row.get('file') == filename and log.is_file()
+                and verified_hash(row.get('logSha256'), filename) == digest(log),
+                'historical phase log missing or changed')
+        text = log.read_text(encoding='utf-8')
+        if mode == 'connect':
+            requests = parser.parse_connect_requests(text)
+            require(row.get('ksRequests') in ([1], [1, 1]) and requests == row['ksRequests'],
+                    'historical connect did not follow production retry budget')
+        if mode != 'inspect':
+            continue
+        parsed = parser.parse_inspect(text, address, render)
+        require(all(row.get(key) == value for key, value in parsed.items()),
+                'historical readback record differs from original log')
+        disconnected = phase in ('after-disconnect', 'delayed-disconnect')
+        expected_link, expected_render = (0, 8) if disconnected else (1, 1)
+        reason = ''
+        if parsed['link'] != expected_link or parsed['renderState'] != expected_render:
+            reason = 'link/render mismatch'
+        elif (not disconnected and any(value.lower() != render.lower() for value in parsed['outputRoles'])):
+            reason = 'three output roles did not hold target'
+        elif disconnected and any(value.lower() == render.lower() for value in parsed['outputRoles']):
+            reason = 'disconnected output still targets headset'
+        elif parsed['micRoles'] != baseline_mic:
+            reason = 'microphone defaults changed despite micOff'
+        if i == len(rows) - 1:
+            # A microphone-only fallback is not a demonstrated headset link
+            # or playback fault; preserve it as a failed strict gate instead.
+            require(reason in ('link/render mismatch', 'three output roles did not hold target',
+                               'disconnected output still targets headset')
+                    and failure_text.strip() == f'{cycle}-{phase}: {reason}',
+                    'terminal evidence does not prove a link or playback readback failure')
+        else:
+            require(not reason, 'earlier readback already failed; not a stop-on-first-failure record')
+    return rows[-1]
+
+
 def verify_accepted_known_issue(receipt_path, failure_dir, known_issues_path, package):
     """Check hash-bound records, not the truth of a human attestation."""
     receipt_path = Path(receipt_path)
@@ -232,22 +312,27 @@ def verify_accepted_known_issue(receipt_path, failure_dir, known_issues_path, pa
     baseline, failed = rows[0], rows[-1]
     require(baseline.get('phase') == 'baseline' and baseline.get('exit') == 0,
             'failure results have no successful baseline')
-    require(failed.get('phase') in ('connect', 'disconnect')
-            and type(failed.get('exit')) is int and failed['exit'] != 0
-            and all(type(row.get('exit')) is int and row['exit'] == 0 for row in rows[:-1]),
-            'failure results have no terminal nonzero action exit')
-    command = failed.get('command')
-    require(isinstance(command, list) and len(command) >= 5
-            and command[:3] == ['python', 'tests/live_audio.py', failed['phase']]
-            and isinstance(command[3], str) and ADDRESS.fullmatch(command[3]),
-            'failure action is not a recorded target source command')
-    log_path = check_receipt_file('failureLogSha256', failure_dir, failed.get('file'))
-    if 'logSha256' in failed:
-        require(verified_hash(failed['logSha256'], 'failure row log') == digest(log_path),
-                'failure row log hash differs from failure action log')
-    require(str(failed['exit']) in failure_text_path.read_text(encoding='utf-8'),
-            'failure.txt does not report terminal action exit')
-
+    failure_text = failure_text_path.read_text(encoding='utf-8')
+    if failed.get('phase') in ('after-disconnect', 'delayed-disconnect',
+                                'after-connect', 'delayed-connect'):
+        verify_historical_readback_failure(failure_dir, rows, failure_text)
+        check_receipt_file('failureLogSha256', failure_dir, failed.get('file'))
+    else:
+        require(failed.get('phase') in ('connect', 'disconnect')
+                and type(failed.get('exit')) is int and failed['exit'] != 0
+                and all(type(row.get('exit')) is int and row['exit'] == 0 for row in rows[:-1]),
+                'failure results have no terminal nonzero action exit')
+        command = failed.get('command')
+        require(isinstance(command, list) and len(command) >= 5
+                and command[:3] == ['python', 'tests/live_audio.py', failed['phase']]
+                and isinstance(command[3], str) and ADDRESS.fullmatch(command[3]),
+                'failure action is not a recorded target source command')
+        log_path = check_receipt_file('failureLogSha256', failure_dir, failed.get('file'))
+        if 'logSha256' in failed:
+            require(verified_hash(failed['logSha256'], 'failure row log') == digest(log_path),
+                    'failure row log hash differs from failure action log')
+        require(str(failed['exit']) in failure_text_path.read_text(encoding='utf-8'),
+                'failure.txt does not report terminal action exit')
     known_text = known_issues_path.read_text(encoding='utf-8')
     require(verified_hash(receipt.get('knownIssuesSha256'), 'known issues') == digest(known_issues_path)
             and all(term in known_text for term in ('已知问题', 'Windows 蓝牙', '手动恢复', '反馈')),

@@ -297,6 +297,41 @@ def edit_decision(case, callback):
     edit_receipt(case, lambda row: row.update(decisionEvidenceSha256=sha(path.read_bytes())))
 
 
+def delayed_readback_fixture(case, terminal_link=1, prior_link=0):
+    folder = case['failure']
+    render = '{0.0.0.00000000}.{11111111-1111-1111-1111-111111111111}'
+    address = 'AABBCCDDEEFF'
+    rows = []
+    for cycle, phase, mode, link, state in [
+            (0, 'baseline', 'inspect', 1, 1),
+            (1, 'disconnect', 'disconnect', None, None),
+            (1, 'after-disconnect', 'inspect', prior_link, 8),
+            (1, 'delayed-disconnect', 'inspect', terminal_link, 8)]:
+        name = f'{cycle}-{phase}.txt'
+        row = {'cycle': cycle, 'phase': phase, 'exit': 0,
+               'command': ['python', 'tests/live_audio.py', mode, address, 'fixture.ini'],
+               'file': name}
+        if mode == 'inspect':
+            output = render if phase == 'baseline' else 'other'
+            text = (f'BLUETOOTH X connected={link} address={address}\n'
+                    f'BEFORE 0 state={state} X {render}\n'
+                    + ''.join(f'DEFAULT 0/{i} {output}\nDEFAULT 1/{i} original\n' for i in range(3)))
+            row.update(link=link, renderState=state, outputRoles=[output]*3,
+                       micRoles=['original']*3)
+        else:
+            text = 'RESULT disconnected\n'
+        (folder / name).write_text(text, encoding='utf-8')
+        row['logSha256'] = sha((folder / name).read_bytes())
+        rows.append(row)
+    (folder / 'results.json').write_text(json.dumps(rows), encoding='utf-8')
+    (folder / 'failure.txt').write_text('1-delayed-disconnect: link/render mismatch', encoding='utf-8')
+    edit_receipt(case, lambda row: row.update(
+        failureResultsSha256=sha((folder / 'results.json').read_bytes()),
+        failureTextSha256=sha((folder / 'failure.txt').read_bytes()),
+        failureLogSha256=rows[-1]['logSha256']))
+    return case
+
+
 def change_decision_text(case, field, value):
     edit_decision(case, lambda row: row.update({field: value}))
     edit_receipt(case, lambda row: row.update({field: value}))
@@ -377,6 +412,30 @@ with tempfile.TemporaryDirectory() as tmp:
         path.write_text(json.dumps(rows), encoding='utf-8')
         edit_receipt(item, lambda row: row.update(failureResultsSha256=sha(path.read_bytes())))
     rejected('known_issue_rejects_zero_failure_exit', zero_exit)
+    delayed = delayed_readback_fixture(fresh('delayed-valid'))
+    check('known_issue_accepts_actual_delayed_readback_failure_not_as_pass',
+          guard.verify_accepted_known_issue(delayed['receipt'], delayed['failure'],
+              delayed['known'], delayed['package'])['hardwareGate'] == 'failed')
+    rejected('known_issue_readback_cannot_replace_version_consent',
+             lambda item: (delayed_readback_fixture(item), edit_receipt(item, lambda row:
+                           row.update(acceptedKnownIssue=False))))
+    rejected('known_issue_rejects_passed_terminal_readback',
+             lambda item: delayed_readback_fixture(item, terminal_link=0))
+    rejected('known_issue_rejects_earlier_failed_prefix',
+             lambda item: delayed_readback_fixture(item, prior_link=1))
+    def altered_readback(item):
+        delayed_readback_fixture(item)
+        path = item['failure'] / 'results.json'
+        rows = json.loads(path.read_text(encoding='utf-8'))
+        rows[-1]['renderState'] = 1
+        path.write_text(json.dumps(rows), encoding='utf-8')
+        edit_receipt(item, lambda row: row.update(failureResultsSha256=sha(path.read_bytes())))
+    rejected('known_issue_rejects_claimed_state_not_in_original_log', altered_readback)
+    def tampered_prefix(item):
+        delayed_readback_fixture(item)
+        (item['failure'] / '1-after-disconnect.txt').write_text('changed', encoding='utf-8')
+    rejected('known_issue_rejects_changed_prior_log', tampered_prefix)
+
     rejected('known_issue_rejects_tampered_failure_log',
              lambda item: (item['failure'] / '1-disconnect.txt').write_text('changed\n', encoding='utf-8'))
     rejected('known_issue_rejects_fake_gate_pass',
