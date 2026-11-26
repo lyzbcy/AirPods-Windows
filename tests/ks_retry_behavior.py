@@ -220,6 +220,20 @@ busy := false
 devices[1].name := "Generic headphones fixture"
 Check("other_headphone_initial_payload_stays_stereo", DoAction("AABBCCDDEEFF", "connect") = "ok" && InStr(lastPayload, '"preferHfp":false'))
 
+busy := false
+gen := BeginDeviceOp("AABBCCDDEEFF", "disconnect")
+linkUp := false, endpointOff := true
+StartDownVerify("AABBCCDDEEFF", gen)
+Check("down_verified_timestamp_is_recorded", deviceOps["AABBCCDDEEFF"].HasOwnProp("downVerifiedAt") && deviceOps["AABBCCDDEEFF"].state = "disconnected")
+eventCount := events.Length, beforeJobs := jobCount
+linkUp := true
+Check("verified_down_reappears_as_unknown_playback", DeviceAudioState("AABBCCDDEEFF", true) = "unknown" && events.Length = eventCount+1 && events[events.Length].name = "linkreappeared")
+Check("reappearance_observation_does_not_retry", jobCount = beforeJobs && DeviceAudioState("AABBCCDDEEFF", true) = "unknown" && events.Length = eventCount+1)
+gen := BeginDeviceOp("AABBCCDDEEFF", "disconnect")
+SetOpState("AABBCCDDEEFF", gen, "disconnected")
+eventCount := events.Length
+Check("unverified_down_does_not_emit_reappearance", DeviceAudioState("AABBCCDDEEFF", true) = "unknown" && events.Length = eventCount)
+
 FileAppend("RESULT failures=" failures "`n", "*")
 ExitApp(failures ? 1 : 0)
 Check(name, ok) {

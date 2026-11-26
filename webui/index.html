@@ -1015,6 +1015,7 @@ window.__event=(name,data)=>{if(name==='update')showUpdate(data);if(name==='star
   if(name==='linkok'){toast('蓝牙链路已连接，正在确认音频…');refreshList()}
   if(name==='audiook'){toast('耳机已设为默认输出，播放格式检查通过；请试听确认是否有声');refreshList()}
   if(name==='linkdown'){downConfirmed.add(data);toast('已核实断开：'+deviceName(data));refreshList()}
+  if(name==='linkreappeared'){downConfirmed.delete(data);toast('此前已核实断开，但 Windows 再次报告已连接；来源未确认');refreshList()}
   if(name==='downfail'){downConfirmed.delete(data);toast('尚未断开：'+deviceName(data));refreshList()}
   if(name==='linkfail'){toast('未确认连接成功，请检查耳机状态或查看日志');refreshList()}};
 /* forward JS errors to the AHK-side log */

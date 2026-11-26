@@ -1,4 +1,4 @@
-; Privacy-first diagnostics. No discovery inquiry, connection, pairing or routing writes.
+﻿; Privacy-first diagnostics. No discovery inquiry, connection, pairing or routing writes.
 ; Persistent device identifiers are used only as in-memory keys, never emitted.
 DiagnosticSession() {
     static value := "s" Format("{:08X}", Random(0, 0xFFFFFFFF))
@@ -288,7 +288,7 @@ DiagnosticLinkTransition(name, previous, current, op := 0, tick := A_TickCount) 
         try {
             if (op.action = "connect" || op.action = "disconnect")
                 action := op.action
-            if RegExMatch(op.state, "^(connect|disconnect|link_pending|link_up|link_retry_wait|link_retrying|retry_cancelled|audio_pending|ready|audio_failed|link_failed|service_failed|playback_unavailable|playback_unverified|down_pending|disconnected|disconnect_failed|superseded)$")
+            if RegExMatch(op.state, "^(connect|disconnect|link_pending|link_up|link_retry_wait|link_retrying|retry_cancelled|audio_pending|ready|audio_failed|link_failed|service_failed|playback_unavailable|playback_unverified|audio_lost|unknown|down_pending|disconnected|disconnect_failed|superseded)$")
                 state := op.state
             if IsInteger(op.phaseStarted) && tick >= op.phaseStarted
                 age := Min(86400000, tick - op.phaseStarted)

@@ -15,7 +15,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\TrayPopup.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.48"
+APP_VERSION   := "1.9.49"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -1907,7 +1907,7 @@ DoAction(name, action, fromBatch := false) {
         if (action = "disconnect" && deviceOps.Has(name)
             && deviceOps[name].state = "link_retrying" && !IsObject(pendingRetryDisconnect)) {
             actionEpoch++
-            deviceOps[name].state := "retry_cancelled"
+            SetOpState(name, deviceOps[name].gen, "retry_cancelled")
             pendingRetryDisconnect := {name: name, epoch: actionEpoch, started: A_TickCount, scheduled: false}
             LogMsg("KS retry cancellation queued same-target disconnect: '" name "'")
             try PetSchedule("disconnecting", name, deviceOps[name].gen, fromBatch)
@@ -1930,7 +1930,7 @@ DoAction(name, action, fromBatch := false) {
         if (op.action = "connect" && key != name
             && (op.state = "connect" || op.state = "link_pending" || op.state = "link_up"
                 || op.state = "audio_pending" || op.state = "link_retry_wait" || op.state = "link_retrying"))
-            op.state := "superseded"
+            SetOpState(key, op.gen, "superseded")
     busy := true
     gen := BeginDeviceOp(name, action)
     try {
@@ -2108,6 +2108,7 @@ DownVerifyTick(name, left, gen) {
     ; An enum/API failure is unknown, not proof that the link went down.
     if (GetLinkState(name) = 0 && TargetEndpointsInactive(deviceOps[name].targetEndpoints)) {
         SetOpState(name, gen, "disconnected")
+        deviceOps[name].downVerifiedAt := A_TickCount
         LogMsg("link down verified: '" name "'")
         PushEvent("linkdown", JsonStr(name))
         return
@@ -2326,7 +2327,7 @@ DeviceAudioState(name, connected) {
         if (deviceOps[name].state = "disconnect_failed" || deviceOps[name].state = "link_failed"
             || deviceOps[name].state = "service_failed")
             return deviceOps[name].state
-        deviceOps[name].state := "disconnected"
+        SetOpState(name, deviceOps[name].gen, "disconnected")
         return "disconnected"
     }
     if (deviceOps[name].state = "ready" && deviceOps[name].gen != routeOwner)
@@ -2335,7 +2336,14 @@ DeviceAudioState(name, connected) {
     ; Keep link and route truth separate; expose explicit retry without automatic routing.
     if (deviceOps[name].state = "disconnected" || deviceOps[name].state = "link_failed"
         || (deviceOps[name].action = "connect" && deviceOps[name].state = "service_failed")) {
-        deviceOps[name].state := "unknown"
+        op := deviceOps[name]
+        if (op.action = "disconnect" && op.HasOwnProp("downVerifiedAt")) {
+            age := Max(0, A_TickCount - op.downVerifiedAt)
+            op.DeleteProp("downVerifiedAt")
+            LogMsg("link reappeared after verified disconnect address=" name " ageMs=" age " origin=unverified", "WARN")
+            PushEvent("linkreappeared", JsonStr(name))
+        }
+        SetOpState(name, op.gen, "unknown")
         return "unknown"
     }
     ; Windows may finish activating the exact stereo route after the bounded
@@ -2365,14 +2373,14 @@ DeviceAudioState(name, connected) {
         if !StateProbeCurrent(name, op, renderId)
             return "unknown"
         if (probe.status = "supported") {
-            op.state := "ready"
+            SetOpState(name, op.gen, "ready")
             LogMsg("late shared playback precheck passed address=" name "; actual sound not listened to")
             PushEvent("audiook", JsonStr(name))
         } else {
             state := probe.status = "unsupported" ? "playback_unavailable" : "playback_unverified"
             if (op.state != state)
                 LogMsg("playback precheck failed address=" name " status=" state " reason=" probe.reason, "WARN")
-            op.state := state
+            SetOpState(name, op.gen, state)
         }
     }
     if ((op.state = "playback_unavailable" || op.state = "playback_unverified")
@@ -2385,7 +2393,7 @@ DeviceAudioState(name, connected) {
         state := probe.status = "unsupported" ? "playback_unavailable" : "playback_unverified"
         if (op.state != state)
             LogMsg("playback recheck address=" name " status=" state " reason=" probe.reason "; user action required to route", "WARN")
-        op.state := state
+        SetOpState(name, op.gen, state)
     }
     if (op.state = "ready") {
         observation := AudioRouteObservation(renderId)
@@ -2400,7 +2408,7 @@ DeviceAudioState(name, connected) {
         if observation.reason = "query_failed"
             return "unknown"
         if !observation.matches {
-            op.state := "audio_lost"
+            SetOpState(name, op.gen, "audio_lost")
             op.probeAt := -1, op.probeId := ""
         }
         ; Passive ready monitoring performs readback only, never opens a render stream.

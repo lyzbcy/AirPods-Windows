@@ -79,6 +79,16 @@ const rpc=(...args)=>context.rpc(...args),pending=()=>vm.runInContext('Object.ke
   const badge={textContent:''},toasts=[];
   Object.assign(context,{document:{getElementById:id=>id==='badge'?badge:button,querySelector:()=>null},toast:m=>toasts.push(m),
     devices:[],deviceName:id=>id,downConfirmed:new Set(),renderProgress:()=>{},refreshList:async()=>{throw Error('refresh failed')}});
+  const eventCode=html.slice(html.indexOf('window.__event='),html.indexOf('/* forward JS errors'));
+  let eventRefreshes=0;context.refreshList=()=>eventRefreshes++;
+  vm.runInContext(eventCode,context);
+  context.downConfirmed.add('A');
+  context.window.__event('linkreappeared','A');
+  assert.equal(context.downConfirmed.has('A'),false);
+  assert.equal(eventRefreshes,1);
+  assert.match(toasts.at(-1),/来源未确认/);
+  console.log('PASS observed_reconnection_invalidates_old_down_confirmation');
+  context.refreshList=async()=>{throw Error('refresh failed')};
   vm.runInContext(actionCode,context);post=()=>{throw Error('disconnected bridge')};
   context.cancelRequestedId='A';
   await context.doAction(null,'A','connect');assert.equal(button.innerHTML,'original');assert.equal(button.className,'act');assert.equal(badge.textContent,'状态待刷新');

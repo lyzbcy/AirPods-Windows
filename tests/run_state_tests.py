@@ -64,7 +64,14 @@ SetOpState("P", progressGen, "link_failed")
 Check("poll_preserves_terminal_connect_failure", DeviceAudioState("P", false) = "link_failed" && deviceOps["P"].state = "link_failed")
 Check("native_recovery_exposes_unknown_playback_not_stale_failure", DeviceAudioState("P", true) = "unknown" && deviceOps["P"].state = "unknown")
 SetOpState("P", progressGen, "disconnected")
+deviceOps["P"].phaseStarted := 3
 Check("native_reconnection_after_disconnected_exposes_retry", DeviceAudioState("P", true) = "unknown")
+Check("passive_reconnection_updates_phase_clock", deviceOps["P"].phaseStarted != 3)
+deviceOps["P"].phaseStarted := 4
+Check("passive_down_updates_phase_clock", DeviceAudioState("P", false) = "disconnected" && deviceOps["P"].phaseStarted != 4)
+deviceOps["P"].phaseStarted := 5
+Check("repeated_passive_down_preserves_phase_clock", DeviceAudioState("P", false) = "disconnected" && deviceOps["P"].phaseStarted = 5)
+
 SetOpState("P", progressGen, "service_failed")
 Check("poll_preserves_connect_worker_failure", DeviceAudioState("P", false) = "service_failed")
 Check("native_recovery_after_worker_failure_exposes_retry", DeviceAudioState("P", true) = "unknown")
