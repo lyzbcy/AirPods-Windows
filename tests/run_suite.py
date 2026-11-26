@@ -37,7 +37,7 @@ commands = [
     ('pet_ready_race', ['python', 'tests/pet_ready_race_test.py']),
     ('pet_reentrancy', ['python', 'tests/pet_reentrancy_test.py']),
 ]
-for name, script in [('windows','windows_regression.ps1'), ('update_health','update_health_test.ps1'), ('ks_backend','ks_backend_test.ps1'), ('mic_migration','mic_migration_test.ps1'), ('adapter_event_summary','adapter_event_summary_test.ps1')]:
+for name, script in [('windows','windows_regression.ps1'), ('update_health','update_health_test.ps1'), ('ks_backend','ks_backend_test.ps1'), ('mic_migration','mic_migration_test.ps1'), ('adapter_event_summary','adapter_event_summary_test.ps1'), ('os_battery_probe','os_battery_probe_test.ps1')]:
     commands.append((name, ['powershell','-NoProfile','-ExecutionPolicy','Bypass','-File','tests/'+script]))
 records = []
 for name, command in commands:

@@ -19,7 +19,7 @@ AirPods 小助手帮助 Windows 用户从托盘一键连接已配对的蓝牙耳
 ## 目录地图
 - `airpods_buddy.ahk`：Windows 主程序——托盘、窗口、RPC、每设备状态机、设置；`APP_VERSION` 是版本唯一字段。
 - `lib/`：`AudioRouting.ahk`（默认设备路由）、`Diagnostics.ahk`（脱敏日志、设备发现、导出）、`BackgroundJobs.ahk`（子进程作业）、`AgentHelp.ahk`（Agent 并排窗口）、`TrayPopup.ahk`（托盘快捷弹层）、`WebView2/`、`Promise.ahk`、`ComVar.ahk`。
-- `scripts/`：`KsBluetooth.cs/.psm1`（KS 后端）、`background-worker.ps1`（阻塞调用子进程）、`UpdateCore.psm1` + `update-swap.ps1`（更新事务）、`RepairCore.psm1`（端点只读诊断与显式修复）、`build-deploy.ps1`（构建 / 事务部署）、`ui_fixture_shots.py`（无头截图核对排版）、`package-windows-release.py`（发布打包校验）、`release-precheck.py` / `strict_gate.py`（发版门禁）、`release_downloads.py`（下载趋势）。
+- `scripts/`：`KsBluetooth.cs/.psm1`（KS 后端）、`background-worker.ps1`（阻塞调用子进程）、`UpdateCore.psm1` + `update-swap.ps1`（更新事务）、`RepairCore.psm1`（端点只读诊断与显式修复）、`build-deploy.ps1`（构建 / 事务部署）、`ui_fixture_shots.py`（无头截图核对排版）、`package-windows-release.py`（发布打包校验）、`release-precheck.py` / `strict_gate.py`（发版门禁）、`release_downloads.py`（下载趋势）；独立 `probe-os-battery.ps1` / `BatteryObservation.psm1`（精确目标只读系统电量属性，未嵌入主程序）。
 - `webui/`：`index.html`（整窗开盒 UI）、`pet.html`（右下角小精灵）、`tray.html`（托盘弹层）、`agent.html`（Agent 窗口）、`assets/`。
 - `assets/`：`airpods-brand.png/.ico`（程序、窗口、托盘同源图标）、`brand-tray-*.ico`、`make_brand_tray_icons.py`、`align_pet_sheets.py`。
 - `tests/`：离线套件。`verification/`：本机原始验收证据，不提交，只上传脱敏回执。
@@ -75,6 +75,7 @@ AirPods 小助手帮助 Windows 用户从托盘一键连接已配对的蓝牙耳
 | 界面 / 小精灵 / 托盘 | 已实现：整窗开盒、四套 7×7 精灵、托盘快捷弹层与悬浮卡 | `webui/`、`lib/TrayPopup.ahk` | `tests/rpc_test.cjs`、`tests/pet_popup_test.cjs`、`tests/tray_popup_test.cjs` |
 | AI-Native | 已实现：Agent 并排窗口与接口说明 | `AI_NATIVE.md`、`webui/agent.html` | `tests/agent_help_test.cjs` |
 | 软件中心适配 | 产品 ID `airpods-buddy`、便携 ZIP；描述文件在根目录。权威软件中心工程严格自查 36 项通过；无关联自动探测不覆盖受管便携目录；生产路径解析现有关联通过，运行版本与哈希一致 | `launcher-adapter.json` | 启动器适配 Skill 的 `check_adapter.py --strict` |
+| 系统电量 | 独立工具已核对本机指定目标节点和容器均无值；主程序不展示；无扫描、无左右耳推断 | `scripts/probe-os-battery.ps1`、[docs/14](docs/14-竞品对标与高级能力路线.md) | `tests/os_battery_probe_test.ps1`（8 项） |
 | Mac 菜单栏版 | 实验端，独立 CI | `mac/`、[docs/06](docs/06-Mac版方案.md) | 真机另验 |
 
 未完成项：严格五轮冷连接与更多型号；长时通话稳定性；AAP 控制（等可信的已签名驱动通道）；高音质耳机麦；更新器的镜像下载线路；软件中心自动探测安装；公开发版需当次授权。
