@@ -74,7 +74,7 @@ AirPods 小助手帮助 Windows 用户从托盘一键连接已配对的蓝牙耳
 | 求好评 | 已实现：第 10 次成功连接触发，之后每 50 次；关闭后 15 天内不再弹 | `airpods_buddy.ahk` | `tests/run_behavior.py`（7 项） |
 | 界面 / 小精灵 / 托盘 | 已实现：整窗开盒、四套 7×7 精灵、托盘快捷弹层与悬浮卡 | `webui/`、`lib/TrayPopup.ahk` | `tests/rpc_test.cjs`、`tests/pet_popup_test.cjs`、`tests/tray_popup_test.cjs` |
 | AI-Native | 已实现：Agent 并排窗口与接口说明 | `AI_NATIVE.md`、`webui/agent.html` | `tests/agent_help_test.cjs` |
-| 软件中心适配 | 产品 ID `airpods-buddy`、便携 ZIP；描述文件在根目录。权威软件中心工程严格自查 36 项通过；自动探测安装失败，既有关联路径存在且已升级 | `launcher-adapter.json` | 启动器适配 Skill 的 `check_adapter.py --strict` |
+| 软件中心适配 | 产品 ID `airpods-buddy`、便携 ZIP；描述文件在根目录。权威软件中心工程严格自查 36 项通过；无关联自动探测不覆盖受管便携目录；生产路径解析现有关联通过，运行版本与哈希一致 | `launcher-adapter.json` | 启动器适配 Skill 的 `check_adapter.py --strict` |
 | Mac 菜单栏版 | 实验端，独立 CI | `mac/`、[docs/06](docs/06-Mac版方案.md) | 真机另验 |
 
 未完成项：严格五轮冷连接与更多型号；长时通话稳定性；AAP 控制（等可信的已签名驱动通道）；高音质耳机麦；更新器的镜像下载线路；软件中心自动探测安装；公开发版需当次授权。
