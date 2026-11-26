@@ -50,6 +50,7 @@ FIXTURES = [
     ('webui/index_built.html', later(TWO + "render();openModal('mSet');"), '560,700', 'settings'),
     ('webui/index_built.html', later('openAdvanced()'), '560,580', 'advanced'),
     ('webui/index_built.html', bottom(), '560,580', 'advanced-bottom'),
+    ('webui/index_built.html', later("openAdvanced();setTimeout(()=>{const d=document.querySelector('.flow-details');d.open=true;d.scrollIntoView({block:'start'})},500)"), '560,580', 'advanced-details'),
     # Headless Chromium lays out at about 500px minimum, so capture wider than the real popup.
     ('webui/tray_built.html', '', '500,440', 'tray'),
 ]
@@ -62,19 +63,20 @@ body{border-radius:0!important;background:linear-gradient(180deg,#FFE9A6 0%,#FFF
 .app,#toast,.mask:not(#mAdvanced){display:none!important}
 #mAdvanced{position:static!important;display:block!important;opacity:1!important;background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;padding:30px 26px 28px!important}
 #mAdvanced .dlg{width:min(508px,100%)!important;max-height:none!important;overflow:visible!important;transform:none!important;box-shadow:none!important;border:none!important;background:transparent!important;padding:0!important;backdrop-filter:none!important}
-#mAdvanced .row,#mAdvanced .adv-status{display:none!important}
+#mAdvanced .row,#mAdvanced .adv-status,#mAdvanced .flow-details{display:none!important}
 #mAdvanced .dlg-body{overflow:visible!important;padding-right:0!important}
 /* Nothing sits behind the cards in poster mode; blur only leaves faint tiles in headless rendering. */
+#mAdvanced .flow-step{animation:none!important;opacity:1!important;transform:none!important}
 #mAdvanced .flow-card{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
 #mAdvanced h3{font-size:21px;line-height:1.35;gap:10px}
 #mAdvanced h3 img{width:42px;height:42px;border-radius:12px}
 .flow-lede{font-size:14px;margin-top:10px}
-.poster-foot{margin-top:18px;display:flex;align-items:center;justify-content:space-between;font-size:12.5px;color:#8A7A5C}
-.poster-foot b{color:#3D3222;font-size:13.5px}
+.poster-foot{margin-top:18px;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:12.5px;color:#8A7A5C}
+.poster-foot b{color:#3D3222;font-size:17px;background:linear-gradient(#ffe68c,#ffc53d);border:2px solid white;border-radius:999px;padding:5px 24px}
 </style><script>
 setTimeout(()=>{try{
   const dlg=document.querySelector('#mAdvanced .dlg'),h=dlg.querySelector('h3');
-  h.insertBefore(document.querySelector('.appicon').cloneNode(),h.firstChild);
+
   const foot=document.createElement('div');foot.className='poster-foot';
   foot.innerHTML='<b>AirPods 小助手</b><span>免驱动 · 零管理员 · 点一下就连</span>';
   dlg.querySelector('ol.flow').after(foot);

@@ -513,34 +513,43 @@
   /* ===== 降噪 / 通透：一图流说明 =====
      Five stations on one sketched path: a chip, a trusted shield, a broken shield,
      a certificate and an hourglass. The same markup renders the shareable poster. */
-  .mask.open#mAdvanced .dlg{width:min(464px,92%);background:linear-gradient(170deg,#FFFDF7 0%,#FFF7E0 60%,#FFF1C6 100%);border:1px solid #fff}
-  #mAdvanced h3{font-size:15px;letter-spacing:.2px}
-  .flow-lede{margin:7px 0 0;font-size:12.5px;line-height:1.55;color:#6F6554}
-  .flow-lede b{color:var(--ink)}
-  .flow{list-style:none;margin:12px 0 0;padding:0 0 0 46px;position:relative}
-  .flow::before{content:'';position:absolute;left:17px;top:20px;bottom:26px;width:2px;
-    background:repeating-linear-gradient(180deg,#D9B458 0 4px,transparent 4px 8px)}
-  .flow-step{position:relative;padding-bottom:9px}
+  .mask.open#mAdvanced .dlg{width:min(464px,92%);background:radial-gradient(ellipse at top,#fff4c3,transparent 50%),linear-gradient(160deg,#FFFDF7,#FFF1C6);border:1px solid #fff}
+  #mAdvanced h3{font-size:18px;line-height:1.4;letter-spacing:.2px;display:block;text-align:center}
+  .flow-hero{display:flex;align-items:center;gap:10px;margin:0 0 10px}
+  .flow-hero img{width:82px;height:82px;object-fit:contain;filter:drop-shadow(0 3px 3px #b18a3940)}
+  .flow-hero h3{flex:1;margin:0!important}
+  .flow-hero strong{display:inline-block;padding:3px 15px;background:linear-gradient(#ffdf75,#ffc53d);border:2px solid #fff4c1;border-radius:999px;box-shadow:0 2px 5px #d2a32e50;color:#2a241a}
+  .flow-lede{margin:4px 0 0;font-size:12px;line-height:1.55;color:#6F6554;text-align:center}
+  .flow{list-style:none;margin:12px 0 0;padding:0 0 0 17px;position:relative}
+  .flow::before{content:'';position:absolute;left:8px;top:20px;bottom:31px;width:24px;border:3px solid #e9b63e;border-right:0;border-radius:20px 0 0 20px}
+  .flow-step{position:relative;padding-bottom:12px;counter-increment:flow}
+  .flow{counter-reset:flow}
   .mask.in .flow-step{animation:flowIn .52s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(90ms + var(--i) * 90ms)}
   @keyframes flowIn{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:none}}
-  .flow-node{position:absolute;left:-46px;top:1px;width:36px;height:36px;border-radius:50% 48% 52% 50%;display:grid;place-items:center;z-index:1;
-    color:#B98A00;background:radial-gradient(circle at 35% 25%,#fff,#FFF3C4);border:1px solid #EFE0B8;
-    box-shadow:0 3px 7px rgba(140,100,10,.16),inset 0 1px 0 #fff}
-  .flow-node svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-  .flow-step[data-tone=warn] .flow-node{color:#B8563F;background:radial-gradient(circle at 35% 25%,#fff,#FBE6DE);border-color:#F0CFC3}
-  .flow-step[data-tone=sage] .flow-node{color:#4E8A65;background:radial-gradient(circle at 35% 25%,#fff,#E6F1E8);border-color:#CBE0D1}
-  .flow-step[data-tone=ink] .flow-node{color:#6F6554;background:radial-gradient(circle at 35% 25%,#fff,#F3EFE6);border-color:#E4DCCB}
-  .flow-card{background:rgba(255,255,255,.6);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
-    border:1px solid rgba(255,255,255,.95);border-radius:15px;padding:10px 12px;
-    box-shadow:0 4px 14px rgba(125,91,17,.08),inset 0 1px 0 #fff}
-  .flow-card b{display:block;font-size:12.5px;line-height:1.4;color:var(--ink)}
-  .flow-card p{margin:3px 0 0;font-size:11.5px;line-height:1.6;color:#6F6554}
-  .flow-sub{margin-top:7px;padding:7px 9px;border-radius:11px;background:rgba(184,86,63,.06);border:1px dashed rgba(184,86,63,.38)}
-  .flow-sub i{font-style:normal;font-size:11.5px;font-weight:700;color:#9A4632}
-  .flow-sub p{margin-top:2px}
-  .flow-note{margin-top:8px;font-size:11.5px;font-weight:700;color:var(--ink)}
+  @media(prefers-reduced-motion:reduce){.mask.in .flow-step{animation:none!important}}
+  .flow-step::before{content:counter(flow);position:absolute;left:-14px;top:8px;z-index:2;width:29px;height:29px;display:grid;place-items:center;font-size:19px;font-weight:900;color:#fff;background:linear-gradient(#ffdb72,#edaa19);border:2px solid white;border-radius:45% 55% 48% 52%;box-shadow:0 2px 6px #a8752540;text-shadow:0 1px #986100}
+  .flow-node{position:absolute;left:22px;top:13px;width:42px;height:42px;border-radius:15px;display:grid;place-items:center;z-index:1;color:#9b6b18;background:linear-gradient(#fff,#fff0bc);border:2px solid white;box-shadow:0 3px 7px #8c640a29}
+  .flow-node svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .flow-step[data-tone=warn] .flow-node{color:#b34435;background:linear-gradient(#fff,#ffd2c5)}
+  .flow-step[data-tone=sage] .flow-node,.flow-step[data-tone=ink] .flow-node{color:#4E8A65;background:linear-gradient(#fff,#e0efcf)}
+  .flow-card{display:flow-root;background:linear-gradient(145deg,#fffefaee,#fff2c9cc);backdrop-filter:blur(8px);border:2px solid #fff;border-radius:22px;padding:12px 10px 12px 74px;box-shadow:0 4px 11px #9b6b1523,inset 0 0 0 1px #edc86670;min-height:76px}
+  .flow-card b{display:block;font-size:14px;line-height:1.4;color:var(--ink)}
+  .flow-card p{margin:4px 0 0;font-size:12px;line-height:1.6;color:#514635}
+  .flow-sticker{width:72px;height:72px;object-fit:contain;float:right;margin:0 0 3px 4px;filter:drop-shadow(0 2px 2px #9b6b1530)}
+  .flow-step[data-tone=warn] .flow-card{background:linear-gradient(145deg,#fff0e9,#ffd9cd);box-shadow:0 4px 12px #c96b4330,inset 0 0 0 1px #f0a48d;padding:12px}
+  .flow-step[data-tone=warn] .flow-card>b{padding-left:62px;min-height:44px;color:#743a2d;font-size:15px}
+  .flow-step[data-tone=sage] .flow-card{background:linear-gradient(145deg,#fbfff2,#e9f1c9);box-shadow:0 4px 12px #71833525,inset 0 0 0 1px #becf8d}
+  .flow-sub{margin-top:8px;padding:9px;border-radius:15px;background:#fffaf1bb;border:1px solid #eaa992}
+  .flow-sub i{display:inline-block;border-radius:999px;padding:3px 9px;background:#ffe18b;font-style:normal;font-size:12px;font-weight:700;color:#633f27}
+  .flow-sub p{margin-top:4px}
+  .flow-note{font-weight:800;color:#743a2d!important}
+  .flow-risk-footer{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:5px}
+  .flow-risk-footer .flow-sticker{float:none;width:52px;height:52px;margin:0}
   .flow-facts{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
-  .flow-facts em{font-style:normal;font-size:10.5px;font-weight:700;color:#3F7A56;background:#EAF3ED;border:1px solid rgba(127,168,140,.45);border-radius:999px;padding:3px 9px}
+  .flow-facts em{font-style:normal;font-size:11px;font-weight:700;color:#365c32;background:#f9f9dc;border:1px solid #c0cb88;border-radius:999px;padding:3px 9px}
+  .flow-details{margin:0 0 12px;border:1px solid #e7c76f;border-radius:14px;padding:10px;background:#fffdf4;font-size:12px;line-height:1.65;color:#514635}
+  .flow-details summary{cursor:pointer;font-weight:800;color:#795812}
+  .flow-details p{margin:8px 0}
   .adv-status{margin:2px 0 12px;padding:9px 11px;border-radius:12px;background:rgba(255,255,255,.72);border:1px solid #EEE7DA;font-size:11.5px;line-height:1.55;color:#6F6554}
   .adv-status b{display:block;font-size:12px;color:var(--ink);margin-bottom:2px}
   .wbtn.sketch{position:relative;width:28px;height:28px;color:#9b8155;border:1px solid #e5d5b9;background:#fffdf5a0;box-shadow:inset 0 1px 1px white}
@@ -727,45 +736,93 @@
 </div>
 
 <!-- Advanced features are capability-gated; no pretend controls or automatic driver changes.
+
      The five stations explain why noise control is blocked; keep rivals unnamed in the product. -->
+
 <div class="mask" id="mAdvanced">
+
   <div class="dlg">
-    <h3>降噪 / 通透 · 为什么现在还用不了</h3>
-    <p class="flow-lede">卡点不在技术，在<b>驱动签名</b>。</p>
+
+    <div class="flow-hero"><img src="assets/face_cheer.png" alt=""><h3><strong>降噪 / 通透</strong><br>为什么现在还用不了？</h3></div>
+
+    <p class="flow-lede">主要卡在<b>驱动签名与兼容性</b>。</p>
+
     <ol class="flow" aria-label="降噪与通透切换为什么还用不了">
+
       <li class="flow-step" data-tone="honey" style="--i:0">
+
         <span class="flow-node" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="6.4" y="6.4" width="11.2" height="11.2" rx="2.4"/><rect x="9.8" y="9.8" width="4.4" height="4.4" rx="1"/><path d="M9.3 3.4v3M14.7 3.4v3M9.3 17.6v3M14.7 17.6v3M3.4 9.3h3M3.4 14.7h3M17.6 9.3h3M17.6 14.7h3"/></svg></span>
+
         <div class="flow-card"><b>这个功能必须靠驱动</b>
-          <p>降噪、通透走的是苹果私有的控制通道，Windows 自带的蓝牙不向普通程序开放它。所以所有能切降噪的 Windows 软件，背后都得装一个内核驱动。</p></div>
+
+          <p>降噪、通透走的是苹果私有的控制通道，Windows 自带的蓝牙不向普通程序开放它。已调研的同类 Windows 实现都依赖内核驱动。</p></div>
+
       </li>
+
       <li class="flow-step" data-tone="ink" style="--i:1">
+
         <span class="flow-node" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3.4c2.4 1.4 4.6 2 7 2.3v5.1c0 4.6-3 7.9-7 9.8-4-1.9-7-5.2-7-9.8V5.7c2.4-.3 4.6-.9 7-2.3Z"/><path d="M8.9 11.9l2.1 2.1 4.2-4.4"/></svg></span>
-        <div class="flow-card"><b>Windows 只认微软签名的驱动</b>
-          <p>内核驱动要有微软认可的签名，系统才肯加载，没签名的直接拒绝。这个保护是对的：它挡的是病毒和流氓软件，只是把小助手这种正经工具也挡在了外面。</p></div>
+
+        <div class="flow-card"><img class="flow-sticker" src="assets/face_like.png" alt=""><b>Windows 的安全门槛</b>
+
+          <p>正常安全配置下，内核驱动需要符合微软可信签名要求。这套保护机制是必要的。</p></div>
+
       </li>
+
       <li class="flow-step" data-tone="warn" style="--i:2">
+
         <span class="flow-node" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3.4c2.4 1.4 4.6 2 7 2.3v5.1c0 1.3-.2 2.4-.6 3.5M9.4 18.7c-2.8-1.6-4.4-4.1-4.4-7.9V5.7"/><path d="M4.6 4.6l14.8 14.8"/></svg></span>
-        <div class="flow-card"><b>同类软件的办法：让用户拆掉自己的防护</b>
-          <div class="flow-sub"><i>关 Secure Boot，再开测试模式</i><p>要进 BIOS 改设置、敲管理员命令；桌面右下角一直有水印；电脑安全性下降；开过磁盘加密的会被要求输恢复密钥；部分网游的反作弊会拒绝运行。</p></div>
-          <div class="flow-sub"><i>社区签名版</i><p>先关掉杀毒软件的实时保护，再导入一个根证书，可能被杀软或反作弊标记；装了 2026 年 4 月 Windows 更新的，还得关掉系统的驱动安全策略。</p></div>
-          <p class="flow-note">小助手不会让你这样做。</p></div>
+
+        <div class="flow-card"><b>同类软件的安全代价</b>
+
+          <div class="flow-sub"><i>测试签名方案</i><p>涉及 BIOS 安全设置，桌面可能长期显示测试模式水印；电脑安全性下降，还可能触发磁盘加密恢复、影响网游反作弊。</p></div>
+
+          <div class="flow-sub"><i>社区签名方案</i><p>2026 年 4 月 Windows 更新后，部分系统版本在使用期间需要持续降低驱动安全防护；安全软件或反作弊也可能告警。</p></div>
+
+          <div class="flow-risk-footer"><p class="flow-note">小助手不会让你这样做。</p><img class="flow-sticker" src="assets/face_plead.png" alt=""></div></div>
+
       </li>
+
       <li class="flow-step" data-tone="sage" style="--i:3">
+
         <span class="flow-node" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="9.6" r="5"/><path d="M9.9 13.8l-.9 6.4 3-1.8 3 1.8-.9-6.4"/><path d="M10.3 9.7l1.2 1.2 2.3-2.4"/></svg></span>
-        <div class="flow-card"><b>正规的路：找微软签名</b>
-          <p>公司买一张 EV 代码签名证书，注册微软的硬件开发者计划，由微软来给驱动签名。你点一下、确认一次管理员权限就能用，不用改任何系统设置。</p>
-          <div class="flow-facts"><em>证书官网标价约 ¥4,288–6,888 一年</em><em>仅限注册公司</em><em>需审核</em></div></div>
+
+        <div class="flow-card"><b>正规路径：微软签名</b>
+
+          <p>企业 EV 证书 → 微软硬件开发者计划 → 签名与兼容性验证。目标体验：只需确认管理员权限，不降低系统防护。商业分发条款仍需核实。</p>
+
+          <div class="flow-facts"><em>证书参考价 ¥4,288–6,888 / 年</em><em>仅限注册公司</em><em>需审核</em></div></div>
+
       </li>
+
       <li class="flow-step" data-tone="ink" style="--i:4">
+
         <span class="flow-node" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 4.4h10M7 19.6h10M8.6 4.4c0 3.9 3.4 5.1 3.4 7.6s-3.4 3.7-3.4 7.6M15.4 4.4c0 3.9-3.4 5.1-3.4 7.6s3.4 3.7 3.4 7.6"/></svg></span>
-        <div class="flow-card"><b>现在的状态：暂缓</b>
+
+        <div class="flow-card"><img class="flow-sticker" src="assets/face_heart.png" alt=""><b>现在的状态：暂缓</b>
+
           <p>这条路的门槛已经摸清，条件合适就去做。在那之前，小助手先把「免驱动、零管理员、点一下就连」做稳。</p></div>
+
       </li>
+
     </ol>
+
+    <details class="flow-details"><summary>查看详细说明</summary>
+      <p>很多同学问：别的软件都能切降噪、通透，小助手为什么不行？我想跟大家交个底。</p>
+      <p><b>1. 为什么需要驱动？</b> AirPods 的控制指令走苹果私有通道，Windows 自带蓝牙不向普通程序开放它。已调研的同类实现依赖内核驱动。</p>
+      <p><b>2. 签名是一道安全门槛。</b> Windows 对内核驱动有可信签名要求。这套保护机制能挡住不可信软件，小助手也得满足它。</p>
+      <p><b>3. 我不想让你承担安全代价。</b> 测试签名涉及 BIOS 安全设置、测试模式水印、磁盘加密恢复及反作弊风险；社区签名在部分系统版本使用期间需要持续降低驱动安全防护，也可能引起安全软件告警。</p>
+      <p><b>4. 正规路径有成本。</b> 企业需要 EV 代码签名证书、微软硬件开发者计划、签名和兼容性验证。证书参考价约每年 ¥4,288–6,888，实际费用及商业分发条款仍要确认。</p>
+      <p><b>5. 所以目前暂缓。</b> 条件合适再做。在那之前，我想先把免驱动、零管理员、点一下就连这件事做稳。如果你懂驱动开发，欢迎一起交流。</p>
+    </details>
     <div class="adv-status"><b>独立实验室</b><span id="advancedLabStatus">正在检测本机实验室…</span><br>实验室是单独的组件：普通连接不受影响，主程序不会自动安装驱动，也不会发送未核实的控制命令。</div>
+
     <div class="row"><button class="btn ghost" onclick="closeModal('mAdvanced')">关闭</button><button class="btn primary" disabled id="advancedLaunch" onclick="launchAdvanced()">打开实验室</button></div>
+
   </div>
+
 </div>
+
 <!-- settings -->
 <div class="mask" id="mSet">
   <div class="dlg">
