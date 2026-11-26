@@ -1,6 +1,6 @@
 # 09 · Windows 优先：蓝牙连接方案选型
 
-现状：稳定；KS + AirPods HFP 引导已在本机验证 4 次，严格五轮未通过 ｜ 负责人：项目维护者 ｜ 最后更新时间：2026-11-25
+现状：稳定；KS + HFP 引导已有本机成功证据，1.9.41 严格复测两轮通过、第 3 轮失败 ｜ 负责人：项目维护者 ｜ 最后更新时间：2026-11-26
 > 读这份文档的时机：连不上、要改连接策略、要判断「请求成功但没连上」时。
 >
 > 2026-11-25：系统原生及 KS 对照、单次用户授权蓝牙关开、同目标双端点试验详见 [维护记录](../reference/maintenance/maintenance-20261125.md)。恢复后重连仍失败或波动；不确认驱动根因。
@@ -144,3 +144,13 @@ ToothTray 的 [issue #10](https://github.com/m2jean/ToothTray/issues/10) 报告�
 ## 11. 2026-11-25 HFP 引导突破
 
 USB 位置独立变化且同驱动，旧 stereo 路径仍冷连接超时，Windows 原生随后恢复。已知三 exact endpoints（stereo、HFP render、HFP capture）均支持 KS，HFP 两端点同滤波器。用户批准一次 HFP 专项冷链路试验：单次请求后 5 秒 link=1/HFP ACTIVE，10 秒 stereo ACTIVE，至30秒稳定。1.9.36 将同路径限于 AirPods / mic-off / 已确认链路 DOWN / 唯一明确 HFP render+capture 的场景，仅 HFP render 请求；capture ID 仅作会话观察，保持真实 stereo 端点用于输出。mic-on、其它设备或歧义/禁用目标不触发新路径。唯一有界回退保留。1.9.36 实际安装 UI 14:05:22 发起冷连接，14:05:31 hfp-link requested=1，14:05:33 link=1，14:06:00 render=1/capture=1、播放预检通过；所有者听到提示音，三个默认输入角色读回一致。迟到 stereo 在重试等待中变 ACTIVE，因此 1.9.37 将 HFP audio_pending 改为 28.5 秒连续观察；旧路径 13.5 秒不变。后续需独立验收组测延迟、连续五轮及其他型号；不再自行打断使用中的耳机。
+
+## 12. 2026-11-26 · 1.9.41 严格五轮复测
+
+实际安装 1.9.41 源码同源，用户许可断开重连。首测断开成功但系统默认通信麦从目标耳机转移至其他输入，严格检查失败。经授权仅临时变更通信输入角色到原普通默认麦克风，测试结束读回恢复原通信麦。验收工具漏提取 ProbeDeviceRender 与 ReleaseOwnedMicRoute，补齐生产依赖和独立 OwnedCaptureRoute 对象，并加离线闭包断言；实际连接代码未改。
+
+复测基线 link=1/render=1。第 1、2 轮各仅 1 次 KS 连接请求，立即及 15 秒后检查全部通过；第 3 轮断开后立即 link=0/render=8，15 秒后 link=1/render=8，首错停止。常驻安装日志仅观察到链接回升，没有同时间段自身连接 RPC 或 worker 请求记录；不能确定外部触发来源。未生成 gate-pass。独立恢复连接成功，末态三播放角色归目标 ACTIVE，三个输入恢复到测试前原选择；所有者确认恢复后实际正常听音。严格五轮仍失败，不能用恢复结果覆盖。
+
+原始验收证据留在本机 verification，复测 results.json SHA256：C5B616C67700ED40B08A808F9D061F74DB148E309F6FA61B643BBDCA68E6B7C2。见 [本轮维护记录](../reference/maintenance/maintenance-20261126-design.md)。
+
+后续严格验收前只读核实默认输入三角色，若通信角色是目标耳机，应先明确告知断开会触发 Windows 默认回退，经同意后使用独立非目标输入基线，结束恢复；不能把 Windows 角色自然回退直接归因为小助手主动切麦。

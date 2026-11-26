@@ -64,7 +64,7 @@ AirPods 小助手帮助 Windows 用户从托盘一键连接已配对的蓝牙耳
 
 | 能力 | 状态 | 代码 / 文档 | 验证 |
 |---|---|---|---|
-| 一键连接（KS） | 已实现；AirPods 冷连接在通用 USB 适配器上 4 次成功（独立实验 1 次 + 已安装产品 3 次），用户实听确认 1 次。严格五轮、其他型号未验收 | `scripts/KsBluetooth.cs`、[docs/09](docs/09-Windows连接方案选型.md) | `tests/ks_backend_test.ps1`、`tests/ks_retry_behavior.py` |
+| 一键连接（KS） | 已实现；AirPods 冷连接在通用 USB 适配器上 4 次成功（独立实验 1 次 + 已安装产品 3 次），用户实听确认 1 次。1.9.41 复测两轮完整通过，第 3 轮失败；其他型号未验收 | `scripts/KsBluetooth.cs`、[docs/09](docs/09-Windows连接方案选型.md) | `tests/ks_backend_test.ps1`、`tests/ks_retry_behavior.py` |
 | 通话与麦克风 | 部分实现：默认不切麦、通话中不做播放探测；10 秒真机录音会话验证 1 次。长时通话、多应用争用未验收 | `lib/AudioRouting.ahk`、[docs/11](docs/11-通话音频与麦克风.md) | `tests/call_audio_test.py` |
 | 降噪 / 通透 / 自适应 | 未实现。调研确认 Windows 微软蓝牙栈的用户态打不开 AAP 的 L2CAP 通道，所有竞品都靠内核驱动；实验室只有协议与 UI 门控 | `beta/`、[docs/13](docs/13-AAP实验版.md)、[docs/14](docs/14-竞品对标与高级能力路线.md) | `dotnet run --project beta/tests -c Release`（3115 项） |
 | 高音质耳机麦 | 未实现；需要内核驱动 + 虚拟麦克风 + AAC-ELD 解码 | [docs/14](docs/14-竞品对标与高级能力路线.md) | — |
@@ -74,10 +74,10 @@ AirPods 小助手帮助 Windows 用户从托盘一键连接已配对的蓝牙耳
 | 求好评 | 已实现：第 10 次成功连接触发，之后每 50 次；关闭后 15 天内不再弹 | `airpods_buddy.ahk` | `tests/run_behavior.py`（7 项） |
 | 界面 / 小精灵 / 托盘 | 已实现：整窗开盒、四套 7×7 精灵、托盘快捷弹层与悬浮卡 | `webui/`、`lib/TrayPopup.ahk` | `tests/rpc_test.cjs`、`tests/pet_popup_test.cjs`、`tests/tray_popup_test.cjs` |
 | AI-Native | 已实现：Agent 并排窗口与接口说明 | `AI_NATIVE.md`、`webui/agent.html` | `tests/agent_help_test.cjs` |
-| 软件中心适配 | 产品 ID `airpods-buddy`、便携 ZIP；描述文件在根目录。严格自查 36 项中 32 项通过，其余 4 项卡在软件中心 catalog 仍是 1.9.21 | `launcher-adapter.json` | 启动器适配 Skill 的 `check_adapter.py --strict` |
+| 软件中心适配 | 产品 ID `airpods-buddy`、便携 ZIP；描述文件在根目录。权威软件中心工程严格自查 36 项通过；自动探测安装失败，既有关联路径存在且已升级 | `launcher-adapter.json` | 启动器适配 Skill 的 `check_adapter.py --strict` |
 | Mac 菜单栏版 | 实验端，独立 CI | `mac/`、[docs/06](docs/06-Mac版方案.md) | 真机另验 |
 
-未完成项：把 1.9.41 装到本机验收；严格五轮冷连接与更多型号；长时通话稳定性；AAP 控制（等可信的已签名驱动通道）；高音质耳机麦；更新器的镜像下载线路；软件中心 catalog 同步；公开发版需当次授权。
+未完成项：严格五轮冷连接与更多型号；长时通话稳定性；AAP 控制（等可信的已签名驱动通道）；高音质耳机麦；更新器的镜像下载线路；软件中心自动探测安装；公开发版需当次授权。
 
 ## 当前状态
-- 版本：源码 **1.9.41**（已构建、未安装），本机最近确认安装 **1.9.38**，公开正式 **1.9.24**，实验室 **1.10.0-beta.2** ｜ 进度与待办详见 [docs/roadmap.md](docs/roadmap.md)，最近一轮的证据见 [晚间维护记录](reference/maintenance/maintenance-20261125-evening.md)。
+- 版本：源码 **1.9.41**（已构建），本机运行 **1.9.41**，公开正式 **1.9.24**，实验室 **1.10.0-beta.2** ｜ 进度与待办详见 [docs/roadmap.md](docs/roadmap.md)，最近一轮的证据见 [1.9.41 维护记录](reference/maintenance/maintenance-20261126-design.md)。

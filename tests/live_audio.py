@@ -22,7 +22,7 @@ if settings_path is not None and (not settings_path.is_file() or ROOT not in set
     raise SystemExit('settings fixture must be an existing file inside the repository')
 if target_address and not re.fullmatch(r'[0-9A-F]{12}', target_address):
     raise SystemExit('target address must be 12 hexadecimal digits')
-names=['IsAppleDevice','IsAudioCandidate','FindAllAudioDevices','FindDevByName','IsLinkUp','GetLinkState','TargetEndpointsInactive','DoAction','BeginDeviceOp','OpCurrent','SetOpState','CanRoute','StartLinkVerify','LinkVerifyTick','ScheduleKsConnectRetry','TryKsConnectRetry','FinishKsConnectRetry','DrainRetryDisconnect','RunQueuedRetryDisconnect','AudioVerifyTick','MicSwitchTo','MicSwitchTick','StartDownVerify','DownVerifyTick','JsonStr','SettingRead','SettingWrite','MicPreferenceSet','AtomicWriteText','Join','DeviceKey','DeviceLabel','FinishBluetoothAction','ValidEndpointId']
+names=['IsAppleDevice','IsAudioCandidate','FindAllAudioDevices','FindDevByName','IsLinkUp','GetLinkState','TargetEndpointsInactive','DoAction','BeginDeviceOp','OpCurrent','SetOpState','CanRoute','StartLinkVerify','LinkVerifyTick','ScheduleKsConnectRetry','TryKsConnectRetry','FinishKsConnectRetry','DrainRetryDisconnect','RunQueuedRetryDisconnect','AudioVerifyTick','ProbeDeviceRender','ReleaseOwnedMicRoute','MicSwitchTo','MicSwitchTick','StartDownVerify','DownVerifyTick','JsonStr','SettingRead','SettingWrite','MicPreferenceSet','AtomicWriteText','Join','DeviceKey','DeviceLabel','FinishBluetoothAction','ValidEndpointId']
 functions=[]
 for name in names:
     if name == 'ScheduleKsConnectRetry' and single_request:
@@ -44,6 +44,7 @@ OnError((e, mode) => (FileAppend("ERROR " e.Message " line=" e.Line "`n", "*"), 
 backgroundJobs := [], appRoot := A_ScriptDir
 OnExit(StopBackgroundJobs)
 devices := [], busy := false, maxRetries := 10
+ownedMicRoute := OwnedCaptureRoute()
 deviceOps := Map(), operationSerial := 0, routeOwner := 0, actionEpoch := 0, pendingRetryDisconnect := 0
 SETTINGS_PATH := A_Args.Length > 1 ? A_Args[2] : A_ScriptDir "\verification\live-audio-settings.ini"
 FindAllAudioDevices()

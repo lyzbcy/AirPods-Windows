@@ -25,7 +25,9 @@ def body(name):
 
 failures = 0
 for caller, callee in (("FindAllAudioDevices", "IsAudioCandidate"),
-                       ("IsAudioCandidate", "IsAppleDevice")):
+                       ("IsAudioCandidate", "IsAppleDevice"),
+                       ("AudioVerifyTick", "ProbeDeviceRender"),
+                       ("MicPreferenceSet", "ReleaseOwnedMicRoute")):
     referenced = re.search(r"\b" + callee + r"\s*\(", body(caller)) is not None
     extracted = callee in names
     ok = referenced and extracted
