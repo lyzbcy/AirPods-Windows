@@ -486,7 +486,7 @@
   .case-shell[data-case=open] .appicon{width:34px;height:34px;border-radius:10px}
   .case-shell[data-case=open] .title h1{font-size:14px}
   .case-shell[data-case=open] .badge{margin-left:auto}
-  .case-shell[data-case=open] .case-summary{display:block;width:100%;margin-bottom:8px}
+  .case-shell[data-case=open] .case-summary{display:grid;width:100%;margin-bottom:8px}
   .case-summary .detail-row{display:flex;align-items:center;justify-content:space-between;gap:7px;padding:9px 11px;border:1px solid #eee7da;border-radius:12px;background:linear-gradient(145deg,#ffffffa8,#fffaf280);margin:6px 0;font-size:12px;box-shadow:inset 0 1px 1px #fff,0 2px 5px #94745112}
   .detail-row strong{font-size:12px;max-width:65%;overflow-wrap:anywhere}
   .case-summary .audio-retry{width:100%;text-align:left;padding:10px 11px;margin-top:4px;border:1px solid #e5ca79;background:#fff0b9;border-radius:10px;cursor:pointer;color:#5b4615;font-weight:600}
@@ -623,7 +623,15 @@
   .progress-title{flex:1;line-height:1.45;font-size:12px}
   .progress-step{flex:none;align-self:flex-start}
   .progress-why{line-height:1.62;margin-top:5px}
-  .case-summary{display:grid;gap:6px;min-width:0}
+  .case-summary{gap:6px;min-width:0}
+  /* Closed is a resting state, not a compressed dashboard. */
+  .case-shell[data-case=closed] .case-main{overflow:hidden;justify-content:center;padding:16px}
+  .case-shell[data-case=closed] .case-main header,
+  .case-shell[data-case=closed] .case-summary,
+  .case-shell[data-case=closed] .case-advanced,
+  .case-shell[data-case=closed] .case-main .progress-panel,
+  .case-shell[data-case=closed] .case-main .ohint{display:none}
+  .case-shell[data-case=closed] .case-main .orb{width:min(220px,100%);height:48px;margin:0;border:1px solid #fff6d8;border-radius:var(--curve);box-shadow:0 8px 22px #ba90342b,inset 0 1px 2px #fff8df}
   .case-summary .detail-row{display:grid;grid-template-columns:34px minmax(0,1fr);gap:2px 9px;padding:9px 13px;margin:0;align-items:center;min-width:0}
   .detail-row .row-icon{grid-column:1;grid-row:1/3;width:32px;height:32px;border-radius:var(--small-curve)}
   .detail-row .detail-label{grid-column:2;display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:10px;color:#867052;min-width:0}

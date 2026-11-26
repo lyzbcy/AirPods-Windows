@@ -9,6 +9,11 @@ with sync_playwright() as pw:
     try:
         page=browser.new_page(viewport={"width":560,"height":580})
         page.goto((root/"webui/index_built.html").as_uri())
+        page.evaluate("""()=>{devices=[{id:'A',name:'AirPods Pro',connected:false,audioState:'disconnected',apple:true,progress:null},{id:'B',name:'AirPods Max',connected:false,audioState:'disconnected',apple:true,progress:null}];selectedDeviceId='A';render()}""")
+        page.wait_for_timeout(1000)
+        closed=page.evaluate("""()=>{const shell=document.querySelector('#caseShell'),main=document.querySelector('.case-main'),orb=document.querySelector('#orb'),b=orb.getBoundingClientRect(),m=main.getBoundingClientRect();return {closed:shell.dataset.case==='closed',onlyAction:[...main.children].filter(e=>getComputedStyle(e).display!=='none').every(e=>e===orb),noScroll:main.scrollHeight<=main.clientHeight+1,buttonFit:b.top>=m.top&&b.bottom<=m.bottom&&b.left>=m.left&&b.right<=m.right,centered:Math.abs((b.top+b.bottom-m.top-m.bottom)/2)<2,hit:document.elementFromPoint((b.left+b.right)/2,(b.top+b.bottom)/2)===orb,devices:document.querySelectorAll('#devices [data-select]').length===2}}""")
+        assert all(closed.values()),closed
+        print("PASS closed_case_only_primary_action_no_scroll",closed)
         for state in ["closed","open"]:
             page.evaluate("""s=>{const shell=document.querySelector('#caseShell');shell.dataset.case=s;shell.classList.remove('case-opening','case-closing')}""",state)
             page.wait_for_timeout(1000)
@@ -27,6 +32,8 @@ with sync_playwright() as pw:
             print("PASS "+state+"_case_geometry_and_button_hit_targets")
         page.evaluate("""()=>{devices=[{id:'A',name:'测试设备 VeryLongHeadsetNameWithNoSpaces012345678901234567890',connected:true,audioState:'ready',apple:true,progress:null}];selectedDeviceId='A';render();let p=document.querySelector('#progressPanel');p.hidden=false;document.querySelector('#progressTitle').textContent='连接检查完成 · 请试听 · 超长设备名称ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';document.querySelector('#progressWhy').textContent='已核实的技术状态需要完整展示，长文本不能碰到圆角或者溢出容器。'.repeat(4)}""")
         page.wait_for_timeout(1000)
+        assert page.locator('#caseSummary').is_visible()
+        assert page.locator('#caseAdvanced').is_visible()
         text_check=page.evaluate("""()=>{const main=document.querySelector('.case-main'),panel=document.querySelector('#progressPanel');const safe=[...document.querySelectorAll('.case-summary .detail-row strong,#progressTitle,#progressWhy')].every(e=>e.scrollWidth<=e.clientWidth+1);return {safe,scrollable:main.scrollHeight>main.clientHeight,padding:parseFloat(getComputedStyle(panel).paddingLeft)>=14}}""")
         assert all(text_check.values()),text_check
         print("PASS long_text_wraps_and_scroll_is_available",text_check)
