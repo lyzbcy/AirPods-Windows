@@ -11,4 +11,5 @@
 - 隐私：保留匿名状态/阶段与用户同意的适配器事件摘要；不把原始聊天、设备名/地址、个人路径、反馈密钥、用户截图上传。已迁移旧反馈密钥到本地配置，缺失不采集。历史失败不能改写为通过。
 - 开发分支及确切公开版独立；公开 Release 必须获得当前版本授权，之后页面、软件中心和最新资产回读。目录与旧构建清理以所有者本地回执为准。
 - 调研定论：降噪 / 通透 / 自适应和高音质耳机麦在 Windows 上都必须有内核驱动，不装驱动做不到；不要把时间花在 Winsock 或 WinRT 上，细节与来源见 [竞品对标](docs/14-竞品对标与高级能力路线.md)。
-- 最近一轮证据：[晚间维护记录](reference/maintenance/maintenance-20261125-evening.md)；更早的见 [日间维护记录](reference/maintenance/maintenance-20261125.md)。下一步先看待办里标 P0 的几项，不反复打扰用户做相同的蓝牙实验。
+- 进行中的设计任务：「降噪 / 通透」说明一图流（1.9.40 首版）等有生图能力的模型接手，先读 [接手简报](reference/design/noise-explainer-brief.md)；视觉规则在 [docs/16](docs/16-视觉与设计规范.md)。
+- 最近证据：[2026-11-26 维护记录](reference/maintenance/maintenance-20261126.md)、[晚间维护记录](reference/maintenance/maintenance-20261125-evening.md)；更早的见 [日间维护记录](reference/maintenance/maintenance-20261125.md)。下一步先看待办里标 P0 的几项，不反复打扰用户做相同的蓝牙实验。

@@ -41,6 +41,9 @@ assert.match(advancedBox,/id="advancedLabStatus"/);
 assert.match(advancedBox,/<button[^>]*\bdisabled\b[^>]*id="advancedLaunch"/);
 assert.doesNotMatch(advancedBox,/MagicPods|magicpods|NTPods|WPods|SoundStage/i);
 assert.doesNotMatch(advancedBox,/即将|下周|本月|敬请期待/);
+// Dates in product copy are absolute: "this April" silently becomes wrong next year.
+assert.match(advancedBox,/2026 年 4 月/);
+assert.doesNotMatch(advancedBox,/今年|去年/);
 assert.match(html,/\.mask\.in \.flow-step\{animation:flowIn/);
 assert.match(html,/prefers-reduced-motion/);
 console.log('PASS noise_control_blocker_is_one_five_station_flow_without_naming_rivals');
