@@ -13,7 +13,7 @@ static class Program
             try
             {
                 int count = Driver.Probe().Count;
-                File.WriteAllText(args[1], JsonSerializer.Serialize(new { version = "1.10.0-beta.2", interfaces = count, opened = false, settingsChanged = false }));
+                File.WriteAllText(args[1], JsonSerializer.Serialize(new { version = "1.10.0-beta.3", interfaces = count, opened = false, settingsChanged = false }));
                 return 0;
             }
             catch (Exception e)
@@ -46,21 +46,21 @@ static class Program
 
 sealed class MainForm : Form
 {
-    readonly ComboBox devices = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 490 };
-    readonly ComboBox model = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 250 };
-    readonly Button scan = new() { Text = "检测控制通道", AutoSize = true };
-    readonly Button connect = new() { Text = "打开控制通道", AutoSize = true };
-    readonly Button disconnect = new() { Text = "关闭控制通道", AutoSize = true, Enabled = false };
-    readonly CheckBox experimental = new() { Text = "启用 H2 实验能力（仅本次连接；自适应仍待真机验证）", AutoSize = true };
+    readonly WarmSelect devices = new() { Placeholder = "未检测到兼容接口", Width = 245 };
+    readonly WarmSelect model = new() { Placeholder = "请选择型号", Width = 240 };
+    readonly Button scan = new WarmButton() { Text = "检测控制通道", AutoSize = true };
+    readonly Button connect = new WarmButton() { Text = "打开控制通道", AutoSize = true };
+    readonly Button disconnect = new WarmButton() { Text = "关闭控制通道", AutoSize = true, Enabled = false };
+    readonly WarmToggle experimental = new() { Text = "启用 H2 实验能力（本次连接）", AutoSize = false };
     readonly Label channel = new() { Text = "尚未检测。普通蓝牙连接 ≠ AAP 控制通道可用。", AutoSize = true, MaximumSize = new Size(740, 0) };
     readonly Label identity = new() { Text = "型号：未知", AutoSize = true, MaximumSize = new Size(740, 0) };
     readonly Label ears = new() { Text = "入耳状态：未知（等待设备上报）", AutoSize = true };
     readonly Label noise = new() { Text = "降噪模式：未知（等待设备上报）", AutoSize = true };
-    readonly TrackBar adaptiveLevel = new() { Minimum = 0, Maximum = 100, Value = 50, TickFrequency = 25, Width = 300, Enabled = false };
-    readonly Button applyAdaptive = new() { Text = "应用自适应强度", AutoSize = true, Enabled = false };
+    readonly WarmSlider adaptiveLevel = new() { Value = 50, Width = 240, Height = 34, Enabled = false };
+    readonly Button applyAdaptive = new WarmButton() { Text = "应用自适应强度", AutoSize = true, Enabled = false };
     readonly Label adaptiveStatus = new() { Text = "强度：未取得设备上报", AutoSize = true };
     readonly Label adaptiveDraft = new() { Text = "待应用：50%", AutoSize = true };
-    readonly Label age = new() { Text = "状态仅代表最后观测，不等于实时保证。", AutoSize = true };
+    readonly Label age = new() { Text = "状态为最后观测，不是实时保证。", AutoSize = true };
     readonly Label result = new() { Text = "先连接系统蓝牙；然后检测并明确选择目标控制设备。", AutoSize = true, MaximumSize = new Size(740, 0), ForeColor = Color.FromArgb(40, 90, 160) };
     readonly Dictionary<NoiseMode, Button> modes = new();
     readonly Dictionary<string, string> preferences;
@@ -77,44 +77,66 @@ sealed class MainForm : Form
 
     public MainForm()
     {
-        Text = "AirPods 小助手 · 控制实验室 1.10.0-beta.2";
-        ClientSize = new Size(820, 760); MinimumSize = new Size(820, 780);
-        StartPosition = FormStartPosition.CenterScreen;
-        Font = new Font("Microsoft YaHei UI", 10);
-        BackColor = Color.FromArgb(255, 249, 239);
+        Text = "AirPods 小助手 · 控制实验室 1.10.0-beta.3";
+        ClientSize = new Size(820, 700); MinimumSize = new Size(820, 700);
+        StartPosition = FormStartPosition.CenterScreen; FormBorderStyle = FormBorderStyle.None;
+        AutoScaleMode = AutoScaleMode.None;
+        Font = new Font("Microsoft YaHei UI", 14, FontStyle.Regular, GraphicsUnit.Pixel);
+        BackColor = Color.FromArgb(255, 247, 232);
         ForeColor = Color.FromArgb(67, 53, 30);
-        var layout = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, Padding = new Padding(22) };
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 3, Padding = new Padding(16), BackColor = BackColor };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 48));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 52));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 132));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 66));
         Controls.Add(layout);
-        Add(new Label { Text = "AirPods 高级控制", Font = new Font(Font.FontFamily, 20, FontStyle.Bold), AutoSize = true });
-        Add(new Label { Text = "独立 Beta｜不替换正式版｜不占用麦克风 / 播放流", AutoSize = true, ForeColor = Color.DimGray });
-        Row(devices, scan);
-        Row(new Label { Text = "设备型号", AutoSize = true, Padding = new Padding(0, 7, 8, 0) }, model);
-        Add(identity); Add(experimental); Row(connect, disconnect); Add(channel);
-        Add(new Label { Text = "设备状态", AutoSize = true, Font = new Font(Font, FontStyle.Bold) });
-        Add(ears); Add(noise); Add(age);
+        var header = new WarmCard { Dock = DockStyle.Fill, Margin = new Padding(0,0,0,10), Padding = new Padding(18,14,18,10) };
+        var title = new Label { Text = "降噪 / 通透 · 控制实验室", Font = new Font(Font.FontFamily, 24, FontStyle.Bold, GraphicsUnit.Pixel), AutoSize = true, Location = new Point(18,12) };
+        var badge = new Label { Text = "独立实验 · 硬件能力未验证", AutoSize = true, ForeColor = Color.FromArgb(145,77,36), Location = new Point(18,47) };
+        var explanation = new Label { Text = "已经实现协议与会话代码；本机仍需兼容 AAP 驱动。无接口就不能控制耳机。\n正规微软签名需要企业资质、EV 证书与审核；非正规途径会降低系统安全。", AutoSize = true, MaximumSize = new Size(690,0), Location = new Point(18,70) };
+        var minimize = new WarmButton { Text = "—", AutoSize=false, MinimumSize=Size.Empty, Width = 38, Height = 34, Anchor = AnchorStyles.Top|AnchorStyles.Left };
+        var close = new WarmButton { Text = "×", AutoSize=false, MinimumSize=Size.Empty, Width = 38, Height = 34, Anchor = AnchorStyles.Top|AnchorStyles.Left };
+        header.Controls.AddRange(new Control[]{title,badge,explanation,minimize,close});
+        void PlaceHeaderButtons(){close.Location=new Point(header.Width-50,10);minimize.Location=new Point(header.Width-94,10);}
+        header.Resize += (_,_) => PlaceHeaderButtons();
+        Shown += (_,_) => PlaceHeaderButtons();
+        minimize.Click += (_,_) => WindowState=FormWindowState.Minimized; close.Click += (_,_) => Close();
+        Point drag=Point.Empty; bool dragging=false;
+        title.MouseDown+=(_,e)=>{if(e.Button==MouseButtons.Left){drag=Cursor.Position;dragging=true;}};
+        title.MouseMove+=(_,_)=>{if(dragging){var now=Cursor.Position;Location=new Point(Location.X+now.X-drag.X,Location.Y+now.Y-drag.Y);drag=now;}};
+        title.MouseUp+=(_,_)=>dragging=false;
+        layout.Controls.Add(header,0,0);layout.SetColumnSpan(header,2);
+        var left=PanelColumn();var right=PanelColumn();
+        layout.Controls.Add((Control)left.Tag!,0,1);layout.Controls.Add((Control)right.Tag!,1,1);
+        Section(left,"01  ·  控制通道","先连接 Windows 蓝牙，再检查已有兼容接口");
+        devices.Width=245;model.Width=240;
+        devices.BackColor=model.BackColor=Color.FromArgb(255,253,246);
+        devices.ForeColor=model.ForeColor=ForeColor;
+        Add(left,devices);Row(left,scan);
+        Section(left,"目标型号","仅是协议策略，不代表硬件认证");
+        Add(left,model);Add(left,identity);
+        experimental.MaximumSize=new Size(340,0);Add(left,experimental);Row(left,connect,disconnect);Add(left,channel);
+        Section(right,"02  ·  状态与控制","先取得设备回读，才解锁控制");
+        Add(right,ears);Add(right,noise);Add(right,age);
         var buttons = new List<Control>();
-        foreach (var (modeValue, label) in new[] { (NoiseMode.Off, "关闭降噪"), (NoiseMode.Anc, "降噪"), (NoiseMode.Transparency, "通透"), (NoiseMode.Adaptive, "自适应 · 实验") })
+        foreach (var (modeValue, label) in new[] { (NoiseMode.Off, "关闭降噪"), (NoiseMode.Anc, "降噪"), (NoiseMode.Transparency, "通透"), (NoiseMode.Adaptive, "自适应") })
         {
             NoiseMode chosen = modeValue;
-            var button = new Button { Text = label, AutoSize = true, Height = 38, Enabled = false };
+            var button = new WarmButton { Text = label, AutoSize = true, Height = 36, Enabled = false };
             button.Click += async (_, _) => await ChangeModeAsync(chosen);
-            modes[chosen] = button; buttons.Add(button);
+            modes[chosen] = button;buttons.Add(button);
         }
-        Row(buttons.ToArray());
-        foreach (var button in new[] { scan, connect, disconnect, applyAdaptive }.Concat(modes.Values))
-        {
-            button.FlatStyle = FlatStyle.Flat;
-            button.BackColor = Color.FromArgb(255, 244, 214);
-            button.FlatAppearance.BorderColor = Color.FromArgb(224, 205, 161);
-            button.FlatAppearance.MouseOverBackColor = Color.FromArgb(255, 229, 153);
-        }
-        Add(new Label { Text = "自适应强度 · 仅自适应模式生效（实验）", AutoSize = true, Font = new Font(Font, FontStyle.Bold) });
-        Row(new Label { Text = "更多环境声", AutoSize = true, Padding = new Padding(0, 8, 0, 0) }, adaptiveLevel, new Label { Text = "更少环境声", AutoSize = true, Padding = new Padding(0, 8, 0, 0) }, applyAdaptive);
-        Row(adaptiveDraft, adaptiveStatus); Add(result);
+        Row(right,buttons.ToArray());
+        Section(right,"03  ·  自适应强度","仅在设备上报自适应后可用");
+        Add(right,adaptiveLevel);Row(right,adaptiveDraft,applyAdaptive);Add(right,adaptiveStatus);
+        var foot = new WarmCard { Dock=DockStyle.Fill, Margin=new Padding(0,10,0,0), Padding=new Padding(14,9,14,9) };
+        result.Dock=DockStyle.Fill;result.AutoSize=false;result.MaximumSize=Size.Empty;
+        result.ForeColor=Color.FromArgb(110,81,39);foot.Controls.Add(result);
+        layout.Controls.Add(foot,0,2);layout.SetColumnSpan(foot,2);
         adaptiveLevel.ValueChanged += (_, _) => adaptiveDraft.Text = $"待应用：{adaptiveLevel.Value}%";
-        applyAdaptive.Click += async (_, _) => await ChangeAdaptiveAsync();
-        Add(new Label { Text = "首版只观察入耳状态，不自动暂停 / 恢复媒体。\n主 / 副耳机不等于左 / 右耳。型号自动识别仅依据设备名称，支持手动覆盖。\n模式写入后必须等新状态回读；超时关闭控制通道，不自动重试。\n本包不含驱动、不安装驱动，也不改变蓝牙配对或系统保护设置。\nPro 3 协议兼容与真实听感仍需逐项验收；此通道不解决 HFP 通话音质。", AutoSize = true, ForeColor = Color.DimGray, MaximumSize = new Size(745, 0) });
-        preferences = LoadPreferences();
+        // Keep the safety/compatibility summary in the first screen, not a hidden scroll tail.
+                preferences = LoadPreferences();
         model.Items.AddRange(Models.Choices); model.SelectedIndex = 0;
         devices.SelectedIndexChanged += (_, _) => LoadModel();
         model.SelectedIndexChanged += (_, _) => SaveModel();
@@ -139,11 +161,26 @@ sealed class MainForm : Form
         };
         UpdateButtons();
 
-        void Add(Control control) { control.Margin = new Padding(0, 0, 0, 8); layout.Controls.Add(control); }
-        void Row(params Control[] controls)
-        {
-            var row = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new Padding(0, 0, 0, 8) };
-            row.Controls.AddRange(controls); layout.Controls.Add(row);
+        FlowLayoutPanel PanelColumn() {
+            var card=new WarmCard {Dock=DockStyle.Fill,Margin=new Padding(4),Padding=new Padding(12)};
+            // Wrap long labels inside each column; scrolling is a fallback only.
+            var panel=new FlowLayoutPanel {Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,AutoScroll=false,BackColor=Color.FromArgb(255,253,247)};
+            card.Controls.Add(panel);
+            // Table owns the outer card; return its content while placing the card itself.
+            panel.Tag=card;return panel;
+        }
+        void Section(FlowLayoutPanel panel,string titleText,string note) {
+            Add(panel,new Label { Text=titleText,AutoSize=true,Font=new Font(Font.FontFamily,17,FontStyle.Bold,GraphicsUnit.Pixel)});
+            Add(panel,new Label {Text=note,AutoSize=true,ForeColor=Color.FromArgb(143,117,78)});
+        }
+        void Add(FlowLayoutPanel panel,Control control) {
+            control.Margin=new Padding(0,0,0,6);
+            if(control is Label label){label.MaximumSize=new Size(340,0);label.AutoSize=true;}
+            panel.Controls.Add(control);
+        }
+        void Row(FlowLayoutPanel panel,params Control[] controls) {
+            var row=new FlowLayoutPanel {AutoSize=true,WrapContents=true,MaximumSize=new Size(350,0),Margin=new Padding(0,0,0,6)};
+            row.Controls.AddRange(controls);panel.Controls.Add(row);
         }
     }
 
@@ -194,7 +231,7 @@ sealed class MainForm : Form
         try
         {
             var found = await Task.Run(Driver.Probe);
-            devices.Items.Clear(); devices.Items.AddRange(found.Cast<object>().ToArray());
+            devices.ClearItems(); devices.Items.AddRange(found.Cast<object>().ToArray());
             // Never auto-select the first of several targets.
             if (found.Count == 1) devices.SelectedIndex = 0;
             channel.Text = found.Count == 0 ? "未发现兼容 AAP 接口：可能缺少驱动、耳机未连接或驱动不兼容。" : $"发现 {found.Count} 个控制设备；这不证明音频或控制功能已经就绪。";
@@ -297,10 +334,95 @@ sealed class MainForm : Form
     {
         using var image = new Bitmap(Width, Height); DrawToBitmap(image, new Rectangle(0, 0, Width, Height)); image.Save(path);
     }
+    static void CheckBounds(Control parent){
+        foreach(Control child in parent.Controls){
+            if(child.Visible && (child.Left<0||child.Top<0||child.Right>parent.ClientSize.Width+1||child.Bottom>parent.ClientSize.Height+1))
+                throw new InvalidOperationException("Control outside layout: "+child.GetType().Name);
+            CheckBounds(child);
+        }
+    }
+
     public async Task<string> RunSmokeAsync()
     {
         await ScanAsync();
         if (session != null || modes.Values.Any(x => x.Enabled) || applyAdaptive.Enabled || adaptiveLevel.Enabled) throw new InvalidOperationException("Unexpected hardware access or enabled mode controls");
-        return $"UI_SMOKE_PASS version=1.10.0-beta.2 hardwareOpened=false interfaces={devices.Items.Count} modeButtonsEnabled=0 adaptiveEnabled=false";
+        CheckBounds(this);
+        return $"UI_SMOKE_PASS layoutContained=true version=1.10.0-beta.3 hardwareOpened=false interfaces={devices.Items.Count} modeButtonsEnabled=0 adaptiveEnabled=false";
+    }
+}
+
+
+sealed class WarmCard : Panel {
+    public WarmCard(){DoubleBuffered=true;BackColor=Color.FromArgb(255,253,247);Resize+=(_,_)=>Invalidate();}
+    protected override void OnPaintBackground(PaintEventArgs e){e.Graphics.Clear(Parent?.BackColor??Color.FromArgb(255,247,232));using var b=new SolidBrush(BackColor);using var path=WarmShape.Path(ClientRectangle,26);e.Graphics.SmoothingMode=System.Drawing.Drawing2D.SmoothingMode.AntiAlias;e.Graphics.FillPath(b,path);}
+}
+static class WarmShape {
+    public static System.Drawing.Drawing2D.GraphicsPath Path(Rectangle r,int radius){
+        var p=new System.Drawing.Drawing2D.GraphicsPath();int d=Math.Max(1,Math.Min(radius*2,Math.Min(r.Width,r.Height)));int x=r.X,y=r.Y,w=r.Width,h=r.Height;
+        p.AddArc(x,y,d,d,180,90);p.AddArc(x+w-d,y,d,d,270,90);p.AddArc(x+w-d,y+h-d,d,d,0,90);p.AddArc(x,y+h-d,d,d,90,90);p.CloseFigure();return p;
+    }
+}
+class WarmButton : Button {
+    bool hover;
+    public WarmButton(){FlatStyle=FlatStyle.Flat;FlatAppearance.BorderSize=0;AutoSize=true;MinimumSize=new Size(72,32);Padding=new Padding(9,2,9,2);Cursor=Cursors.Hand;SetStyle(ControlStyles.UserPaint|ControlStyles.OptimizedDoubleBuffer,true);}
+    protected override void OnMouseEnter(EventArgs e){hover=true;Invalidate();base.OnMouseEnter(e);}
+    protected override void OnMouseLeave(EventArgs e){hover=false;Invalidate();base.OnMouseLeave(e);}
+    protected override void OnEnabledChanged(EventArgs e){Invalidate();base.OnEnabledChanged(e);}
+    protected override void OnPaint(PaintEventArgs e){
+        e.Graphics.Clear(Parent?.BackColor??Color.FromArgb(255,253,247));e.Graphics.SmoothingMode=System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        var r=ClientRectangle;r.Inflate(-1,-1);using var p=WarmShape.Path(r,20);using var b=new SolidBrush(!Enabled?Color.FromArgb(237,231,219):hover?Color.FromArgb(255,211,95):Color.FromArgb(255,232,169));e.Graphics.FillPath(b,p);
+        TextRenderer.DrawText(e.Graphics,Text,Font,r,Enabled?Color.FromArgb(67,53,30):Color.FromArgb(151,140,118),TextFormatFlags.HorizontalCenter|TextFormatFlags.VerticalCenter|TextFormatFlags.SingleLine|TextFormatFlags.EndEllipsis);
+        if(Focused&&Enabled)ControlPaint.DrawFocusRectangle(e.Graphics,Rectangle.Inflate(r,-5,-5));
+    }
+}
+sealed class WarmSlider : Control {
+    int value=50;public event EventHandler? ValueChanged;
+    public int Value {get=>value;set{int v=Math.Clamp(value,0,100);if(this.value!=v){this.value=v;Invalidate();ValueChanged?.Invoke(this,EventArgs.Empty);}}}
+    public WarmSlider(){SetStyle(ControlStyles.UserPaint|ControlStyles.OptimizedDoubleBuffer|ControlStyles.Selectable,true);TabStop=true;AccessibleName="自适应强度";}
+    protected override void OnPaint(PaintEventArgs e){e.Graphics.Clear(Parent?.BackColor??Color.White);e.Graphics.SmoothingMode=System.Drawing.Drawing2D.SmoothingMode.AntiAlias;int x=12+(Width-24)*Value/100;using var track=new Pen(Color.FromArgb(230,218,192),7);track.StartCap=track.EndCap=System.Drawing.Drawing2D.LineCap.Round;e.Graphics.DrawLine(track,12,Height/2,Width-12,Height/2);using var thumb=new SolidBrush(Enabled?Color.FromArgb(255,195,61):Color.FromArgb(174,164,145));e.Graphics.FillEllipse(thumb,x-8,Height/2-8,16,16);}
+    protected override void OnMouseDown(MouseEventArgs e){base.OnMouseDown(e);if(Enabled){Focus();Capture=true;Value=(e.X-12)*100/Math.Max(1,Width-24);}}
+    protected override void OnMouseMove(MouseEventArgs e){base.OnMouseMove(e);if(Enabled&&Capture)Value=(e.X-12)*100/Math.Max(1,Width-24);}
+    protected override void OnMouseUp(MouseEventArgs e){Capture=false;base.OnMouseUp(e);}
+    protected override bool IsInputKey(Keys keyData)=>keyData==Keys.Left||keyData==Keys.Right||base.IsInputKey(keyData);
+    protected override void OnKeyDown(KeyEventArgs e){if(Enabled&&e.KeyCode==Keys.Left)Value--;else if(Enabled&&e.KeyCode==Keys.Right)Value++;base.OnKeyDown(e);}
+    protected override void OnEnabledChanged(EventArgs e){Invalidate();base.OnEnabledChanged(e);}
+}
+
+
+sealed class WarmSelect : WarmButton {
+    int index=-1;
+    public List<object> Items {get;}=new();
+    public string Placeholder {get;set;}="请选择";
+    public event EventHandler? SelectedIndexChanged;
+    public int SelectedIndex {get=>index;set{int next=value>=0&&value<Items.Count?value:-1;if(index!=next){index=next;RefreshLabel();SelectedIndexChanged?.Invoke(this,EventArgs.Empty);}else RefreshLabel();}}
+    public object? SelectedItem {get=>index>=0&&index<Items.Count?Items[index]:null;set=>SelectedIndex=Items.IndexOf(value!);}
+    public WarmSelect(){AutoSize=false;Height=36;AccessibleRole=AccessibleRole.ComboBox;Click+=(_,_)=>OpenChoices();}
+    public void ClearItems(){Items.Clear();index=-1;RefreshLabel();SelectedIndexChanged?.Invoke(this,EventArgs.Empty);}
+    void RefreshLabel(){Text=(SelectedItem?.ToString()??Placeholder)+"  ▾";Invalidate();}
+    protected override void OnCreateControl(){base.OnCreateControl();RefreshLabel();}
+    void OpenChoices(){
+        if(Items.Count==0)return;
+        var menu=new ContextMenuStrip{ShowImageMargin=false,BackColor=Color.FromArgb(255,249,235),ForeColor=Color.FromArgb(67,53,30),Font=Font,Renderer=new ToolStripProfessionalRenderer(new WarmColors())};
+        for(int i=0;i<Items.Count;i++){int selected=i;var item=new ToolStripMenuItem(Items[i].ToString()??""){Checked=i==index};item.Click+=(_,_)=>SelectedIndex=selected;menu.Items.Add(item);}
+        menu.Closed+=(_,_)=>menu.Dispose();menu.Show(this,new Point(0,Height));
+    }
+}
+sealed class WarmColors : ProfessionalColorTable {
+    public override Color ToolStripDropDownBackground=>Color.FromArgb(255,249,235);
+    public override Color MenuItemSelected=>Color.FromArgb(255,228,150);
+    public override Color MenuItemBorder=>Color.FromArgb(225,191,111);
+    public override Color MenuBorder=>Color.FromArgb(225,191,111);
+}
+
+sealed class WarmToggle : WarmButton {
+    bool selected;
+    public bool Checked {get=>selected;set{selected=value;Invalidate();}}
+    public WarmToggle(){AutoSize=false;Width=300;Height=32;AccessibleRole=AccessibleRole.CheckButton;Click+=(_,_)=>Checked=!Checked;}
+    protected override void OnPaint(PaintEventArgs e){
+        e.Graphics.Clear(Parent?.BackColor??Color.FromArgb(255,253,247));e.Graphics.SmoothingMode=System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        var track=new Rectangle(0,6,40,20);using var path=WarmShape.Path(track,10);using var b=new SolidBrush(Checked?Color.FromArgb(112,158,103):Color.FromArgb(217,208,190));e.Graphics.FillPath(b,path);
+        using var thumb=new SolidBrush(Color.White);e.Graphics.FillEllipse(thumb,Checked?22:3,9,14,14);
+        TextRenderer.DrawText(e.Graphics,Text,Font,new Rectangle(48,0,Width-48,Height),Enabled?Color.FromArgb(67,53,30):Color.FromArgb(151,140,118),TextFormatFlags.Left|TextFormatFlags.VerticalCenter|TextFormatFlags.EndEllipsis|TextFormatFlags.SingleLine);
+        if(Focused&&Enabled)ControlPaint.DrawFocusRectangle(e.Graphics,ClientRectangle);
     }
 }

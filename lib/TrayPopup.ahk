@@ -167,8 +167,8 @@ TrayOpenIssue() {
 }
 
 TrayPopupShow(*) {
-    global trayPopupGui, trayPopupWvc, trayPopupWv, trayPopupVisible, trayPopupCreating, trayPopupReady, trayPopupOpenedAt, trayPopupHadFocus
-    global wv, appRoot, wv2Fallback, wvDll
+    global trayPopupGui, trayPopupVisible, trayPopupCreating, trayPopupOpenedAt, trayPopupHadFocus
+    global busy, LOG_VERBOSE
     TrayHoverHide()
     if trayPopupCreating
         return
@@ -179,41 +179,48 @@ TrayPopupShow(*) {
     SetTimer(TrayPopupDestroy,0)
     trayPopupCreating := true
     try {
-        scale := A_ScreenDPI / 96
-        w := Round(300*scale), h := Round(416*scale)
-        if !IsObject(trayPopupWvc) {
-            EnsureResources()
-            trayPopupGui := Gui("-DPIScale -Caption +AlwaysOnTop +ToolWindow", "AirPods 小助手 · 快捷菜单")
-            trayPopupGui.MarginX := 0, trayPopupGui.MarginY := 0, trayPopupGui.BackColor := "FFF7E8"
-            trayPopupGui.Show("w" w " h" h " Hide")
-            trayPopupWvc := WebView2.create(trayPopupGui.Hwnd,, wv.Environment, EnvGet("LOCALAPPDATA") "\AirPodsBuddy_webview", wv2Fallback, 0, wvDll)
-            trayPopupWv := trayPopupWvc.CoreWebView2
-            trayPopupWvc.DefaultBackgroundColor := 0xFFFFF7E8
-            trayPopupWv.Settings.AreDevToolsEnabled := false
-            trayPopupWv.Settings.AreDefaultContextMenusEnabled := false
-            trayPopupWv.add_NavigationStarting((core,args) => (args.Cancel := args.Uri != "https://app.airpods.local/tray_built.html"))
-            trayPopupWv.add_NewWindowRequested((core,args) => (args.Handled := true))
-            trayPopupWv.add_WebMessageReceived(TrayPopupMessage)
-            trayPopupWv.SetVirtualHostNameToFolderMapping("app.airpods.local", A_IsCompiled ? appRoot : A_ScriptDir "\webui", 0)
-            trayPopupWv.Navigate("https://app.airpods.local/tray_built.html")
-            trayPopupGui.OnEvent("Close", TrayPopupHide)
-            trayPopupGui.OnEvent("Escape", TrayPopupHide)
+        ; Native themed surface: no second WebView, no runtime initialization.
+        ; Use a fresh small GUI so its labels always reflect current state.
+        TrayPopupDestroy()
+        trayPopupGui := Gui("-DPIScale -Caption +AlwaysOnTop +ToolWindow", "AirPods 小助手 · 快捷菜单")
+        trayPopupGui.BackColor := "FFF7E8"
+        scale := A_ScreenDPI/96
+        px := (v) => Round(v*scale)
+        trayPopupGui.SetFont("s12 bold c43351E","Microsoft YaHei UI")
+        trayPopupGui.AddPicture("x" px(16) " y" px(12) " w" px(34) " h" px(34),TrayIconDir() "\brand-tray-off.ico")
+        trayPopupGui.AddText("x" px(58) " y" px(12) " w" px(205) " h" px(28) " +0x200","AirPods 小助手")
+        trayPopupGui.SetFont("s9 norm c957443","Microsoft YaHei UI")
+        trayPopupGui.AddText("x" px(18) " y" px(42) " w" px(244) " h" px(22),busy?"正在处理连接…":AnyConnected()?"● 蓝牙已连接":"● 未连接")
+        trayPopupGui.SetFont("s10 norm c43351E","Microsoft YaHei UI")
+        rows := [["打开小助手","open"],["一键连接","connect"],["一键断开","disconnect"],["降噪 / 通透说明","advanced"],[(LOG_VERBOSE?"✓ ":"") "详细排障日志","logs"],["检查更新","update"],["遇到问题反馈","feedback"],["退出小助手","quit"]]
+        for i,row in rows {
+            y := px(70+(i-1)*37)
+            control := trayPopupGui.AddText("x" px(14) " y" y " w" px(252) " h" px(32) " +0x200 Background" (i=1?"FFE5A0":"FFFCF4"),"   " row[1] "   ›")
+            control.OnEvent("Click",TrayPopupPick.Bind(row[2]))
+            try WinSetRegion("0-0 W" px(252) " H" px(32) " R" px(32) "-" px(32),control.Hwnd)
         }
+        trayPopupGui.OnEvent("Close",TrayPopupHide)
+        trayPopupGui.OnEvent("Escape",TrayPopupHide)
+        w := px(280), h := px(374)
+        trayPopupGui.Show("w" w " h" h " Hide")
         pos := TrayPopupPosition(w,h)
+        try WinSetRegion("0-0 W" w " H" h " R" px(64) "-" px(64),trayPopupGui.Hwnd)
         trayPopupGui.Show("x" pos.x " y" pos.y " w" w " h" h)
-        trayPopupWvc.Fill(), trayPopupWvc.IsVisible := true
         try WinActivate("ahk_id " trayPopupGui.Hwnd)
         trayPopupHadFocus := !!WinActive("ahk_id " trayPopupGui.Hwnd)
         trayPopupVisible := true, trayPopupOpenedAt := A_TickCount
-        TrayPopupPublish()
-        SetTimer(TrayPopupWatch, 120)
-        LogMsg("custom tray popup shown")
+        SetTimer(TrayPopupWatch,120)
+        LogMsg("custom native tray popup shown")
     } catch as e {
         trayPopupVisible := false
         TrayPopupDestroy()
-        LogMsg("custom tray popup failed; native fallback code=" (e.HasOwnProp("Number") ? e.Number : "unknown"),"WARN")
+        LogMsg("custom native tray popup failed; native fallback code=" (e.HasOwnProp("Number") ? e.Number : "unknown"),"WARN")
         A_TrayMenu.Show()
     } finally trayPopupCreating := false
+}
+TrayPopupPick(action,*) {
+    TrayPopupHide()
+    SetTimer(() => TrayPopupAction(action), -1)
 }
 
 TrayPopupWatch() {
@@ -230,8 +237,8 @@ TrayPopupWatch() {
         return
     }
     if GetKeyState("LButton","P") || GetKeyState("RButton","P") {
-        trayPopupGui.GetPos(&x,&y,&w,&h)
-        if !TrayPointIn({left:x,top:y,right:x+w,bottom:y+h},TrayMouse())
+        rect := Buffer(16,0)
+        if DllCall("user32\GetWindowRect","ptr",trayPopupGui.Hwnd,"ptr",rect,"int") && !TrayPointIn({left:NumGet(rect,0,"int"),top:NumGet(rect,4,"int"),right:NumGet(rect,8,"int"),bottom:NumGet(rect,12,"int")},TrayMouse())
             TrayPopupHide()
     }
 }
@@ -243,7 +250,7 @@ TrayPopupHide(*) {
         try trayPopupWvc.IsVisible := false
     if IsObject(trayPopupGui)
         try trayPopupGui.Hide()
-    SetTimer(TrayPopupDestroy,-60000) ; reuse controller for nearby opens; release after idle
+    SetTimer(TrayPopupDestroy,-200) ; cheap native GUI only, no WebView lifecycle
 }
 TrayPopupDestroy(*) {
     global trayPopupVisible, trayPopupGui, trayPopupWv, trayPopupWvc, trayPopupReady

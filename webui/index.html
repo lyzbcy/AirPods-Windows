@@ -614,6 +614,27 @@
   .case-main>*{flex-shrink:0}
   .case-shell[data-case=open] .case-main{padding-bottom:16px}
   .case-shell[data-case=open] .case-base{height:430px}
+
+  :root{--curve:40px;--inset:14px;--inner-curve:calc(var(--curve) - var(--inset));--small-curve:calc(var(--inner-curve) - 8px)}
+  .dlg,.device-rail,.progress-panel,.flow-card{border-radius:var(--inner-curve)}
+  .case-summary .detail-row,.device-rail .card,.flow-sub,.flow-details,.adv-status,.call-guidance,.setrow,.setting-row,.set-row,.sw-row,.setting,.setting-card{border-radius:var(--inner-curve)}
+  .case-main .progress-panel{padding:14px 16px;overflow:hidden}
+  .progress-body,.progress-main,.progress-title,.progress-why{min-width:0;overflow-wrap:anywhere;word-break:break-word}
+  .progress-title{flex:1;line-height:1.45;font-size:12px}
+  .progress-step{flex:none;align-self:flex-start}
+  .progress-why{line-height:1.62;margin-top:5px}
+  .case-summary{display:grid;gap:6px;min-width:0}
+  .case-summary .detail-row{display:grid;grid-template-columns:34px minmax(0,1fr);gap:2px 9px;padding:9px 13px;margin:0;align-items:center;min-width:0}
+  .detail-row .row-icon{grid-column:1;grid-row:1/3;width:32px;height:32px;border-radius:var(--small-curve)}
+  .detail-row .detail-label{grid-column:2;display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:10px;color:#867052;min-width:0}
+  .detail-row .detail-label em{font-style:normal;font-size:9px;letter-spacing:.6px;color:#aa946d}
+  .case-summary .detail-row strong{grid-column:2;max-width:100%;min-width:0;line-height:1.35;font-size:13px;overflow-wrap:anywhere;word-break:break-word}
+  .case-summary .detail-row.device-detail{grid-template-columns:1fr;padding:8px 14px}
+  .case-summary .device-detail .detail-label,.case-summary .device-detail strong{grid-column:1}
+  .linked .detail-label{color:#4f7651}
+  .case-summary .detail-row.playback-detail{background:linear-gradient(120deg,#fffaf0,#fff3d7)}
+  .progress-selfhelp,.case-advanced summary,.rail-issue{border-radius:var(--small-curve)}
+  .flow-card,.flow-sub,.flow-details,.adv-status{overflow-wrap:anywhere;word-break:break-word}
 </style>
 </head>
 <body>
@@ -1280,7 +1301,7 @@ function renderOrb(){
   orb.innerHTML=disabled?'<span class="spin" aria-hidden="true"></span>':isConnecting(t)?'取消连接':t.connected?'断开连接':'连接耳机';
   orb.onclick=disabled?null:()=>doAction(null,t.id,deviceAction(t));
   hint.textContent=t.audioState==='call_active'?'':t.connected?'播放状态以 Windows 核实为准':isConnecting(t)?'正在核实连接状态':t.audioState==='link_failed'?'连接未建立，可在诊断中打开系统蓝牙设置':'连接「'+t.name+'」';
-  summary.innerHTML=`<div class="detail-row"><span>当前设备</span><strong>${esc(t.name)}</strong></div><div class="detail-row link-row ${t.connected?'linked':''}"><span><i class="row-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18l5-5-10-9m5-4 5 5-10 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></i> 蓝牙链路</span><strong>${t.connected?'已连接':'未连接'}</strong></div><div class="detail-row"><span><i class="row-icon playback"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 12 7-12 7z" fill="currentColor"/></svg></i> 播放状态</span><strong>${deviceStatus(t)}</strong></div>${t.audioState==='call_active'?`<div class="call-guidance">Classic 通话时 Windows 使用低带宽音频。若要保持立体声，请改用电脑或外接麦克风。<button onclick="rpc('opensound')">打开声音设置</button></div>`:''}${canRetryPlayback(t)?`<button class="audio-retry" data-act="connect" data-name="${esc(t.id)}">重试播放连接</button>`:''}`;
+  summary.innerHTML=`<div class="detail-row device-detail"><span class="detail-label">当前设备 <em>DEVICE</em></span><strong>${esc(t.name)}</strong></div><div class="detail-row link-row ${t.connected?'linked':''}"><i class="row-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18l5-5-10-9m5-4 5 5-10 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></i><span class="detail-label">蓝牙链路 <em>01 / LINK</em></span><strong>${t.connected?'已连接':'未连接'}</strong></div><div class="detail-row playback-detail"><i class="row-icon playback"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 12 7-12 7z" fill="currentColor"/></svg></i><span class="detail-label">播放状态 <em>02 / AUDIO</em></span><strong>${deviceStatus(t)}</strong></div>${t.audioState==='call_active'?`<div class="call-guidance">Classic 通话时 Windows 使用低带宽音频。若要保持立体声，请改用电脑或外接麦克风。<button onclick="rpc('opensound')">打开声音设置</button></div>`:''}${canRetryPlayback(t)?`<button class="audio-retry" data-act="connect" data-name="${esc(t.id)}">重试播放连接</button>`:''}`;
   summary.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>doAction(b));
   const i=devices.indexOf(t);
   tools.innerHTML=`<button onclick="rpc('opensound')">声音设置</button><button onclick="rpc('add')">蓝牙设置</button><button onclick="openIssue()">问题诊断</button><button onclick="openAdvanced()">降噪与高级控制</button><button onclick="movePrio(${i},-1)" ${i===0?'disabled':''}>提高优先级</button><button onclick="movePrio(${i},1)" ${i===devices.length-1?'disabled':''}>降低优先级</button><button data-del="${esc(t.id)}">移除设备</button>`;

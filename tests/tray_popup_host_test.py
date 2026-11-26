@@ -8,9 +8,9 @@ def extract(name):
 main=(root/'airpods_buddy.ahk').read_text(encoding='utf-8-sig')
 for name,ok in {
     'main_interactive_surface_opaque': 'WinSetTransColor("FDEEFF", myGui)' not in main and 'wvc.DefaultBackgroundColor := 0xFFFFF7E8' in main,
-    'custom_popup_interactive_surface_opaque': 'WinSetTransColor("FDEEFF", trayPopupGui)' not in source and 'trayPopupWvc.DefaultBackgroundColor := 0xFFFFF7E8' in source,
+    'custom_popup_interactive_surface_opaque': 'WinSetTransColor("FDEEFF", trayPopupGui)' not in source and 'trayPopupGui.BackColor := "FFF7E8"' in source,
     'tray_advanced_opens_explanation_before_external_lab': 'case "advanced": ShowAdvancedExplanation()' in source and 'A_TrayMenu.Add("🎧 降噪/通透实验室", (*) => ShowAdvancedExplanation())' in main,
-    'custom_popup_idle_reuse': 'SetTimer(TrayPopupDestroy,-60000)' in source,
+    'custom_popup_no_second_webview': 'WebView2.create' not in extract('TrayPopupShow') and 'TrayPopupPick.Bind(row[2])' in source,
 }.items():
     print(('PASS ' if ok else 'FAIL ')+name)
     if not ok:raise SystemExit(1)
@@ -82,5 +82,53 @@ TrayPopupAction(action) {
 with tempfile.TemporaryDirectory(prefix='apb-tray-test-') as d:
     file=Path(d)/'test.ahk';file.write_text(body,encoding='utf-8-sig')
     r=subprocess.run([str(root/'tools/ahk_v2_portable/AutoHotkey64.exe'),'/ErrorStdOut=UTF-8',str(file)],capture_output=True,timeout=10)
+    print((r.stdout+r.stderr).decode('utf-8-sig',errors='replace'),end='')
+    if r.returncode:raise SystemExit(r.returncode)
+
+# Real native controls, hidden: no WebView/browser startup, no desktop popup.
+native=extract('TrayPopupShow').replace('trayPopupGui.Show("x" pos.x " y" pos.y " w" w " h" h)','trayPopupGui.Show("w" w " h" h " Hide")').replace('try WinActivate("ahk_id " trayPopupGui.Hwnd)','').replace('A_TrayMenu.Show()','throw Error("native tray fallback")')
+native_body=r"""
+#Requires AutoHotkey v2.0
+#SingleInstance Off
+OnError((e,*) => (FileAppend("FAIL native gui " e.Message "`n","*"),ExitApp(1)))
+trayPopupGui:=0,trayPopupVisible:=false,trayPopupCreating:=false,trayPopupOpenedAt:=0,trayPopupHadFocus:=false,busy:=false,LOG_VERBOSE:=false
+TrayPopupShow()
+if !trayPopupVisible || !IsObject(trayPopupGui)
+    ExitApp(1)
+count:=0
+for _,ctrl in trayPopupGui
+    count++
+FileAppend((count>=10?"PASS ":"FAIL ") "hidden_native_tray_creates_all_controls count=" count "`n","*")
+TrayPopupDestroy()
+ExitApp(count>=10?0:1)
+TrayHoverHide(*) {
+}
+TrayPopupDestroy(*) {
+    global trayPopupGui,trayPopupVisible
+    if IsObject(trayPopupGui)
+        trayPopupGui.Destroy()
+    trayPopupGui:=0,trayPopupVisible:=false
+}
+TrayPopupHide(*) {
+}
+TrayPopupWatch(*) {
+}
+TrayPopupPick(*) {
+}
+TrayPopupPosition(*) {
+    return {x:0,y:0}
+}
+AnyConnected() {
+    return false
+}
+LogMsg(*) {
+}
+TrayIconDir() {
+    return "ASSET_DIR"
+}
+""".replace("ASSET_DIR",str(root/"assets").replace('"','""'))
+with tempfile.TemporaryDirectory(prefix='apb-native-tray-test-') as d:
+    file=Path(d)/'native.ahk';file.write_text(native_body+native,encoding='utf-8-sig')
+    r=subprocess.run([str(root/'tools/ahk_v2_portable/AutoHotkey64.exe'),'/ErrorStdOut=UTF-8',str(file)],capture_output=True,timeout=12)
     print((r.stdout+r.stderr).decode('utf-8-sig',errors='replace'),end='')
     raise SystemExit(r.returncode)

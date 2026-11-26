@@ -25,5 +25,10 @@ with sync_playwright() as pw:
             print(state,result)
             assert result['fit'] and all(all(c.values()) for c in result['checks']),result
             print("PASS "+state+"_case_geometry_and_button_hit_targets")
+        page.evaluate("""()=>{devices=[{id:'A',name:'测试设备 VeryLongHeadsetNameWithNoSpaces012345678901234567890',connected:true,audioState:'ready',apple:true,progress:null}];selectedDeviceId='A';render();let p=document.querySelector('#progressPanel');p.hidden=false;document.querySelector('#progressTitle').textContent='连接检查完成 · 请试听 · 超长设备名称ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';document.querySelector('#progressWhy').textContent='已核实的技术状态需要完整展示，长文本不能碰到圆角或者溢出容器。'.repeat(4)}""")
+        page.wait_for_timeout(1000)
+        text_check=page.evaluate("""()=>{const main=document.querySelector('.case-main'),panel=document.querySelector('#progressPanel');const safe=[...document.querySelectorAll('.case-summary .detail-row strong,#progressTitle,#progressWhy')].every(e=>e.scrollWidth<=e.clientWidth+1);return {safe,scrollable:main.scrollHeight>main.clientHeight,padding:parseFloat(getComputedStyle(panel).paddingLeft)>=14}}""")
+        assert all(text_check.values()),text_check
+        print("PASS long_text_wraps_and_scroll_is_available",text_check)
     finally:
         browser.close()
