@@ -4,4 +4,4 @@ Read SKILL.md and docs/agent.md first. Source, actual installed version, and pub
 
 Noise control and a high-fidelity earbud microphone need a kernel driver channel on Windows. Do not add Winsock or WinRT workarounds; see docs/14. This public file is a short guide for contributors. The repository owner keeps fuller working notes locally and they are not published.
 
-Current candidate: 1.9.39 (built, not installed; not a public Release). Public release: 1.9.24. See docs/roadmap.md and reference/maintenance/.
+Current candidate: 1.9.40 (built, not installed; not a public Release). Public release: 1.9.24. See docs/roadmap.md and reference/maintenance/.

@@ -2,7 +2,7 @@
 
 先读仓库根 [SKILL.md](SKILL.md)、[AGENTS.md](AGENTS.md) 与[文档导航](docs/agent.md)，以[项目进度](docs/roadmap.md)核对当前部署和待办，**不要复用旧版交接里的硬编码个人路径**。
 
-- 主程序：AutoHotkey v2 / WebView2 / Core Audio / KS。源码 1.9.39 已构建、未安装；本机运行 1.9.38；公开正式 1.9.24。Mac 独立；高级控制独立实验室 1.10.0-beta.2。
+- 主程序：AutoHotkey v2 / WebView2 / Core Audio / KS。源码 1.9.40 已构建、未安装；本机运行 1.9.38；公开正式 1.9.24。Mac 独立；高级控制独立实验室 1.10.0-beta.2。
 - 开发目录已按产品名改名；文档入口是 `docs/agent.md`，待办只在 `docs/roadmap.md`，深度资料在 `reference/`。
 - 关键已证事实：旧 stereo 单请求两 USB 位置冷连接失败；HFP 单请求试验与已安装 v1.9.36 实际冷连接成功，用户确认听到声音，三默认输入角色保持。HFP 仅引导链路，不等于 HFP 高保真；短时实机 capture 1ch/8kHz、应用观察 active 并不扰动通话。严格五轮、其他型号与长时通话仍未通过。
 - 高级控制实验室有模式与 Adaptive Level 协议、会话/超时/回读、UI 测试；本机 0 AAP 接口，不自动装驱动或接管当前唯一适配器。参考[实验版与真机矩阵](docs/13-AAP实验版.md)、[竞品对标](docs/14-竞品对标与高级能力路线.md)；GPL 实现不直接并入 MIT 主程序。

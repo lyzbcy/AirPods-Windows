@@ -31,6 +31,19 @@ assert.match(html,/关闭此开关不禁用耳机麦克风/);
 assert.match(html,/不覆盖你后来的手动选择/);
 assert.match(html,/还没有耳机<br>先在 Windows 配对，或点「添加新耳机」/);
 console.log('PASS feedback_routes_distinct_and_log_choice_visible');
+// The noise-control page explains the blocker as one five-station flow: factual, rival-free
+// and without a date promise, while the lab launch stays gated exactly as before.
+const advancedBox=html.slice(html.indexOf('<div class="mask" id="mAdvanced">'),html.indexOf('<!-- settings -->'));
+assert.equal((advancedBox.match(/class="flow-step"/g)||[]).length,5);
+assert.equal((advancedBox.match(/class="flow-node"/g)||[]).length,5);
+for(const t of ['驱动签名','这个功能必须靠驱动','只认微软签名的驱动','拆掉自己的防护','小助手不会让你这样做','找微软签名','现在的状态：暂缓'])assert.ok(advancedBox.includes(t),t);
+assert.match(advancedBox,/id="advancedLabStatus"/);
+assert.match(advancedBox,/<button[^>]*\bdisabled\b[^>]*id="advancedLaunch"/);
+assert.doesNotMatch(advancedBox,/MagicPods|magicpods|NTPods|WPods|SoundStage/i);
+assert.doesNotMatch(advancedBox,/即将|下周|本月|敬请期待/);
+assert.match(html,/\.mask\.in \.flow-step\{animation:flowIn/);
+assert.match(html,/prefers-reduced-motion/);
+console.log('PASS noise_control_blocker_is_one_five_station_flow_without_naming_rivals');
 const rpcCode=html.slice(html.indexOf("const SEP="),html.indexOf('window.__event='));
 let timers=new Map(),counter=0,post;
 const context=vm.createContext({window:{},chrome:{webview:{postMessage:m=>post(m)}},

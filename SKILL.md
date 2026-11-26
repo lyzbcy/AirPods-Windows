@@ -37,7 +37,7 @@ AirPods 小助手帮助 Windows 用户从托盘一键连接已配对的蓝牙耳
 3. 多会话协作：同一工作树可能有另一个 Agent 会话在同时改（2026-11-25 实际发生过）。动手前看最近修改时间，不覆盖别人的改动；Windows 与 Mac 不要同时改同一文件。
 4. 分支与提交：开发在 `dev/*`；`main` 只随正式 Release 前进；`release/vX.Y.Z` 分支和 tag 对应正式版精确源码，不用当前工作树重打旧正式资产。提交信息用 `feat:` / `fix:` / `docs:` / `release:` 前缀并带 `[skip ci]`——发版优先本机构建，不走 Action。
 5. 日志：统一走 `LogMsg`——脱敏后进有界队列，批写、大小轮转、七天保留，错误只写日志不弹窗；默认只记操作摘要，排障模式才记详细。用户侧用小精灵和进度面板说明程序在干什么（第 N / M 步，不编造百分比）。
-6. 测试与构建：`python tests/run_suite.py --output <私有临时结果目录>`，串行、低负载、不连真机。页面改动后先跑 `powershell -NoProfile -ExecutionPolicy Bypass -File webui/build_ui.ps1`，再用 `python scripts/ui_fixture_shots.py --output <仓库外目录>` 无头截图看排版（离线测试只管逻辑，不管布局），然后 `scripts/build-deploy.ps1`；加 `-Deploy -Destination <实际安装目录>` 才替换本机安装（事务替换 + 健康回执 + 保留回退）。夜间不默认替换用户正在运行的安装。bat 文件保持 CRLF 与纯 ASCII。
+6. 测试与构建：`python tests/run_suite.py --output <私有临时结果目录>`，串行、低负载、不连真机。页面改动后先跑 `powershell -NoProfile -ExecutionPolicy Bypass -File webui/build_ui.ps1`，再用 `python scripts/ui_fixture_shots.py --output <仓库外目录> --poster` 无头截图看排版（离线测试只管逻辑，不管布局；`--poster` 额外导出降噪说明的分享长图），然后 `scripts/build-deploy.ps1`；加 `-Deploy -Destination <实际安装目录>` 才替换本机安装（事务替换 + 健康回执 + 保留回退）。夜间不默认替换用户正在运行的安装。bat 文件保持 CRLF 与纯 ASCII。
 7. 文档同生命周期：改设计必须同步模块文档、`CHANGELOG.md`、`docs/roadmap.md`；单份文档超过 300 行就拆；进度和待办只写在 `docs/roadmap.md`。
 8. 隐私：设备地址、端点/容器、名字、路径、令牌、密钥都不进公开资料和远端；原始日志、聊天缓存、用户截图留在受控本机。仓库是公开的：`AGENTS.md` 在远端只是一份简短的英文协作指南，工作区里的完整版含所有者的内部工作说明，提交前运行 `python scripts/stage_public_agents.py`，不要让 `git add -A` 把工作区版本带上去。
 
@@ -73,7 +73,7 @@ AirPods 小助手帮助 Windows 用户从托盘一键连接已配对的蓝牙耳
 | 软件中心适配 | 产品 ID `airpods-buddy`、便携 ZIP；描述文件在根目录。严格自查 36 项中 32 项通过，其余 4 项卡在软件中心 catalog 仍是 1.9.21 | `launcher-adapter.json` | 启动器适配 Skill 的 `check_adapter.py --strict` |
 | Mac 菜单栏版 | 实验端，独立 CI | `mac/`、[docs/06](docs/06-Mac版方案.md) | 真机另验 |
 
-未完成项：把 1.9.39 装到本机验收；严格五轮冷连接与更多型号；长时通话稳定性；AAP 控制（等可信的已签名驱动通道）；高音质耳机麦；更新器的镜像下载线路；软件中心 catalog 同步；公开发版需当次授权。
+未完成项：把 1.9.40 装到本机验收；严格五轮冷连接与更多型号；长时通话稳定性；AAP 控制（等可信的已签名驱动通道）；高音质耳机麦；更新器的镜像下载线路；软件中心 catalog 同步；公开发版需当次授权。
 
 ## 当前状态
-- 版本：源码 **1.9.39**（已构建、未安装），本机运行 **1.9.38**，公开正式 **1.9.24**，实验室 **1.10.0-beta.2** ｜ 进度与待办详见 [docs/roadmap.md](docs/roadmap.md)，最近一轮的证据见 [晚间维护记录](reference/maintenance/maintenance-20261125-evening.md)。
+- 版本：源码 **1.9.40**（已构建、未安装），本机运行 **1.9.38**，公开正式 **1.9.24**，实验室 **1.10.0-beta.2** ｜ 进度与待办详见 [docs/roadmap.md](docs/roadmap.md)，最近一轮的证据见 [晚间维护记录](reference/maintenance/maintenance-20261125-evening.md)。
