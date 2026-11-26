@@ -11,9 +11,15 @@ with sync_playwright() as pw:
         page.goto((root/"webui/index_built.html").as_uri())
         page.evaluate("""()=>{devices=[{id:'A',name:'AirPods Pro',connected:false,audioState:'disconnected',apple:true,progress:null},{id:'B',name:'AirPods Max',connected:false,audioState:'disconnected',apple:true,progress:null}];selectedDeviceId='A';render()}""")
         page.wait_for_timeout(1000)
-        closed=page.evaluate("""()=>{const shell=document.querySelector('#caseShell'),main=document.querySelector('.case-main'),orb=document.querySelector('#orb'),b=orb.getBoundingClientRect(),m=main.getBoundingClientRect();return {closed:shell.dataset.case==='closed',onlyAction:[...main.children].filter(e=>getComputedStyle(e).display!=='none').every(e=>e===orb),noScroll:main.scrollHeight<=main.clientHeight+1,buttonFit:b.top>=m.top&&b.bottom<=m.bottom&&b.left>=m.left&&b.right<=m.right,centered:Math.abs((b.top+b.bottom-m.top-m.bottom)/2)<2,hit:document.elementFromPoint((b.left+b.right)/2,(b.top+b.bottom)/2)===orb,devices:document.querySelectorAll('#devices [data-select]').length===2}}""")
+        closed=page.evaluate("""()=>{const shell=document.querySelector('#caseShell'),main=document.querySelector('.case-main'),orb=document.querySelector('#orb'),b=orb.getBoundingClientRect(),m=main.getBoundingClientRect();return {closed:shell.dataset.case==='closed',onlyActionAndBrand:[...main.children].filter(e=>getComputedStyle(e).display!=='none').every(e=>e===orb||e.tagName==='HEADER'),logo:main.querySelector('.appicon').getBoundingClientRect().height>=70,hiddenTitle:getComputedStyle(main.querySelector('.title')).display==='none',iconControls:[...document.querySelectorAll('.rail-label')].every(e=>getComputedStyle(e).display==='none'),noScroll:main.scrollHeight<=main.clientHeight+1,buttonFit:b.top>=m.top&&b.bottom<=m.bottom&&b.left>=m.left&&b.right<=m.right,centered:Math.abs((b.left+b.right-m.left-m.right)/2)<2,hit:document.elementFromPoint((b.left+b.right)/2,(b.top+b.bottom)/2)?.closest('button')===orb,devices:document.querySelectorAll('#devices [data-select]').length===2}}""")
         assert all(closed.values()),closed
-        print("PASS closed_case_only_primary_action_no_scroll",closed)
+        print("PASS closed_case_brand_and_primary_action_no_scroll",closed)
+        page.evaluate("""()=>{window.gestureCalls=[];rpc=async(cmd)=>{gestureCalls.push(cmd);return true}}""")
+        page.locator('.case-lid-wrap').dispatch_event('mousedown',{'button':0})
+        page.locator('#resizeGrip').dispatch_event('mousedown',{'button':0})
+        page.locator('#topbar button').first.dispatch_event('mousedown',{'button':0})
+        assert page.evaluate("gestureCalls") == ['windrag','winresize']
+        print("PASS drag_and_resize_bridges_exclude_window_buttons")
         for state in ["closed","open"]:
             page.evaluate("""s=>{const shell=document.querySelector('#caseShell');shell.dataset.case=s;shell.classList.remove('case-opening','case-closing')}""",state)
             page.wait_for_timeout(1000)

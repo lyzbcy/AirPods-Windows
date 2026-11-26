@@ -15,7 +15,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\TrayPopup.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.47"
+APP_VERSION   := "1.9.48"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -463,7 +463,8 @@ ShowAdvancedExplanation(*) {
 ; Native window region clips only the outer silhouette while keeping WebView opaque.
 ; Whitelisted logical modes; no arbitrary region coordinates from the page.
 SetCaseWindowShape(mode) {
-    global myGui
+    global myGui, caseShapeMode
+    caseShapeMode := mode
     if !IsObject(myGui)
         return false
     try {
@@ -878,24 +879,44 @@ PetHideNow() {
 ; ------------------------- Window ------------------------------------
 WinW := 560, WinH := 580
 
-; 手动拖动循环：WebView2 子窗口持有鼠标捕获，WM_NCLBUTTONDOWN 桥无效，
-; 直接按全局光标位移移动窗口（GetCursorPos 不受捕获影响）。
-StartWindowDrag() {
-    global myGui
+; Nonblocking physical pointer gesture: WebView owns the mouse capture.
+caseShapeMode := "closed"
+windowGesture := 0
+windowBaseWidth := 0
+windowBaseHeight := 0
+StartWindowDrag(mode := "move") {
+    global myGui, windowGesture, windowBaseWidth, windowBaseHeight
+    if !(DllCall("user32\GetAsyncKeyState", "int", 1) & 0x8000)
+        return
     pt := Buffer(8), rc := Buffer(16)
     DllCall("user32\GetCursorPos", "ptr", pt)
     DllCall("user32\GetWindowRect", "ptr", myGui.Hwnd, "ptr", rc)
-    dx := NumGet(pt, 0, "int") - NumGet(rc, 0, "int")
-    dy := NumGet(pt, 4, "int") - NumGet(rc, 4, "int")
-    while (DllCall("user32\GetAsyncKeyState", "int", 0x01) & 0x8000) {
-        DllCall("user32\GetCursorPos", "ptr", pt)
-        DllCall("user32\SetWindowPos", "ptr", myGui.Hwnd, "ptr", 0,
-            "int", NumGet(pt, 0, "int") - dx, "int", NumGet(pt, 4, "int") - dy,
-            "int", 0, "int", 0, "uint", 0x0005)   ; NOSIZE|NOZORDER
-        Sleep(10)
+    x := NumGet(rc, 0, "int"), y := NumGet(rc, 4, "int")
+    w := NumGet(rc, 8, "int") - x, h := NumGet(rc, 12, "int") - y
+    if !windowBaseWidth
+        windowBaseWidth := w, windowBaseHeight := h
+    windowGesture := {mode:mode, x:x, y:y, w:w, h:h, px:NumGet(pt,0,"int"), py:NumGet(pt,4,"int")}
+    SetTimer(WindowGestureTick, 16)
+}
+WindowGestureTick() {
+    global myGui, windowGesture, windowBaseWidth, windowBaseHeight
+    if !IsObject(windowGesture) || !(DllCall("user32\GetAsyncKeyState","int",1) & 0x8000) {
+        SetTimer(WindowGestureTick, 0)
+        windowGesture := 0
+        return
+    }
+    g := windowGesture, pt := Buffer(8)
+    DllCall("user32\GetCursorPos","ptr",pt)
+    dx := NumGet(pt,0,"int")-g.px, dy := NumGet(pt,4,"int")-g.py
+    if g.mode = "move" {
+        DllCall("user32\SetWindowPos","ptr",myGui.Hwnd,"ptr",0,"int",g.x+dx,"int",g.y+dy,"int",0,"int",0,"uint",0x0015)
+    } else {
+        scale := Max(.8, Min(1.5, (g.w + (dx + dy*g.w/g.h)/2)/windowBaseWidth))
+        w := Round(windowBaseWidth*scale), h := Round(windowBaseHeight*scale)
+        DllCall("user32\SetWindowPos","ptr",myGui.Hwnd,"ptr",0,"int",g.x,"int",g.y,"int",w,"int",h,"uint",0x0014)
     }
 }
-myGui := Gui("-Caption +MinSize" WinW, "AirPods 小助手")
+myGui := Gui("-Caption", "AirPods 小助手")
 myGui.MarginX := 0, myGui.MarginY := 0
 myGui.BackColor := "FFF7E8"
 myGui.Show("w" WinW " h" WinH " Hide")
@@ -1003,8 +1024,17 @@ myGui.OnEvent("Size", SyncWebView)
 ; 因此每次窗口显示/尺寸变化后都要 Fill 边界并强制 IsVisible := true。
 ; ---------------------------------------------------------------------
 SyncWebView(*) {
-    global wvc, myGui
+    global wvc, myGui, caseShapeMode, windowBaseWidth, windowBaseHeight
     if WinExist(myGui.Hwnd) && !DllCall("IsIconic", "ptr", myGui.Hwnd) {
+        rc := Buffer(16)
+        DllCall("user32\GetClientRect","ptr",myGui.Hwnd,"ptr",rc)
+        w := NumGet(rc,8,"int"), h := NumGet(rc,12,"int")
+        if !windowBaseWidth && w > 0
+            windowBaseWidth := w, windowBaseHeight := h
+        if windowBaseWidth && w > 0 {
+            wvc.ZoomFactor := w/windowBaseWidth
+            SetCaseWindowShape(caseShapeMode)
+        }
         wvc.Fill()
         wvc.IsVisible := true
     }
@@ -1712,6 +1742,7 @@ WebMessageHandler(core, args) {
         case "openrepo":           Run("https://github.com/lyzbcy/AirPods-Windows"), Reply(id, "true")
         case "stardone":           StarAskShown(), Reply(id, "true")
         case "windrag":           StartWindowDrag(), Reply(id, "true")
+        case "winresize":         StartWindowDrag("resize"), Reply(id, "true")
         case "setprio":
             nextPriority := []
             loop Max(0, parts.Length - 2)
@@ -2476,7 +2507,7 @@ DaysSince(stamp) {
 }
 
 ValidBridgeArgs(cmd, parts) {
-    counts := Map("list",0,"statuspoll",0,"getversion",0,"openagent",1,"updateagent",1,"closeagent",0,"connect",1,"disconnect",1,"remove",1,"add",0,"opensound",0,"windowshape",1,"advancedstatus",0,"openadvanced",0,"winmin",0,"winclose",0,"openrelease",0,"openrepo",0,"stardone",0,"windrag",0,"doupdate",0,"getautostart",0,"setautostart",1,"getmicswitch",0,"setmicswitch",1,"getrescue",0,"setrescue",1,"sendfeedback",1,"sendissue",4,"getfblogs",0,"getfbwebhook",0,"openurl",1,"jserror",1)
+    counts := Map("list",0,"statuspoll",0,"getversion",0,"openagent",1,"updateagent",1,"closeagent",0,"connect",1,"disconnect",1,"remove",1,"add",0,"opensound",0,"windowshape",1,"advancedstatus",0,"openadvanced",0,"winmin",0,"winclose",0,"openrelease",0,"openrepo",0,"stardone",0,"windrag",0,"winresize",0,"doupdate",0,"getautostart",0,"setautostart",1,"getmicswitch",0,"setmicswitch",1,"getrescue",0,"setrescue",1,"sendfeedback",1,"sendissue",4,"getfblogs",0,"getfbwebhook",0,"openurl",1,"jserror",1)
     argc := parts.Length - 2
     if (argc = 1 && parts[3] = "")
         argc := 0

@@ -626,12 +626,28 @@
   .case-summary{gap:6px;min-width:0}
   /* Closed is a resting state, not a compressed dashboard. */
   .case-shell[data-case=closed] .case-main{overflow:hidden;justify-content:center;padding:16px}
-  .case-shell[data-case=closed] .case-main header,
   .case-shell[data-case=closed] .case-summary,
   .case-shell[data-case=closed] .case-advanced,
   .case-shell[data-case=closed] .case-main .progress-panel,
   .case-shell[data-case=closed] .case-main .ohint{display:none}
-  .case-shell[data-case=closed] .case-main .orb{width:min(220px,100%);height:48px;margin:0;border:1px solid #fff6d8;border-radius:var(--curve);box-shadow:0 8px 22px #ba90342b,inset 0 1px 2px #fff8df}
+  .case-shell[data-case=closed] .case-main header{display:flex;padding:0 0 14px;gap:0}
+  .case-shell[data-case=closed] .case-main header .title,.case-shell[data-case=closed] #badge{display:none}
+  .case-shell[data-case=closed] .case-main .appicon{width:78px;height:78px}
+  .case-lid-wrap{cursor:grab}.case-lid-wrap:active{cursor:grabbing}
+  #resizeGrip{position:absolute;right:18px;bottom:13px;width:34px;height:34px;border:0;border-radius:var(--small-curve);background:#fff8ef88;color:#9a7e53;cursor:nwse-resize;display:grid;place-items:center;z-index:9;padding:4px}
+  #resizeGrip svg,.rail-glyph{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+  .rail-glyph{display:none}
+  .case-shell[data-case=closed] .rail-glyph{display:inline-block}
+  .case-shell[data-case=closed] .rail-label{display:none}
+  .case-shell[data-case=closed] .device-rail footer{gap:3px;flex-wrap:nowrap}
+  .case-shell[data-case=closed] .device-rail footer button,.case-shell[data-case=closed] .device-rail .add{display:grid;place-items:center;min-height:30px;min-width:30px;padding:3px}
+  .case-shell[data-case=closed] .rail-issue{min-height:30px}
+  .case-shell[data-case=closed] .device-rail .card{position:relative;padding:5px;gap:2px}
+  .case-shell[data-case=closed] .device-rail .st{position:absolute;top:8px;right:8px;font-size:0;line-height:0;margin:0}
+  .case-shell[data-case=closed] .device-rail .st .dot{margin:0}
+  .case-shell[data-case=closed] .device-rail .info{flex:none}
+  .connect-symbol{margin-right:7px;pointer-events:none}.orb>span{pointer-events:none}
+  .case-shell[data-case=closed] .case-main .orb{width:min(174px,100%);height:48px;flex-direction:row;justify-content:center;margin:0;border:1px solid #fff6d8;border-radius:var(--curve);box-shadow:0 8px 22px #ba90342b,inset 0 1px 2px #fff8df}
   .case-summary .detail-row{display:grid;grid-template-columns:34px minmax(0,1fr);gap:2px 9px;padding:9px 13px;margin:0;align-items:center;min-width:0}
   .detail-row .row-icon{grid-column:1;grid-row:1/3;width:32px;height:32px;border-radius:var(--small-curve)}
   .detail-row .detail-label{grid-column:2;display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:10px;color:#867052;min-width:0}
@@ -656,14 +672,15 @@
     </div>
   </div>
   <div class="case-base">
+    <button id="resizeGrip" type="button" aria-label="拖动调整窗口大小" title="拖动调整窗口大小"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18 18 7M12 19l7-7M17 20l3-3"/></svg></button>
     <div class="case-seam"><span id="caseLed" data-status="off"></span></div>
     <div class="case-interior">
       <aside class="device-rail">
         <div class="sec"><h2>设备</h2><span class="cnt" id="cnt"></span><button class="refresh" id="refresh" title="刷新">↻</button></div>
         <div id="devices"></div>
-        <button class="add" onclick="doAdd()">＋ 添加新耳机</button>
-        <button class="rail-issue" onclick="openIssue()" title="遇到问题？告诉我们，可附脱敏日志"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.6 5.4c3.2-1.6 11.6-1.8 14.7.2M20 6.2c.9 3.4.5 7.6-.6 10.4-3.6 1.2-10.2 1.4-13.9.3l-3 2.4c.5-2.1.9-4.3.7-6.5M12 8.2l.2 4.4M12.3 15.4l.1.1"/></svg>遇到问题反馈</button>
-        <footer><button class="about-link" onclick="toggleCaseInspect()" title="设备管理：移除耳机、调整优先级">管理</button><button class="about-link" onclick="openSettings()">⚙ 设置</button><button class="about-link" onclick="openAbout()">关于</button></footer>
+        <button class="add" onclick="doAdd()" title="添加新耳机" aria-label="添加新耳机"><svg class="rail-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="rail-label">＋ 添加新耳机</span></button>
+        <button class="rail-issue" onclick="openIssue()" title="遇到问题？告诉我们，可附脱敏日志" aria-label="遇到问题反馈"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.6 5.4c3.2-1.6 11.6-1.8 14.7.2M20 6.2c.9 3.4.5 7.6-.6 10.4-3.6 1.2-10.2 1.4-13.9.3l-3 2.4c.5-2.1.9-4.3.7-6.5M12 8.2l.2 4.4M12.3 15.4l.1.1"/></svg>遇到问题反馈</button>
+        <footer><button class="about-link" onclick="toggleCaseInspect()" title="设备管理：移除耳机、调整优先级" aria-label="设备管理"><svg class="rail-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14M8 5v4m8 1v4m-6 1v4"/></svg><span class="rail-label">管理</span></button><button class="about-link" onclick="openSettings()" title="设置" aria-label="设置"><svg class="rail-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="m10 3 4 0 1 3 3 1 3 3-2 2 1 4-3 3-3-1-2 3-4-1-1-3-3-1-1-4 3-2V7l3-1z"/><circle cx="12" cy="12" r="3"/></svg><span class="rail-label">⚙ 设置</span></button><button class="about-link" onclick="openAbout()" title="关于" aria-label="关于"><svg class="rail-glyph" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7v.2"/></svg><span class="rail-label">关于</span></button></footer>
       </aside>
       <main class="hero case-main">
         <header><img class="appicon" src="assets/airpods-brand.png" alt=""><div class="title"><h1>AirPods 小助手</h1><div class="ver" id="ver"></div></div><div id="badge" class="badge">未连接</div></header>
@@ -1006,7 +1023,8 @@ window.addEventListener('unhandledrejection',e=>{try{chrome.webview.postMessage(
 
 /* ---------- window drag (topbar + header area) ---------- */
 function dragIfPlain(e){if(e.button===0&&!e.target.closest('button'))rpc('windrag')}
-document.getElementById('topbar').addEventListener('mousedown',dragIfPlain);
+document.querySelector('.case-lid-wrap').addEventListener('mousedown',dragIfPlain);
+document.getElementById('resizeGrip').addEventListener('mousedown',e=>{if(e.button===0){e.preventDefault();rpc('winresize')}});
 document.querySelector('header').addEventListener('mousedown',dragIfPlain);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){const m=document.querySelector('.mask.open');if(m)closeModal(m.id)}});
 
@@ -1297,7 +1315,7 @@ function render(){
   if(!devices.length){
     box.innerHTML=`<div class="empty"><img src="assets/face_cheer.png"><p>还没有耳机<br>先在 Windows 配对，或点「添加新耳机」</p></div>`;return;
   }
-  box.innerHTML=devices.map(d=>`<button class="card" type="button" data-select="${esc(d.id)}" aria-pressed="${d.id===t?.id}" title="${esc(d.name)}"><span class="chip">${art(kindOf(d.name))}</span><span class="info"><span class="name">${esc(d.name)}</span><span class="st ${d.connected?'ok':''}"><span class="dot ${d.connected?'on':''}"></span>${d.connected?'已连接':'未连接'}</span></span></button>`).join('');
+  box.innerHTML=devices.map(d=>`<button class="card" type="button" data-select="${esc(d.id)}" aria-pressed="${d.id===t?.id}" title="${esc(d.name)} · ${d.connected?'已连接':'未连接'}"><span class="chip">${art(kindOf(d.name))}</span><span class="info"><span class="name">${esc(d.name)}</span><span class="st ${d.connected?'ok':''}"><span class="dot ${d.connected?'on':''}"></span>${d.connected?'已连接':'未连接'}</span></span></button>`).join('');
   box.querySelectorAll('[data-select]').forEach(b=>b.onclick=()=>{if(currentProgress())return;selectedDeviceId=b.dataset.select;caseInspect=false;progressOutcome=null;render()});
 }
 function renderOrb(){
@@ -1306,7 +1324,7 @@ function renderOrb(){
   if(!t){orb.innerHTML='先添加耳机';orb.className='orb busy';orb.onclick=null;hint.textContent='点击左侧添加新耳机';summary.innerHTML='';tools.innerHTML='';updateCaseShell();return}
   const disabled=isDisconnecting(t)||connectRequestBusy(t);
   orb.className='orb'+(t.connected?' on':'')+(disabled?' busy':'')+(isConnecting(t)||isDisconnecting(t)?' inflight':'');
-  orb.innerHTML=disabled?'<span class="spin" aria-hidden="true"></span>':isConnecting(t)?'取消连接':t.connected?'断开连接':'连接耳机';
+  orb.innerHTML=disabled?'<span class="spin" aria-hidden="true"></span>':isConnecting(t)?'取消连接':t.connected?'断开连接':'<svg class="connect-symbol" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 3v18l5-5-10-9m5-4 5 5-10 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>连接耳机</span>';
   orb.onclick=disabled?null:()=>doAction(null,t.id,deviceAction(t));
   hint.textContent=t.audioState==='call_active'?'':t.connected?'播放状态以 Windows 核实为准':isConnecting(t)?'正在核实连接状态':t.audioState==='link_failed'?'连接未建立，可在诊断中打开系统蓝牙设置':'连接「'+t.name+'」';
   summary.innerHTML=`<div class="detail-row device-detail"><span class="detail-label">当前设备 <em>DEVICE</em></span><strong>${esc(t.name)}</strong></div><div class="detail-row link-row ${t.connected?'linked':''}"><i class="row-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18l5-5-10-9m5-4 5 5-10 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></i><span class="detail-label">蓝牙链路 <em>01 / LINK</em></span><strong>${t.connected?'已连接':'未连接'}</strong></div><div class="detail-row playback-detail"><i class="row-icon playback"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 12 7-12 7z" fill="currentColor"/></svg></i><span class="detail-label">播放状态 <em>02 / AUDIO</em></span><strong>${deviceStatus(t)}</strong></div>${t.audioState==='call_active'?`<div class="call-guidance">Classic 通话时 Windows 使用低带宽音频。若要保持立体声，请改用电脑或外接麦克风。<button onclick="rpc('opensound')">打开声音设置</button></div>`:''}${canRetryPlayback(t)?`<button class="audio-retry" data-act="connect" data-name="${esc(t.id)}">重试播放连接</button>`:''}`;

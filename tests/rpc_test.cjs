@@ -5,7 +5,8 @@ const about=html.match(/<!-- about modal -->([\s\S]*?)<!-- QR lightbox/)?.[1]||'
 const issue=html.match(/<!-- 问题反馈：常见类型[\s\S]*?<div class="mask" id="mIssue">([\s\S]*?)<!-- settings -->/)?.[1]||'';
 const rail=html.match(/<aside class="device-rail">([\s\S]*?)<\/aside>/)?.[1]||'';
 assert.equal((footer.match(/<button\b/g)||[]).length,3);
-assert.doesNotMatch(footer,/<span\b/);
+assert.equal((footer.match(/<span class="rail-label">/g)||[]).length,3);
+assert.equal((footer.match(/aria-label="[^"]+"/g)||[]).length,3);
 assert.doesNotMatch(footer,/openIssue|反馈/);
 assert.match(footer,/toggleCaseInspect\(\)/);
 // "遇到问题反馈" is a first-level entry with visible wording, not a small footer link.
