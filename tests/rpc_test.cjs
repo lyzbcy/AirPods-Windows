@@ -120,6 +120,17 @@ const rpc=(...args)=>context.rpc(...args),pending=()=>vm.runInContext('Object.ke
     assert.match(context.deviceStatus(d),/重试/);assert.match(context.deviceStatus(d),/取消/);
   }
   console.log('PASS retry_wait_and_running_show_cancellable_status');
+  for(const state of ['ready','unknown','audio_lost','call_active','playback_unavailable'])assert.equal(context.canReconnect({connected:true,audioState:state}),true);
+  for(const state of ['connect','audio_pending','disconnect','down_pending'])assert.equal(context.canReconnect({connected:true,audioState:state}),false);
+  assert.equal(context.canReconnect({connected:false,audioState:'unknown'}),false);
+  assert.match(html,/data-act="reconnect"[\s\S]*?>重新连接<\/button>/);
+  const reconnectProgress=context.progressFor({progress:{action:'disconnect',phase:'down',step:2,reconnecting:true}});
+  assert.equal(reconnectProgress.reconnecting,true);
+  assert.match(context.deviceStatus({connected:true,audioState:'down_pending',progress:{reconnecting:true}}),/重新连接/);
+  context.devices=[{id:'A',name:'Fixture',connected:true,audioState:'disconnect_failed'}];
+  assert.match(context.completedProgress({id:'A',action:'disconnect',reconnecting:true}).title,/重新连接已停止/);
+  console.log('PASS manual_reconnect_visible_even_when_windows_reports_ready');
+
   assert.equal(context.deviceAction({connected:false,audioState:'link_failed'}),'connect');
   assert.match(context.deviceStatus({connected:false,audioState:'link_failed'}),/蓝牙链路未建立/);
   assert.match(context.deviceStatus({connected:true,audioState:'audio_failed'}),/播放端点未就绪/);

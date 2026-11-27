@@ -41,6 +41,8 @@ AirPods 小助手帮助 Windows 用户从托盘一键连接已配对的蓝牙耳
 7. 文档同生命周期：改设计必须同步模块文档、`CHANGELOG.md`、`docs/roadmap.md`；单份文档超过 300 行就拆；进度和待办只写在 `docs/roadmap.md`。
 8. 隐私：设备地址、端点/容器、名字、路径、令牌、密钥都不进公开资料和远端；原始日志、聊天缓存、用户截图留在受控本机。仓库是公开的：`AGENTS.md` 在远端只是一份简短的英文协作指南，工作区里的完整版含所有者的内部工作说明，提交前运行 `python scripts/stage_public_agents.py`，不要让 `git add -A` 把工作区版本带上去。
 
+手动重连维护经验：Windows connected/ready 不能证明实际有声，已连状态也应保留显式恢复入口；串行断开→核实→连接必须绑定同目标、设备代次及用户操作序号，失败停止，不做被动自动重连。见 [docs/09](docs/09-Windows连接方案选型.md)。
+
 ## 版本号规则
 - 唯一版本字段是 `airpods_buddy.ahk` 的 `APP_VERSION := "x.y.z"`。独立实验室版本在 `beta/AirPodsBuddy.Beta/*.csproj`，Mac 在 `mac/`，互不联动。
 - 开发完成 = 代码 + 文档 + 版本号三者同步；有业务行为改动才递增 patch，只改文档不抬版本、不构建、不替换安装。
@@ -81,4 +83,4 @@ AirPods 小助手帮助 Windows 用户从托盘一键连接已配对的蓝牙耳
 未完成项：严格五轮冷连接与更多型号；长时通话稳定性；AAP 控制（等可信的已签名驱动通道）；立体声麦集成版真机验证；更新器的镜像下载线路；软件中心发布后目录/网页同步；公开发版需当次授权。
 
 ## 当前状态
-- 版本：源码 **1.9.50**（已构建），本机运行 **1.9.50**，公开正式 **1.9.24**，实验室 **1.10.0-beta.3** ｜ 进度与待办详见 [docs/roadmap.md](docs/roadmap.md)，最近一轮见 [1.9.50 维护记录](reference/maintenance/maintenance-20261126-pet-reverse.md)。
+- 版本：源码候选 **1.9.52**（显式重新连接，已构建、未安装），本机运行 **1.9.50**，公开正式 **1.9.24**，实验室 **1.10.0-beta.3** ｜ 进度与待办详见 [docs/roadmap.md](docs/roadmap.md)，最近一轮见 [1.9.52 维护记录](reference/maintenance/maintenance-20261127-reconnect.md)。

@@ -1,6 +1,6 @@
 # AirPods 小助手 · 文档导航
 
-现状：稳定，随源码同步更新 ｜ 负责人：项目维护者 ｜ 最后更新时间：2026-11-26
+现状：稳定，随源码同步更新 ｜ 负责人：项目维护者 ｜ 最后更新时间：2026-11-27
 
 这里是 `docs/` 的唯一入口。开发任何功能前先读根目录的 `AGENTS.md`、`SKILL.md`，再按下表找到模块文档；需要更深的证据或历史时进入 `reference/`。当前版本与待办只看 [roadmap.md](roadmap.md) 顶部，历史快照不能当作当前部署依据。
 
@@ -30,7 +30,7 @@
 
 | 位置 | 内容 | 什么时候读 |
 |---|---|---|
-| [maintenance/](../reference/maintenance/) | 带日期的维护记录：本机实测、失败事实、验收回执。最新：[2026-11-26 · 1.9.50](../reference/maintenance/maintenance-20261126-pet-reverse.md) | 需要查某次改动的原始证据 |
+| [maintenance/](../reference/maintenance/) | 带日期的维护记录：本机实测、失败事实、验收回执。最新：[2026-11-27 · 1.9.52](../reference/maintenance/maintenance-20261127-reconnect.md) | 需要查某次改动的原始证据 |
 | [verification/](../reference/verification/) | 脱敏验收回执 | 发版门禁核对 |
 | [design/](../reference/design/) | 开盒 UI 设计稿、合成设备截图、精灵对齐检查、进行中的设计任务与接手简报 | 改界面或精灵之前；接手设计任务时先读对应简报 |
 | [history/](../reference/history/) | 2026-10-23 及更早的进度、规范待办、技术方案历史、实验卡 | 追溯旧决定 |

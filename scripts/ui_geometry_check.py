@@ -43,5 +43,20 @@ with sync_playwright() as pw:
         text_check=page.evaluate("""()=>{const main=document.querySelector('.case-main'),panel=document.querySelector('#progressPanel');const safe=[...document.querySelectorAll('.case-summary .detail-row strong,#progressTitle,#progressWhy')].every(e=>e.scrollWidth<=e.clientWidth+1);return {safe,scrollable:main.scrollHeight>main.clientHeight,padding:parseFloat(getComputedStyle(panel).paddingLeft)>=14}}""")
         assert all(text_check.values()),text_check
         print("PASS long_text_wraps_and_scroll_is_available",text_check)
+        page.evaluate("""()=>{devices=[{id:'A',name:'AirPods Pro',connected:true,audioState:'ready',apple:true,progress:null}];selectedDeviceId='A';localAction=null;lastActiveProgress=null;progressOutcome=null;render();window.reconnectCalls=[];rpc=async(cmd,...args)=>{reconnectCalls.push([cmd,...args]);return cmd==='list'?JSON.stringify(devices):'ok'}}""")
+        button=page.locator('[data-act="reconnect"]')
+        assert button.is_visible()
+        button.scroll_into_view_if_needed()
+        page.wait_for_timeout(1000)
+        assert button.evaluate("e=>{const r=e.getBoundingClientRect();return document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest('button')===e}")
+        page.screenshot(path=str(Path(os.environ['TEMP'])/'airpods-1.9.52-ui'/'reconnect-ready.png'))
+        button.click()
+        page.wait_for_timeout(100)
+        assert page.evaluate("reconnectCalls.filter(x=>x[0]==='reconnect')") == [['reconnect','A']]
+        print("PASS ready_device_manual_reconnect_button_hit_and_rpc")
+        page.evaluate("""()=>{localAction=null;devices[0].progress={action:'disconnect',phase:'down',step:2,steps:3,reconnecting:true};devices[0].audioState='down_pending';render()}""")
+        assert page.locator('[data-act="reconnect"]').count()==0
+        assert '重新连接' in page.locator('#progressTitle').inner_text()
+        print("PASS reconnect_progress_hides_duplicate_button")
     finally:
         browser.close()

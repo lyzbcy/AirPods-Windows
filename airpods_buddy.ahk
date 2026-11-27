@@ -16,7 +16,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\TrayPopup.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.51"
+APP_VERSION   := "1.9.52"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -1734,7 +1734,7 @@ WebMessageHandler(core, args) {
     }
     if (cmd != "statuspoll") {
         eventSummary := "rpc: " cmd " id=" id " args=" Max(0, parts.Length - 2)
-        if cmd = "connect" || cmd = "disconnect" || cmd = "remove"
+        if cmd = "connect" || cmd = "disconnect" || cmd = "reconnect" || cmd = "remove"
             eventSummary .= " target=" DiagnosticAlias("device", arg1)
         LogMsg(eventSummary)
     }
@@ -1750,6 +1750,7 @@ WebMessageHandler(core, args) {
         case "closeagent":        AgentHide(), Reply(id, "true")
         case "getversion":        Reply(id, JsonStr(APP_VERSION))
         case "connect":           Reply(id, JsonStr(DoAction(arg1, "connect")))
+        case "reconnect":         Reply(id, JsonStr(StartReconnect(arg1)))
         case "disconnect":        Reply(id, JsonStr(DoAction(arg1, "disconnect")))
         case "remove":            Reply(id, JsonStr(RemoveDevice(arg1)))
         case "add":               Run("ms-settings:bluetooth"), Reply(id, "true")
@@ -1864,7 +1865,8 @@ DeviceProgressJson(name) {
         return "null"
     elapsed := Max(0, A_TickCount - op.started)
     phaseElapsed := Max(0, A_TickCount - op.phaseStarted)
-    return '{"action":' JsonStr(action) ',"phase":' JsonStr(phase) ',"step":' step ',"steps":' steps ',"elapsedMs":' elapsed ',"phaseElapsedMs":' phaseElapsed ',"phaseBudgetMs":' budget '}'
+    intent := op.HasOwnProp("reconnecting") && op.reconnecting ? '"reconnecting":true,' : ""
+    return '{' intent '"action":' JsonStr(action) ',"phase":' JsonStr(phase) ',"step":' step ',"steps":' steps ',"elapsedMs":' elapsed ',"phaseElapsedMs":' phaseElapsed ',"phaseBudgetMs":' budget '}'
 }
 
 ; ------------------------- Device logic ------------------------------
@@ -1921,7 +1923,37 @@ FindAllAudioDevices() {
     try DiagnosticObserveDiscovery(diagnostic, diagnosticRows)
 }
 
-DoAction(name, action, fromBatch := false) {
+; Explicit user recovery, scoped to this device. Never reconnect on a passive poll.
+StartReconnect(name) {
+    global busy, deviceOps, actionEpoch
+    if busy || DeviceProgressJson(name) != "null"
+        return "busy"
+    result := DoAction(name, "disconnect", false, true)
+    if result = "ok"
+        LogMsg("manual reconnect started address=" name)
+    return result
+}
+
+ContinueReconnect(name, gen, epoch) {
+    global deviceOps, actionEpoch
+    if (!OpCurrent(name, gen) || actionEpoch != epoch
+        || !deviceOps[name].HasOwnProp("reconnecting") || !deviceOps[name].reconnecting
+        || !deviceOps[name].HasOwnProp("downVerifiedAt"))
+        return
+    result := DoAction(name, "connect", false, true)
+    if result = "ok" {
+        LogMsg("manual reconnect connection submitted address=" name)
+    } else {
+        if OpCurrent(name, gen) {
+            deviceOps[name].reconnecting := false
+            SetOpState(name, gen, "service_failed")
+        }
+        LogMsg("manual reconnect connection not submitted result=" result, "WARN")
+        PushEvent("toast", JsonStr("重新连接未能启动；请等当前操作结束后重试"))
+    }
+}
+
+DoAction(name, action, fromBatch := false, reconnecting := false) {
     global busy, actionEpoch, deviceOps, pendingRetryDisconnect
     if (action != "connect" && action != "disconnect")
         return "invalid"
@@ -1947,6 +1979,10 @@ DoAction(name, action, fromBatch := false) {
     name := DeviceKey(dev)
     actionEpoch++
     pendingRetryDisconnect := 0
+    ; Any accepted newer action revokes an older reconnect continuation.
+    for key, op in deviceOps
+        if op.HasOwnProp("reconnecting")
+            op.reconnecting := false
     ; A newer user action supersedes only prior connect verifiers. Otherwise
     ; their timers stop on the epoch while stale progress remains forever.
     for key, op in deviceOps
@@ -1956,6 +1992,10 @@ DoAction(name, action, fromBatch := false) {
             SetOpState(key, op.gen, "superseded")
     busy := true
     gen := BeginDeviceOp(name, action)
+    if reconnecting {
+        deviceOps[name].reconnecting := true
+        deviceOps[name].reconnectEpoch := actionEpoch
+    }
     try {
         SetTrayLoading(true)
         deviceOps[name].address := Format("{:012X}", NumGet(dev.info, 8, "uint64"))
@@ -2126,14 +2166,23 @@ StartDownVerify(name, gen) {
 }
 
 DownVerifyTick(name, left, gen) {
-    global deviceOps
+    global deviceOps, actionEpoch
     if !OpCurrent(name, gen)
         return
     ; An enum/API failure is unknown, not proof that the link went down.
     if (GetLinkState(name) = 0 && TargetEndpointsInactive(deviceOps[name].targetEndpoints)) {
-        SetOpState(name, gen, "disconnected")
+        if !OpCurrent(name, gen)
+            return
         deviceOps[name].downVerifiedAt := A_TickCount
         LogMsg("link down verified: '" name "'")
+        if (deviceOps[name].HasOwnProp("reconnecting") && deviceOps[name].reconnecting
+            && deviceOps[name].reconnectEpoch = actionEpoch) {
+            ; Keep down_pending until the next turn: no intermediate success event.
+            epoch := deviceOps[name].reconnectEpoch
+            SetTimer(() => ContinueReconnect(name, gen, epoch), -1)
+            return
+        }
+        SetOpState(name, gen, "disconnected")
         PushEvent("linkdown", JsonStr(name))
         return
     }
@@ -2544,7 +2593,7 @@ DaysSince(stamp) {
 }
 
 ValidBridgeArgs(cmd, parts) {
-    counts := Map("list",0,"statuspoll",0,"getversion",0,"openagent",1,"updateagent",1,"closeagent",0,"connect",1,"disconnect",1,"remove",1,"add",0,"opensound",0,"windowshape",1,"advancedstatus",0,"openadvanced",0,"winmin",0,"winclose",0,"openrelease",0,"openrepo",0,"stardone",0,"windrag",0,"winresize",0,"doupdate",0,"getautostart",0,"setautostart",1,"getmicswitch",0,"setmicswitch",1,"getwpodsstereomic",0,"setwpodsstereomic",1,"getrescue",0,"setrescue",1,"sendfeedback",1,"sendissue",4,"getfblogs",0,"getfbwebhook",0,"openurl",1,"jserror",1)
+    counts := Map("list",0,"statuspoll",0,"getversion",0,"openagent",1,"updateagent",1,"closeagent",0,"connect",1,"disconnect",1,"reconnect",1,"remove",1,"add",0,"opensound",0,"windowshape",1,"advancedstatus",0,"openadvanced",0,"winmin",0,"winclose",0,"openrelease",0,"openrepo",0,"stardone",0,"windrag",0,"winresize",0,"doupdate",0,"getautostart",0,"setautostart",1,"getmicswitch",0,"setmicswitch",1,"getwpodsstereomic",0,"setwpodsstereomic",1,"getrescue",0,"setrescue",1,"sendfeedback",1,"sendissue",4,"getfblogs",0,"getfbwebhook",0,"openurl",1,"jserror",1)
     argc := parts.Length - 2
     if (argc = 1 && parts[3] = "")
         argc := 0
@@ -2562,7 +2611,7 @@ ValidBridgeArgs(cmd, parts) {
         return parts[3] = "closed" || parts[3] = "open" || parts[3] = "modal"
     if (cmd = "setautostart" || cmd = "setmicswitch" || cmd = "setwpodsstereomic" || cmd = "setrescue")
         return parts[3] = "0" || parts[3] = "1"
-    if (cmd = "connect" || cmd = "disconnect" || cmd = "remove")
+    if (cmd = "connect" || cmd = "disconnect" || cmd = "reconnect" || cmd = "remove")
         return RegExMatch(parts[3], "^[0-9A-F]{12}$") != 0
     if (cmd = "openagent" || cmd = "updateagent")
         return StrLen(parts[3]) <= 6000

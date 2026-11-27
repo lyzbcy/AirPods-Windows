@@ -259,6 +259,53 @@ busy := false
 ScheduleKsConnectRetry("AABBCCDDEEFF", gen, "link")
 TryKsConnectRetry("AABBCCDDEEFF", gen, actionEpoch)
 Check("stereo_retry_worker_does_not_request_hfp_capture", InStr(lastPayload, '"mic":false') && InStr(lastPayload, '"preferHfp":false') && deviceOps["AABBCCDDEEFF"].retryCount = 1)
+
+busy := false, micSetting := "0", stereoSetting := "0", linkUp := 1, endpointOff := true
+gen := BeginDeviceOp("AABBCCDDEEFF", "connect")
+SetOpState("AABBCCDDEEFF", gen, "ready")
+beforeJobs := jobCount
+Check("manual_reconnect_submits_disconnect_first", StartReconnect("AABBCCDDEEFF") = "ok" && jobCount = beforeJobs+1 && InStr(lastPayload, '"action":"disconnect"'))
+gen := deviceOps["AABBCCDDEEFF"].gen, epoch := actionEpoch
+Check("manual_reconnect_busy_does_not_duplicate", StartReconnect("AABBCCDDEEFF") = "busy" && actionEpoch = epoch && jobCount = beforeJobs+1)
+Check("manual_reconnect_progress_exposes_intent", InStr(DeviceProgressJson("AABBCCDDEEFF"), '"reconnecting":true'))
+busy := false
+SetOpState("AABBCCDDEEFF", gen, "down_pending")
+Check("manual_reconnect_verifying_does_not_duplicate", StartReconnect("AABBCCDDEEFF") = "busy" && jobCount = beforeJobs+1)
+DownVerifyTick("AABBCCDDEEFF", 1, gen)
+ContinueReconnect("AABBCCDDEEFF", gen, epoch)
+Check("manual_reconnect_stops_when_disconnect_not_verified", jobCount = beforeJobs+1 && deviceOps["AABBCCDDEEFF"].state = "disconnect_failed")
+
+Check("manual_reconnect_can_retry_after_failure", StartReconnect("AABBCCDDEEFF") = "ok")
+gen := deviceOps["AABBCCDDEEFF"].gen, epoch := actionEpoch
+busy := false, linkUp := 0, endpointOff := false
+SetOpState("AABBCCDDEEFF", gen, "down_pending")
+DownVerifyTick("AABBCCDDEEFF", 1, gen)
+Check("manual_reconnect_requires_inactive_endpoints", deviceOps["AABBCCDDEEFF"].state = "disconnect_failed" && !deviceOps["AABBCCDDEEFF"].HasOwnProp("downVerifiedAt"))
+
+StartReconnect("AABBCCDDEEFF")
+gen := deviceOps["AABBCCDDEEFF"].gen, epoch := actionEpoch
+busy := false, linkUp := 0, endpointOff := true
+eventCount := events.Length, beforeJobs := jobCount
+SetOpState("AABBCCDDEEFF", gen, "down_pending")
+DownVerifyTick("AABBCCDDEEFF", 1, gen)
+Check("manual_reconnect_no_intermediate_disconnect_success", deviceOps["AABBCCDDEEFF"].state = "down_pending" && events.Length = eventCount && jobCount = beforeJobs)
+ContinueReconnect("AABBCCDDEEFF", gen, epoch)
+Check("manual_reconnect_connects_same_target_once", jobCount = beforeJobs+1 && InStr(lastPayload, '"action":"connect"') && InStr(lastPayload, '"AABBCCDDEEFF"') && deviceOps["AABBCCDDEEFF"].reconnecting)
+ContinueReconnect("AABBCCDDEEFF", gen, epoch)
+Check("manual_reconnect_old_continuation_cannot_duplicate", jobCount = beforeJobs+1)
+
+busy := false
+SetOpState("AABBCCDDEEFF", deviceOps["AABBCCDDEEFF"].gen, "ready")
+StartReconnect("AABBCCDDEEFF")
+gen := deviceOps["AABBCCDDEEFF"].gen, epoch := actionEpoch
+busy := false
+SetOpState("AABBCCDDEEFF", gen, "down_pending")
+DownVerifyTick("AABBCCDDEEFF", 1, gen)
+DoAction("112233445566", "connect")
+beforeJobs := jobCount
+ContinueReconnect("AABBCCDDEEFF", gen, epoch)
+Check("manual_reconnect_new_other_device_action_revokes_continuation", jobCount = beforeJobs && !deviceOps["AABBCCDDEEFF"].reconnecting)
+
 FileAppend("RESULT failures=" failures "`n", "*")
 ExitApp(failures ? 1 : 0)
 Check(name, ok) {
@@ -361,7 +408,7 @@ class CaptureRouteFixture {
     }
 }
 '''
-for name in ["BeginDeviceOp", "OpCurrent", "CanRoute", "SetOpState", "ProbeDeviceRender", "DoAction", "LinkVerifyTick", "ScheduleKsConnectRetry", "TryKsConnectRetry", "FinishKsConnectRetry", "DrainRetryDisconnect", "RunQueuedRetryDisconnect", "AudioVerifyTick", "MicSwitchTick", "StartDownVerify", "DownVerifyTick", "FinishBluetoothAction", "ValidEndpointId", "DeviceAudioState", "DeviceProgressJson", "JsonStr"]:
+for name in ["BeginDeviceOp", "OpCurrent", "CanRoute", "SetOpState", "ProbeDeviceRender", "StartReconnect", "ContinueReconnect", "DoAction", "LinkVerifyTick", "ScheduleKsConnectRetry", "TryKsConnectRetry", "FinishKsConnectRetry", "DrainRetryDisconnect", "RunQueuedRetryDisconnect", "AudioVerifyTick", "MicSwitchTick", "StartDownVerify", "DownVerifyTick", "FinishBluetoothAction", "ValidEndpointId", "DeviceAudioState", "DeviceProgressJson", "JsonStr"]:
     body += function(name)
 with tempfile.TemporaryDirectory(prefix="apb_ks_retry_") as directory:
     script = Path(directory) / "retry_test.ahk"

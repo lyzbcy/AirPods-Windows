@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -1118,7 +1118,7 @@ function progressFor(d){
   const p=d.progress;
   if(p&&['connect','disconnect'].includes(p.action)&&progressCopy[p.phase]?.[p.action]){
     const steps=p.action==='connect'?4:3;
-    return {action:p.action,phase:p.phase,step:Math.max(1,Math.min(steps,Number(p.step)||1)),
+    return {action:p.action,reconnecting:p.reconnecting===true,phase:p.phase,step:Math.max(1,Math.min(steps,Number(p.step)||1)),
       steps,elapsedMs:Math.max(0,Number(p.elapsedMs)||0),phaseElapsedMs:Math.max(0,Number(p.phaseElapsedMs)||0),
       phaseBudgetMs:Math.max(0,Number(p.phaseBudgetMs)||0)};
   }
@@ -1139,7 +1139,7 @@ function currentProgress(){
   if(localAction&&Date.now()-localAction.started<8000){
     const d=devices.find(x=>x.id===localAction.id)||{id:localAction.id,name:localAction.name};
     const ms=Date.now()-localAction.started;
-    return {device:d,progress:{action:localAction.action,phase:'request',step:1,
+    return {device:d,progress:{action:localAction.action,reconnecting:localAction.reconnecting===true,phase:'request',step:1,
       steps:localAction.action==='connect'?4:3,elapsedMs:ms,phaseElapsedMs:ms,phaseBudgetMs:30000},source:'local'};
   }
   return null;
@@ -1154,7 +1154,9 @@ function completedProgress(last){
   const d=devices.find(x=>x.id===last.id);
   if(!d)return null;
   let title='',why='';
-  if(last.action==='disconnect'){
+  if(last.reconnecting&&d.audioState==='disconnect_failed'){
+    title='重新连接已停止';why='未能确认这副耳机完全断开，因此没有继续连接；请查看设备状态或附日志反馈。';
+  }else if(last.action==='disconnect'){
     if(!d.connected&&d.audioState==='disconnected'&&downConfirmed.has(last.id)){
       title=cancelRequestedId===last.id?'已取消连接':'已确认断开';
       why='Windows 已核实蓝牙链路和这副耳机的音频端点都已断开。';
@@ -1222,15 +1224,16 @@ function renderProgress(){
     }
     return;
   }
-  const {device,progress:p}=active,copy=progressCopy[p.phase]?.[p.action];
+  const {device,progress:p}=active;
+  const copy=p.reconnecting&&p.action==='disconnect'?['重新连接 · '+(p.phase==='down'?'确认断开':'请求断开'),'先断开这副耳机，核实完成后继续连接；中途失败会停止。']:progressCopy[p.phase]?.[p.action];
   if(!copy){panel.hidden=true;const idleHint=document.getElementById('ohint');if(idleHint)idleHint.hidden=false;return}
-  lastActiveProgress={id:device.id,action:p.action};progressOutcome=null;
+  lastActiveProgress={id:device.id,action:p.action,reconnecting:p.reconnecting};progressOutcome=null;
   panel.hidden=false;panel.dataset.mode='active';
   const help=document.getElementById('progressHelp');if(help)help.hidden=true;
   const busyHint=document.getElementById('ohint');if(busyHint)busyHint.hidden=true;
   // While a request is in flight only progress is shown; help belongs to outcomes.
   for(const id of ['progressSelfhelp','progressIssue','progressActions']){const el=document.getElementById(id);if(el){el.hidden=true;el.open=false}}
-  const key=String(device.id)+'|'+p.action+'|'+p.phase+'|'+p.step;
+  const key=String(device.id)+'|'+p.action+'|'+p.phase+'|'+p.step+'|'+!!p.reconnecting;
   if(panel.dataset.key!==key){
     panel.dataset.key=key;
     document.getElementById('progressTitle').textContent=copy[0]+' · '+device.name;
@@ -1255,6 +1258,7 @@ function isConnecting(d){return d.progress?.action==='connect'||['connect','link
 function isDisconnecting(d){return d.progress?.action==='disconnect'||['disconnect','down_pending'].includes(d.audioState)}
 function connectRequestBusy(d){return isConnecting(d)&&(d.progress?.phase==='request'||(!d.progress&&d.audioState==='connect'))}
 function isPlaybackWarning(d){return ['playback_unavailable','playback_unverified'].includes(d.audioState)}
+function canReconnect(d){return d.connected&&!isConnecting(d)&&!isDisconnecting(d)}
 function canRetryPlayback(d){return d.connected&&!isConnecting(d)&&!isDisconnecting(d)&&['unknown','audio_failed','audio_lost','playback_unavailable','playback_unverified'].includes(d.audioState)}
 function deviceAction(d){return d.connected||isConnecting(d)||isDisconnecting(d)?'disconnect':'connect'}
 function deviceActionTitle(d){return d.progress?.phase==='queued'?'取消已排队':(isDisconnecting(d)?'正在断开':(connectRequestBusy(d)?'正在提交连接请求':(isConnecting(d)?'取消连接':(d.connected?'断开':'连接'))))}
@@ -1262,7 +1266,7 @@ function deviceStatus(d){
   if(d.audioState==='call_active')return '耳机麦克风使用中 · 通话音质';
   if(d.audioState==='call_unverified')return '麦克风状态未确认 · 暂缓播放预检';
   if(d.progress?.phase==='queued')return '取消已排队 · 等待当前请求结束';
-  if(isDisconnecting(d))return '正在断开 · 等待 Windows 核实';
+  if(isDisconnecting(d))return d.progress?.reconnecting?'重新连接 · 正在确认断开':'正在断开 · 等待 Windows 核实';
   if(d.audioState==='link_retry_wait')return '链路未就绪 · 等待一次重试（可取消）';
   if(d.audioState==='link_retrying')return '正在重试连接（仅一次，可取消）';
   if(d.audioState==='link_failed')return '蓝牙链路未建立 · 可在系统设置对照';
@@ -1335,7 +1339,7 @@ function renderOrb(){
   orb.innerHTML=disabled?'<span class="spin" aria-hidden="true"></span>':isConnecting(t)?'取消连接':t.connected?'断开连接':'<svg class="connect-symbol" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 3v18l5-5-10-9m5-4 5 5-10 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>连接耳机</span>';
   orb.onclick=disabled?null:()=>doAction(null,t.id,deviceAction(t));
   hint.textContent=t.audioState==='call_active'?'':t.connected?'播放状态以 Windows 核实为准':isConnecting(t)?'正在核实连接状态':t.audioState==='link_failed'?'连接未建立，可在诊断中打开系统蓝牙设置':'连接「'+t.name+'」';
-  summary.innerHTML=`<div class="detail-row device-detail"><span class="detail-label">当前设备 <em>DEVICE</em></span><strong>${esc(t.name)}</strong></div><div class="detail-row link-row ${t.connected?'linked':''}"><i class="row-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18l5-5-10-9m5-4 5 5-10 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></i><span class="detail-label">蓝牙链路 <em>01 / LINK</em></span><strong>${t.connected?'已连接':'未连接'}</strong></div><div class="detail-row playback-detail"><i class="row-icon playback"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 12 7-12 7z" fill="currentColor"/></svg></i><span class="detail-label">播放状态 <em>02 / AUDIO</em></span><strong>${deviceStatus(t)}</strong></div>${t.audioState==='call_active'?`<div class="call-guidance">Classic 通话时 Windows 使用低带宽音频。若要保持立体声，请改用电脑或外接麦克风。<button onclick="rpc('opensound')">打开声音设置</button></div>`:''}${canRetryPlayback(t)?`<button class="audio-retry" data-act="connect" data-name="${esc(t.id)}">重试播放连接</button>`:''}`;
+  summary.innerHTML=`<div class="detail-row device-detail"><span class="detail-label">当前设备 <em>DEVICE</em></span><strong>${esc(t.name)}</strong></div><div class="detail-row link-row ${t.connected?'linked':''}"><i class="row-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18l5-5-10-9m5-4 5 5-10 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></i><span class="detail-label">蓝牙链路 <em>01 / LINK</em></span><strong>${t.connected?'已连接':'未连接'}</strong></div><div class="detail-row playback-detail"><i class="row-icon playback"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 12 7-12 7z" fill="currentColor"/></svg></i><span class="detail-label">播放状态 <em>02 / AUDIO</em></span><strong>${deviceStatus(t)}</strong></div>${t.audioState==='call_active'?`<div class="call-guidance">Classic 通话时 Windows 使用低带宽音频。若要保持立体声，请改用电脑或外接麦克风。<button onclick="rpc('opensound')">打开声音设置</button></div>`:''}${canReconnect(t)?`<button class="audio-retry" data-act="reconnect" data-name="${esc(t.id)}" title="无声或离开范围后异常时，断开这副耳机再连接">重新连接</button>`:''}${canRetryPlayback(t)?`<button class="audio-retry" data-act="connect" data-name="${esc(t.id)}">重试播放连接</button>`:''}`;
   summary.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>doAction(b));
   const i=devices.indexOf(t);
   tools.innerHTML=`<button onclick="rpc('opensound')">声音设置</button><button onclick="rpc('add')">蓝牙设置</button><button onclick="openIssue()">问题诊断</button><button onclick="openAdvanced()">降噪与高级控制</button><button onclick="movePrio(${i},-1)" ${i===0?'disabled':''}>提高优先级</button><button onclick="movePrio(${i},1)" ${i===devices.length-1?'disabled':''}>降低优先级</button><button data-del="${esc(t.id)}">移除设备</button>`;
@@ -1361,13 +1365,13 @@ async function doAction(btn,name,act){
   downConfirmed.delete(name);
   if(act==='disconnect'&&devices.some(d=>d.id===name&&isConnecting(d)))cancelRequestedId=name;
   if(typeof caseInspect!=='undefined')caseInspect=false;
-  localAction={id:name,name:deviceName(name),action:act,started:Date.now()};
+  localAction={id:name,name:deviceName(name),action:act==='reconnect'?'disconnect':act,reconnecting:act==='reconnect',started:Date.now()};
   renderProgress();
   b.classList.add('busy','requesting');b.innerHTML='<span class="spin" aria-hidden="true"></span>';
-  document.getElementById('badge').textContent=(act==='connect'?'连接中…':'断开中…');
+  document.getElementById('badge').textContent=(act==='reconnect'?'重新连接中…':act==='connect'?'连接中…':'断开中…');
   try{
     const r=await rpc(act,name);
-    if(r==='ok')toast(act==='connect'?'连接请求已提交，等待音频确认…':'断开请求已提交，等待链路确认…');
+    if(r==='ok')toast(act==='reconnect'?'重新连接已开始，先断开再连接这副耳机…':act==='connect'?'连接请求已提交，等待音频确认…':'断开请求已提交，等待链路确认…');
     else{
       localAction=null;lastActiveProgress=null;cancelRequestedId='';
       const d=devices.find(x=>x.id===name);
