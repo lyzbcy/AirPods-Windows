@@ -11,9 +11,11 @@ with sync_playwright() as pw:
         page.goto((root/"webui/index_built.html").as_uri())
         page.evaluate("""()=>{devices=[{id:'A',name:'AirPods Pro',connected:false,audioState:'disconnected',apple:true,progress:null},{id:'B',name:'AirPods Max',connected:false,audioState:'disconnected',apple:true,progress:null}];selectedDeviceId='A';render()}""")
         page.wait_for_timeout(1000)
-        closed=page.evaluate("""()=>{const shell=document.querySelector('#caseShell'),main=document.querySelector('.case-main'),orb=document.querySelector('#orb'),b=orb.getBoundingClientRect(),m=main.getBoundingClientRect();return {closed:shell.dataset.case==='closed',onlyActionAndBrand:[...main.children].filter(e=>getComputedStyle(e).display!=='none').every(e=>e===orb||e.tagName==='HEADER'),logo:main.querySelector('.appicon').getBoundingClientRect().height>=70,hiddenTitle:getComputedStyle(main.querySelector('.title')).display==='none',iconControls:[...document.querySelectorAll('.rail-label')].every(e=>getComputedStyle(e).display==='none'),noScroll:main.scrollHeight<=main.clientHeight+1,buttonFit:b.top>=m.top&&b.bottom<=m.bottom&&b.left>=m.left&&b.right<=m.right,centered:Math.abs((b.left+b.right-m.left-m.right)/2)<2,hit:document.elementFromPoint((b.left+b.right)/2,(b.top+b.bottom)/2)?.closest('button')===orb,devices:document.querySelectorAll('#devices [data-select]').length===2}}""")
+        closed=page.evaluate("""()=>{const shell=document.querySelector('#caseShell'),main=document.querySelector('.case-main'),orb=document.querySelector('#orb'),b=orb.getBoundingClientRect(),m=main.getBoundingClientRect();return {closed:shell.dataset.case==='closed',onlyActionAndBrand:[...main.children].filter(e=>getComputedStyle(e).display!=='none').every(e=>e.id==='actionGroup'||e.tagName==='HEADER'),logo:main.querySelector('.appicon').getBoundingClientRect().height>=70,visibleTitle:getComputedStyle(main.querySelector('.title')).display!=='none',iconControls:[...document.querySelectorAll('.rail-label')].every(e=>getComputedStyle(e).display==='none'),noScroll:main.scrollHeight<=main.clientHeight+1,buttonFit:b.top>=m.top&&b.bottom<=m.bottom&&b.left>=m.left&&b.right<=m.right,centered:Math.abs((b.left+b.right-m.left-m.right)/2)<2,hit:document.elementFromPoint((b.left+b.right)/2,(b.top+b.bottom)/2)?.closest('button')===orb,devices:document.querySelectorAll('#devices [data-select]').length===2}}""")
         assert all(closed.values()),closed
         print("PASS closed_case_brand_and_primary_action_no_scroll",closed)
+        shots=Path(os.environ['TEMP'])/'airpods-1.9.53-ui';shots.mkdir(exist_ok=True)
+        page.screenshot(path=str(shots/'closed.png'))
         page.evaluate("""()=>{window.gestureCalls=[];rpc=async(cmd)=>{gestureCalls.push(cmd);return true}}""")
         page.locator('.case-lid-wrap').dispatch_event('mousedown',{'button':0})
         page.locator('#resizeGrip').dispatch_event('mousedown',{'button':0})
@@ -40,16 +42,19 @@ with sync_playwright() as pw:
         page.wait_for_timeout(1000)
         assert page.locator('#caseSummary').is_visible()
         assert page.locator('#caseAdvanced').is_visible()
-        text_check=page.evaluate("""()=>{const main=document.querySelector('.case-main'),panel=document.querySelector('#progressPanel');const safe=[...document.querySelectorAll('.case-summary .detail-row strong,#progressTitle,#progressWhy')].every(e=>e.scrollWidth<=e.clientWidth+1);return {safe,scrollable:main.scrollHeight>main.clientHeight,padding:parseFloat(getComputedStyle(panel).paddingLeft)>=14}}""")
+        text_check=page.evaluate("""()=>{const main=document.querySelector('.case-main'),panel=document.querySelector('#progressPanel');const safe=[...document.querySelectorAll('.case-summary .status-copy strong,#progressTitle,#progressWhy')].every(e=>e.scrollWidth<=e.clientWidth+1);return {safe,scrollable:main.scrollHeight>main.clientHeight,padding:parseFloat(getComputedStyle(panel).paddingLeft)>=14}}""")
         assert all(text_check.values()),text_check
         print("PASS long_text_wraps_and_scroll_is_available",text_check)
-        page.evaluate("""()=>{devices=[{id:'A',name:'AirPods Pro',connected:true,audioState:'ready',apple:true,progress:null}];selectedDeviceId='A';localAction=null;lastActiveProgress=null;progressOutcome=null;render();window.reconnectCalls=[];rpc=async(cmd,...args)=>{reconnectCalls.push([cmd,...args]);return cmd==='list'?JSON.stringify(devices):'ok'}}""")
+        page.evaluate("""()=>{devices=[{id:'A',name:'AirPods Pro',connected:true,audioState:'ready',apple:true,progress:null},{id:'B',name:'AirPods Max',connected:false,audioState:'disconnected',apple:true,progress:null}];selectedDeviceId='A';localAction=null;lastActiveProgress=null;progressOutcome=null;render();window.reconnectCalls=[];rpc=async(cmd,...args)=>{reconnectCalls.push([cmd,...args]);return cmd==='list'?JSON.stringify(devices):'ok'}}""")
         button=page.locator('[data-act="reconnect"]')
         assert button.is_visible()
+        assert button.locator('..').get_attribute('id')=='actionGroup'
+        assert page.locator('#actionGroup button').count()==2
         button.scroll_into_view_if_needed()
         page.wait_for_timeout(1000)
         assert button.evaluate("e=>{const r=e.getBoundingClientRect();return document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest('button')===e}")
-        page.screenshot(path=str(Path(os.environ['TEMP'])/'airpods-1.9.52-ui'/'reconnect-ready.png'))
+        (Path(os.environ['TEMP'])/'airpods-1.9.53-ui').mkdir(exist_ok=True)
+        page.screenshot(path=str(Path(os.environ['TEMP'])/'airpods-1.9.53-ui'/'reconnect-ready.png'))
         button.click()
         page.wait_for_timeout(100)
         assert page.evaluate("reconnectCalls.filter(x=>x[0]==='reconnect')") == [['reconnect','A']]

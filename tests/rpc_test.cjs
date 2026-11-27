@@ -123,7 +123,7 @@ const rpc=(...args)=>context.rpc(...args),pending=()=>vm.runInContext('Object.ke
   for(const state of ['ready','unknown','audio_lost','call_active','playback_unavailable'])assert.equal(context.canReconnect({connected:true,audioState:state}),true);
   for(const state of ['connect','audio_pending','disconnect','down_pending'])assert.equal(context.canReconnect({connected:true,audioState:state}),false);
   assert.equal(context.canReconnect({connected:false,audioState:'unknown'}),false);
-  assert.match(html,/data-act="reconnect"[\s\S]*?>重新连接<\/button>/);
+  assert.match(html,/button\.dataset\.act='reconnect'/);
   const reconnectProgress=context.progressFor({progress:{action:'disconnect',phase:'down',step:2,reconnecting:true}});
   assert.equal(reconnectProgress.reconnecting,true);
   assert.match(context.deviceStatus({connected:true,audioState:'down_pending',progress:{reconnecting:true}}),/重新连接/);

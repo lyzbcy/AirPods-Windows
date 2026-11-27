@@ -659,6 +659,55 @@
   .case-summary .detail-row.playback-detail{background:linear-gradient(120deg,#fffaf0,#fff3d7)}
   .progress-selfhelp,.case-advanced summary,.rail-issue{border-radius:var(--small-curve)}
   .flow-card,.flow-sub,.flow-details,.adv-status{overflow-wrap:anywhere;word-break:break-word}
+
+  /* Approved three-stage case: one status panel and one split action. */
+  .case-main .action-group{display:flex;align-items:stretch;width:100%;min-height:48px;border-radius:30px;flex:none;gap:0}
+  .case-shell[data-case=closed] .action-group{width:min(190px,100%);justify-content:center}
+  .case-shell[data-case=closed] .action-group .orb{width:100%}
+  .case-shell[data-case=closed] .case-main header .title{display:block}
+  .case-shell[data-case=closed] .case-main .ver{display:none}
+  .case-shell[data-case=closed] .case-main h1{font-size:16px;margin:8px 0 0}
+  .case-shell[data-case=open] .case-main header{display:none}
+  .case-shell[data-case=open] .case-main{justify-content:center;padding:14px 5px 20px;gap:12px}
+  .case-shell[data-case=open] .case-main:has(.progress-panel:not([hidden])){justify-content:flex-start;gap:5px}
+  .case-shell[data-case=open] .case-summary{margin:0;padding:14px;border:1px solid #ffffffcc;border-radius:30px;background:linear-gradient(150deg,#fffdf5bb,#fff0df66);box-shadow:inset 0 1px 3px white,0 6px 18px #b4916520;gap:10px}
+  .case-summary .status-line{display:flex;align-items:center;gap:10px;padding:12px;border-radius:24px;background:linear-gradient(120deg,#fff8dd,#fffdf3);border:1px solid #fff;min-width:0}
+  .case-summary .status-line.linked{background:linear-gradient(120deg,#f4f9e7,#e8efda)}
+  .status-line .device-art{width:32px;height:32px;flex:none}.device-art svg{width:100%;height:100%}
+  .status-line .status-copy{min-width:0;flex:1}.status-copy strong{display:block;font-size:14px;overflow-wrap:anywhere}.status-copy span{font-size:12px;color:#52754e}.status-line:not(.linked) .status-copy span{color:#806a42}
+  .status-audio{font-size:12px;line-height:1.5;color:#786044;padding:0 6px;overflow-wrap:anywhere}
+  .case-shell[data-case=open] .action-group{background:linear-gradient(165deg,#fff1b7,#ffcf62);border:1px solid #fff9dc;box-shadow:0 6px 16px #c08d3030,inset 0 2px 3px #fff9e8;overflow:hidden}
+  .case-shell[data-case=open] .action-group .orb{flex:1;width:auto;min-width:0;height:48px;border:0;background:transparent;box-shadow:none;color:#5a3e13;font-size:14px;border-radius:0}
+  .action-group .reconnect-action{display:flex;align-items:center;justify-content:center;gap:5px;min-width:88px;margin:7px 0;border:0;border-left:1px solid #b68b4455;background:transparent;color:#684915;font-weight:650;cursor:pointer;font-size:12px;padding:0 12px}
+  .reconnect-action svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .action-group .reconnect-action:hover,.case-shell[data-case=open] .action-group .orb:hover{background:#ffffff50;transform:none}
+  .case-main .ohint{display:none}.case-shell[data-case=open] .case-advanced{margin:0}
+  .case-shell[data-case=open] .case-advanced summary{padding:12px 15px;border-radius:27px;background:#fffaf180;text-align:center}
+  .case-shell.case-opening .action-group{animation:cinematicReveal .55s .27s both var(--ease-cinema)}
+  @media(prefers-reduced-motion:reduce){.case-shell.case-opening .action-group{animation:none!important}}
+
+  .case-base{background:linear-gradient(150deg,#fffefa 4%,#fbf3e8 58%,#f0e1d0);box-shadow:inset 0 0 0 4px #ffffff77,inset 0 -9px 16px #d5bca344,inset 4px 2px 12px #fff,0 9px 22px #b9a38a24}
+  .case-lid{background:linear-gradient(155deg,#fff 4%,#fff9f0 42%,#eaddcb 100%);box-shadow:inset 0 0 0 4px #fff9,inset 0 -4px 8px #e4d5c760,0 2px 6px #b5ab9930}
+  .lid-inner{background:linear-gradient(165deg,#d4c1af 0%,#f3e7db 48%,#fffdf8 80%);box-shadow:inset 0 5px 12px #b6a08c45,inset 0 -2px 4px #fff}
+  .device-rail .card{min-height:65px;padding:7px 5px;gap:4px}
+  .device-rail .chip,.device-rail .chip svg{width:29px;height:29px}
+  .device-rail .st{font-size:0;position:absolute;right:8px;top:8px}
+  .device-rail .card{position:relative}
+  .device-rail .rail-glyph{display:inline-block}.device-rail footer .rail-label{display:none}
+  .device-rail footer button{display:grid;place-items:center;min-width:30px;min-height:30px;padding:3px}
+  .device-rail .add{display:flex;align-items:center;justify-content:center;gap:4px;color:#94703b}
+  .case-shell[data-case=open] .case-main{gap:15px}
+  .case-shell[data-case=open] .case-summary{padding:16px;gap:12px}
+  .status-line .status-copy strong{font-size:15px;font-weight:650}
+  .status-copy span{font-size:13px}.status-audio{font-size:13px}
+  .case-shell[data-case=open] .action-group .orb{height:54px;font-size:15px}
+  .action-group .reconnect-action{min-width:94px;font-size:13px}
+  .case-shell[data-case=open] .case-advanced summary{font-size:12px;color:#806341}
+  .reconnect-action:focus-visible,.orb:focus-visible{outline:2px solid #9e6718;outline-offset:-3px}
+  .case-shell[data-case=closed] .case-lid{border-radius:40px 40px 2px 2px;box-shadow:inset 0 0 0 3px #ffffff99,inset 0 4px 9px #ffffffbb}
+  .case-shell[data-case=closed] .case-base{border-radius:2px 2px 40px 40px}
+  .case-shell[data-case=closed] .case-seam{border-top-color:#b8a48a55;background:transparent}
+  .device-rail .add .rail-label{white-space:nowrap}
 </style>
 </head>
 <body>
@@ -678,14 +727,14 @@
       <aside class="device-rail">
         <div class="sec"><h2>设备</h2><span class="cnt" id="cnt"></span><button class="refresh" id="refresh" title="刷新">↻</button></div>
         <div id="devices"></div>
-        <button class="add" onclick="doAdd()" title="添加新耳机" aria-label="添加新耳机"><svg class="rail-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="rail-label">＋ 添加新耳机</span></button>
+        <button class="add" onclick="doAdd()" title="添加新耳机" aria-label="添加新耳机"><svg class="rail-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="rail-label">添加耳机</span></button>
         <button class="rail-issue" onclick="openIssue()" title="遇到问题？告诉我们，可附脱敏日志" aria-label="遇到问题反馈"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.6 5.4c3.2-1.6 11.6-1.8 14.7.2M20 6.2c.9 3.4.5 7.6-.6 10.4-3.6 1.2-10.2 1.4-13.9.3l-3 2.4c.5-2.1.9-4.3.7-6.5M12 8.2l.2 4.4M12.3 15.4l.1.1"/></svg>遇到问题反馈</button>
         <footer><button class="about-link" onclick="toggleCaseInspect()" title="设备管理：移除耳机、调整优先级" aria-label="设备管理"><svg class="rail-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14M8 5v4m8 1v4m-6 1v4"/></svg><span class="rail-label">管理</span></button><button class="about-link" onclick="openSettings()" title="设置" aria-label="设置"><svg class="rail-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="m10 3 4 0 1 3 3 1 3 3-2 2 1 4-3 3-3-1-2 3-4-1-1-3-3-1-1-4 3-2V7l3-1z"/><circle cx="12" cy="12" r="3"/></svg><span class="rail-label">⚙ 设置</span></button><button class="about-link" onclick="openAbout()" title="关于" aria-label="关于"><svg class="rail-glyph" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7v.2"/></svg><span class="rail-label">关于</span></button></footer>
       </aside>
       <main class="hero case-main">
         <header><img class="appicon" src="assets/airpods-brand.png" alt=""><div class="title"><h1>AirPods 小助手</h1><div class="ver" id="ver"></div></div><div id="badge" class="badge">未连接</div></header>
         <div id="caseSummary" class="case-summary"></div>
-        <button class="orb" id="orb" type="button">连接耳机</button>
+        <div class="action-group" id="actionGroup"><button class="orb" id="orb" type="button">连接耳机</button></div>
         <div class="ohint" id="ohint">选择设备后连接</div>
       <div class="progress-panel" id="progressPanel" aria-label="操作进度" hidden>
         <div class="progress-pet" aria-hidden="true"><img alt=""></div>
@@ -1331,7 +1380,8 @@ function render(){
   box.querySelectorAll('[data-select]').forEach(b=>b.onclick=()=>{if(currentProgress())return;selectedDeviceId=b.dataset.select;caseInspect=false;progressOutcome=null;render()});
 }
 function renderOrb(){
-  const orb=document.getElementById('orb'),hint=document.getElementById('ohint'),summary=document.getElementById('caseSummary'),tools=document.getElementById('caseTools');
+  const orb=document.getElementById('orb'),hint=document.getElementById('ohint'),summary=document.getElementById('caseSummary'),tools=document.getElementById('caseTools'),group=document.getElementById('actionGroup');
+  group.querySelector('.reconnect-action')?.remove();
   const t=orbTarget();
   if(!t){orb.innerHTML='先添加耳机';orb.className='orb busy';orb.onclick=null;hint.textContent='点击左侧添加新耳机';summary.innerHTML='';tools.innerHTML='';updateCaseShell();return}
   const disabled=isDisconnecting(t)||connectRequestBusy(t);
@@ -1339,10 +1389,17 @@ function renderOrb(){
   orb.innerHTML=disabled?'<span class="spin" aria-hidden="true"></span>':isConnecting(t)?'取消连接':t.connected?'断开连接':'<svg class="connect-symbol" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 3v18l5-5-10-9m5-4 5 5-10 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>连接耳机</span>';
   orb.onclick=disabled?null:()=>doAction(null,t.id,deviceAction(t));
   hint.textContent=t.audioState==='call_active'?'':t.connected?'播放状态以 Windows 核实为准':isConnecting(t)?'正在核实连接状态':t.audioState==='link_failed'?'连接未建立，可在诊断中打开系统蓝牙设置':'连接「'+t.name+'」';
-  summary.innerHTML=`<div class="detail-row device-detail"><span class="detail-label">当前设备 <em>DEVICE</em></span><strong>${esc(t.name)}</strong></div><div class="detail-row link-row ${t.connected?'linked':''}"><i class="row-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18l5-5-10-9m5-4 5 5-10 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></i><span class="detail-label">蓝牙链路 <em>01 / LINK</em></span><strong>${t.connected?'已连接':'未连接'}</strong></div><div class="detail-row playback-detail"><i class="row-icon playback"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 12 7-12 7z" fill="currentColor"/></svg></i><span class="detail-label">播放状态 <em>02 / AUDIO</em></span><strong>${deviceStatus(t)}</strong></div>${t.audioState==='call_active'?`<div class="call-guidance">Classic 通话时 Windows 使用低带宽音频。若要保持立体声，请改用电脑或外接麦克风。<button onclick="rpc('opensound')">打开声音设置</button></div>`:''}${canReconnect(t)?`<button class="audio-retry" data-act="reconnect" data-name="${esc(t.id)}" title="无声或离开范围后异常时，断开这副耳机再连接">重新连接</button>`:''}${canRetryPlayback(t)?`<button class="audio-retry" data-act="connect" data-name="${esc(t.id)}">重试播放连接</button>`:''}`;
-  summary.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>doAction(b));
+  summary.innerHTML=`<div class="status-line ${t.connected?'linked':''}"><span class="device-art">${art(kindOf(t.name))}</span><div class="status-copy"><strong>${esc(t.name)}</strong><span>${t.connected?'● 已连接':'○ 未连接'}</span></div></div><div class="status-audio">播放状态 · ${t.audioState==='ready'?'请试听':deviceStatus(t)}</div>${t.audioState==='call_active'?`<div class="call-guidance">Classic 通话时 Windows 使用低带宽音频。若要保持立体声，请改用电脑或外接麦克风。<button onclick="rpc('opensound')">打开声音设置</button></div>`:''}`;
+  if(canReconnect(t)){
+    const button=document.createElement('button');
+    button.type='button';button.className='reconnect-action';button.dataset.act='reconnect';button.dataset.name=t.id;
+    button.title='重新连接这副耳机';button.setAttribute('aria-label','重新连接');
+    button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 8a8 8 0 1 0 1 8M19 3v5h-5"/></svg><span>重连</span>';
+    button.onclick=()=>doAction(button);group.appendChild(button);
+  }
   const i=devices.indexOf(t);
-  tools.innerHTML=`<button onclick="rpc('opensound')">声音设置</button><button onclick="rpc('add')">蓝牙设置</button><button onclick="openIssue()">问题诊断</button><button onclick="openAdvanced()">降噪与高级控制</button><button onclick="movePrio(${i},-1)" ${i===0?'disabled':''}>提高优先级</button><button onclick="movePrio(${i},1)" ${i===devices.length-1?'disabled':''}>降低优先级</button><button data-del="${esc(t.id)}">移除设备</button>`;
+  tools.innerHTML=`${canRetryPlayback(t)?`<button data-act="connect" data-name="${esc(t.id)}">重试播放连接</button>`:''}<button onclick="rpc('opensound')">声音设置</button><button onclick="rpc('add')">蓝牙设置</button><button onclick="openIssue()">问题诊断</button><button onclick="openAdvanced()">降噪与高级控制</button><button onclick="movePrio(${i},-1)" ${i===0?'disabled':''}>提高优先级</button><button onclick="movePrio(${i},1)" ${i===devices.length-1?'disabled':''}>降低优先级</button><button data-del="${esc(t.id)}">移除设备</button>`;
+  tools.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>doAction(b));
   tools.querySelector('[data-del]').onclick=()=>askDel(t.id);
   updateCaseShell();
 }
