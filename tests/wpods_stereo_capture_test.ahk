@@ -38,6 +38,11 @@ Check("resolver_requires_running_service", ResolveWPodsStereoCapture(address, fa
 Check("resolver_uses_only_active_capture", ResolveWPodsStereoCapture(address, fake, () => "running", accept) = cap && fake.queries = 1)
 fake.broken := true
 Check("resolver_error_never_routes", ResolveWPodsStereoCapture(address, fake, () => "running", accept) = "")
+Check("guide_win10_does_not_query_service", WPodsGuideStatus("10.0.19045", (*) => 1/0) = "unsupported")
+Check("guide_win11_absent_service", WPodsGuideStatus("10.0.22631", (*) => "absent") = "absent")
+Check("guide_win11_inactive_service", WPodsGuideStatus("10.0.22631", (*) => "inactive") = "inactive")
+Check("guide_win11_running_is_not_mic_confirmation", WPodsGuideStatus("10.0.22631", (*) => "running") = "running")
+Check("guide_unknown_service_state_is_safe", WPodsGuideStatus("10.0.22631", (*) => "unexpected") = "unknown")
 FileAppend("RESULT failures=" failures Chr(10),"*","UTF-8")
 ExitApp(failures ? 1 : 0)
 

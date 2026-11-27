@@ -3,7 +3,7 @@ import subprocess,sys
 sys.stdout.reconfigure(encoding='utf-8')
 ROOT=Path(__file__).resolve().parents[1]
 source=(ROOT/'airpods_buddy.ahk').read_text(encoding='utf-8-sig')
-names=['DoAction','BeginDeviceOp','OpCurrent','SetOpState','CanRoute','ProbeDeviceRender','StateProbeCurrent','FindDevByName','ValidEndpointId','AtomicWriteText','SavePriority','LoadPriority','SettingRead','SettingWrite','MicPreferenceSet','Join','SortDevices','DevLess','DeviceSortKey','IsAppleDevice','DeviceAudioState','DeviceProgressJson','BuildDevicesJson','StartLinkVerify','StartDownVerify','DeviceKey','DeviceLabel','JsonStr','FinishBluetoothAction','DaysSince','ValidBridgeArgs','AutostartEnabled','AutostartSet','WatchAudioRoutes']
+names=['DoAction','BeginDeviceOp','OpCurrent','SetOpState','CanRoute','ProbeDeviceRender','StateProbeCurrent','FindDevByName','ValidEndpointId','AtomicWriteText','SavePriority','LoadPriority','SettingRead','SettingWrite','MicPreferenceSet','MicModeGet','MicModeSet','Join','SortDevices','DevLess','DeviceSortKey','IsAppleDevice','DeviceAudioState','DeviceProgressJson','BuildDevicesJson','StartLinkVerify','StartDownVerify','DeviceKey','DeviceLabel','JsonStr','FinishBluetoothAction','DaysSince','ValidBridgeArgs','AutostartEnabled','AutostartSet','WatchAudioRoutes']
 body=r'''
 #Requires AutoHotkey v2.0
 #SingleInstance Off
@@ -105,6 +105,9 @@ routeQueryFailed := false
 deviceOps["A"].captureId := "{0.0.1.00000000}.{BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB}"
 captureUseResult := 1, calls := probeCalls
 Check("active_capture_does_not_open_playback_stream", DeviceAudioState("A", true) = "call_active" && probeCalls = calls && deviceOps["A"].state = "ready")
+deviceOps["A"].stereoCall := true
+Check("active_stereo_capture_truthful_specific_state", DeviceAudioState("A", true) = "stereo_call_active" && probeCalls = calls)
+deviceOps["A"].stereoCall := false
 captureUseResult := -1
 Check("unknown_capture_is_not_reported_as_call_or_audio_failure", DeviceAudioState("A", true) = "call_unverified" && deviceOps["A"].state = "ready")
 captureUseResult := 0, deviceOps["A"].captureId := ""
@@ -158,6 +161,8 @@ Check("bridge_accepts_no_url_update", ValidBridgeArgs("doupdate", ["doupdate","1
 Check("bridge_rejects_invalid_boolean", !ValidBridgeArgs("setmicswitch", ["setmicswitch","1","yes"]))
 Check("bridge_rejects_unknown_command", !ValidBridgeArgs("exec", ["exec","1","calc.exe"]))
 Check("advanced_bridge_accepts_only_fixed_no_argument_action", ValidBridgeArgs("openadvanced", ["openadvanced","1",""]) && !ValidBridgeArgs("openadvanced", ["openadvanced","1","arbitrary.exe"]))
+Check("mic_mode_bridge_only_accepts_fixed_choices", ValidBridgeArgs("getmicmode", ["getmicmode","1",""]) && ValidBridgeArgs("setmicmode", ["setmicmode","1","stereo"]) && !ValidBridgeArgs("setmicmode", ["setmicmode","1","unknown"]))
+Check("wpods_guide_only_fixed_read_and_link", ValidBridgeArgs("getwpodsstatus", ["getwpodsstatus","1",""]) && ValidBridgeArgs("openwpodsguide", ["openwpodsguide","1",""]) && ValidBridgeArgs("openwpodsdownload", ["openwpodsdownload","1",""]) && !ValidBridgeArgs("openwpodsdownload", ["openwpodsdownload","1","evil"]) && !ValidBridgeArgs("openwpodsguide", ["openwpodsguide","1","other"]))
 Check("advanced_status_read_only_bridge_accepts_no_argument", ValidBridgeArgs("advancedstatus", ["advancedstatus","1",""]))
 Check("window_shape_accepts_only_three_named_modes", ValidBridgeArgs("windowshape", ["windowshape","1","closed"]) && ValidBridgeArgs("windowshape", ["windowshape","1","open"]) && ValidBridgeArgs("windowshape", ["windowshape","1","modal"]) && !ValidBridgeArgs("windowshape", ["windowshape","1","0-0 W99999 H99999"]))
 Check("bridge_address_not_name", ValidBridgeArgs("connect", ["connect","1","001122334455"]) && !ValidBridgeArgs("connect", ["connect","1","Same"]))
@@ -196,6 +201,11 @@ Check("mic_off_preference_written", MicPreferenceSet("0") && SettingRead("auto_m
 Check("explicit_mic_on_arms_once", MicPreferenceSet("1") && SettingRead("auto_mic_switch", "") = "1" && SettingRead("mic_restore_pending", "") = "1")
 Check("idempotent_mic_on_keeps_pending", MicPreferenceSet("1") && SettingRead("mic_restore_pending", "") = "1")
 Check("invalid_mic_preference_rejected", !MicPreferenceSet("yes") && SettingRead("mic_restore_pending", "") = "1")
+Check("unified_mode_rejects_unavailable_stereo", !MicModeSet("stereo", () => "absent") && MicModeGet() = "airpods")
+Check("unified_stereo_mode_atomic_and_no_legacy_migration", MicModeSet("stereo", () => "running") && MicModeGet() = "stereo" && SettingRead("auto_mic_switch", "") = "1" && SettingRead("wpods_stereo_mic", "") = "1" && SettingRead("mic_restore_pending", "") = "0")
+Check("unified_standard_mode_explicitly_arms_migration", MicModeSet("airpods") && MicModeGet() = "airpods" && SettingRead("wpods_stereo_mic", "") = "0" && SettingRead("mic_restore_pending", "") = "1")
+Check("unified_computer_mode_clears_both_preferences", MicModeSet("computer") && MicModeGet() = "computer" && SettingRead("wpods_stereo_mic", "") = "0" && SettingRead("mic_restore_pending", "") = "0")
+MicPreferenceSet("1")
 devices := [{id:"AABBCCDDEEFF",name:"Headphones",info:Buffer(560)}]
 NumPut("uint64", 0xAABBCCDDEEFF, devices[1].info, 8)
 Check("failed_migration_worker_restores_one_time_pending", DoAction("AABBCCDDEEFF", "connect") = "fail" && SettingRead("mic_restore_pending", "") = "1")

@@ -5,7 +5,7 @@ from playwright.sync_api import sync_playwright
 from PIL import Image, ImageDraw
 
 ROOT=Path(__file__).resolve().parents[1]
-OUT=Path(os.environ['TEMP'])/'airpods-1.9.54-motion'
+OUT=Path(os.environ['TEMP'])/'airpods-1.9.55-motion'
 OUT.mkdir(exist_ok=True)
 EDGE=Path(os.environ.get('ProgramFiles(x86)',r'C:\Program Files (x86)'))/'Microsoft/Edge/Application/msedge.exe'
 

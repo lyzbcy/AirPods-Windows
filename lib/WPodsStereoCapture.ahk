@@ -71,3 +71,18 @@ ResolveWPodsStereoCapture(address, backend?, serviceReader?, ancestryReader?) {
         return ""
     }
 }
+
+; User-facing readiness is deliberately limited to OS and service presence.
+; A running service does not prove the selected AirPods can provide an A2DP mic.
+WPodsGuideStatus(osVersion?, serviceReader?) {
+    if !IsSet(osVersion)
+        osVersion := A_OSVersion
+    if VerCompare(osVersion, "10.0.22000") < 0
+        return "unsupported"
+    try {
+        state := IsSet(serviceReader) ? serviceReader.Call() : WPodsStereoServiceState()
+        return (state = "running" || state = "inactive" || state = "absent") ? state : "unknown"
+    } catch {
+        return "unknown"
+    }
+}

@@ -14,7 +14,7 @@ with sync_playwright() as pw:
         closed=page.evaluate("""()=>{const shell=document.querySelector('#caseShell'),main=document.querySelector('.case-main'),orb=document.querySelector('#orb'),b=orb.getBoundingClientRect(),m=main.getBoundingClientRect();return {closed:shell.dataset.case==='closed',onlyActionAndBrand:[...main.children].filter(e=>getComputedStyle(e).display!=='none').every(e=>e.id==='actionGroup'||e.tagName==='HEADER'),logo:main.querySelector('.appicon').getBoundingClientRect().height>=70,visibleTitle:getComputedStyle(main.querySelector('.title')).display!=='none',iconControls:[...document.querySelectorAll('.rail-label')].every(e=>getComputedStyle(e).display==='none'),noScroll:main.scrollHeight<=main.clientHeight+1,buttonFit:b.top>=m.top&&b.bottom<=m.bottom&&b.left>=m.left&&b.right<=m.right,centered:Math.abs((b.left+b.right-m.left-m.right)/2)<2,hit:document.elementFromPoint((b.left+b.right)/2,(b.top+b.bottom)/2)?.closest('button')===orb,devices:document.querySelectorAll('#devices [data-select]').length===2}}""")
         assert all(closed.values()),closed
         print("PASS closed_case_brand_and_primary_action_no_scroll",closed)
-        shots=Path(os.environ['TEMP'])/'airpods-1.9.54-ui';shots.mkdir(exist_ok=True)
+        shots=Path(os.environ['TEMP'])/'airpods-1.9.55-ui';shots.mkdir(exist_ok=True)
         page.screenshot(path=str(shots/'closed.png'))
         page.evaluate("""()=>{window.gestureCalls=[];rpc=async(cmd)=>{gestureCalls.push(cmd);return true}}""")
         page.locator('.case-lid-wrap').dispatch_event('mousedown',{'button':0})
@@ -53,8 +53,8 @@ with sync_playwright() as pw:
         button.scroll_into_view_if_needed()
         page.wait_for_timeout(1000)
         assert button.evaluate("e=>{const r=e.getBoundingClientRect();return document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest('button')===e}")
-        (Path(os.environ['TEMP'])/'airpods-1.9.54-ui').mkdir(exist_ok=True)
-        page.screenshot(path=str(Path(os.environ['TEMP'])/'airpods-1.9.54-ui'/'reconnect-ready.png'))
+        (Path(os.environ['TEMP'])/'airpods-1.9.55-ui').mkdir(exist_ok=True)
+        page.screenshot(path=str(Path(os.environ['TEMP'])/'airpods-1.9.55-ui'/'reconnect-ready.png'))
         button.click()
         page.wait_for_timeout(100)
         assert page.evaluate("reconnectCalls.filter(x=>x[0]==='reconnect')") == [['reconnect','A']]
@@ -63,5 +63,54 @@ with sync_playwright() as pw:
         assert page.locator('[data-act="reconnect"]').count()==0
         assert '重新连接' in page.locator('#progressTitle').inner_text()
         print("PASS reconnect_progress_hides_duplicate_button")
+        page.evaluate("""()=>{devices=[{id:'A',name:'AirPods Pro',connected:true,audioState:'ready',apple:true,progress:null}];selectedDeviceId='A';localAction=null;lastActiveProgress=null;progressOutcome=null;render();window.guideCalls=[];window.guideStatus='absent';window.guideMode='computer';rpc=async(cmd,arg)=>{guideCalls.push([cmd,arg]);if(cmd==='getwpodsstatus')return guideStatus;if(cmd==='getmicmode')return guideMode;if(cmd==='setmicmode'){guideMode=arg;return true}if(cmd==='list')return JSON.stringify(devices);return true}}""")
+        page.locator('#caseAdvanced summary').click()
+        page.locator('#caseTools button',has_text='通话麦克风').click()
+        page.locator('#micPrimary').wait_for(state='visible')
+        assert page.locator('#micChoiceText').inner_text()=='电脑麦克风（推荐）'
+        page.locator('#micChoice').click()
+        assert page.locator('[data-mic-mode]:visible').count()==3
+        page.locator('[data-mic-mode="stereo"]').click()
+        assert '尚未配置' in page.locator('#micStatus').inner_text()
+        assert page.locator('#micPrimary').inner_text()=='开始配置'
+        page.locator('#micPrimary').click()
+        assert page.evaluate("guideCalls.filter(x=>x[0]==='openwpodsdownload')")==[['openwpodsdownload',None]]
+        assert page.locator('#micSetupProgress').is_visible()
+        assert '等待你完成安装' in page.locator('#micSetupProgress').inner_text()
+        assert not page.evaluate("guideCalls.some(x=>x[0]==='setmicmode')")
+        page.evaluate("guideStatus='running'")
+        page.locator('#micPrimary').click()
+        assert page.evaluate("guideCalls.filter(x=>x[0]==='setmicmode')")==[['setmicmode','stereo']]
+        assert '已选择' in page.locator('#micNote').inner_text()
+        page.wait_for_timeout(350)
+        page.evaluate("document.getElementById('toast').classList.remove('show')")
+        page.wait_for_timeout(300)
+        page.screenshot(path=str(shots/'mic-mode.png'))
+        page.locator('#mMic .mic-link').click()
+        assert page.locator('#mMicFlow').is_visible()
+        assert page.locator('#mMicFlow .flow-step').count()==4
+        page.wait_for_timeout(900)
+        page.screenshot(path=str(shots/'mic-flow.png'))
+        page.set_viewport_size({'width':560,'height':900})
+        page.evaluate("document.querySelector('#mMicFlow .dlg').style.maxHeight='none';document.querySelector('#mMicFlow .dlg-body').style.overflow='visible'")
+        page.locator('#mMicFlow .dlg').screenshot(path=str(shots/'mic-flow-poster.png'),animations='disabled')
+        page.evaluate("document.querySelector('#mMicFlow .dlg').style.maxHeight='';document.querySelector('#mMicFlow .dlg-body').style.overflow=''")
+        page.set_viewport_size({'width':560,'height':580})
+        page.locator('#mMicFlow .row button').click()
+        assert page.locator('#mMic').is_visible()
+        page.evaluate("guideStatus='unsupported';guideMode='computer';openMic()")
+        page.locator('#micChoice').click();page.locator('[data-mic-mode="stereo"]').click()
+        assert '需要 Win11' in page.locator('#micStatus').inner_text()
+        assert page.locator('#micPrimary').is_disabled()
+        page.locator('#micChoice').click();page.locator('[data-mic-mode="airpods"]').click()
+        assert page.locator('#micPrimary').is_enabled()
+        assert not page.evaluate("guideCalls.some(x=>['connect','disconnect','reconnect'].includes(x[0]))")
+        page.evaluate("guideStatus='running';guideMode='computer';guideCalls=[];openMic()")
+        page.locator('#micChoice').click();page.locator('[data-mic-mode="stereo"]').click()
+        assert page.locator('#micPrimary').inner_text()=='启用并重连'
+        page.locator('#micPrimary').click()
+        page.wait_for_timeout(200)
+        assert page.evaluate("guideCalls.filter(x=>['setmicmode','reconnect'].includes(x[0]))")==[['setmicmode','stereo'],['reconnect','A']]
+        print("PASS unified_mic_picker_optional_flow_safe_setup_and_preferences")
     finally:
         browser.close()

@@ -26,10 +26,13 @@ assert.match(html,/\.orb\.warn\{/);
 assert.match(html,/\.st\.warn\{/);
 assert.doesNotMatch(issue,/AirPods 5 等新款/);
 assert.match(html,/AirPods 4\/5、Pro 3：开盖、耳机留在盒内，轻敲盒正面两下至白灯闪烁/);
-assert.match(html,/<summary>通话／游戏没声音？<\/summary>/);
-assert.match(html,/未设置时默认关闭，保留你原来的麦克风。/);
-assert.match(html,/关闭此开关不禁用耳机麦克风/);
+assert.match(html,/id="micPicker"/);
+assert.equal((html.match(/data-mic-mode="(?:computer|airpods|stereo)"/g)||[]).length,3);
+assert.doesNotMatch(html,/id="swMic"|id="swStereoMic"/);
 assert.match(html,/不覆盖你后来的手动选择/);
+const micFlow=html.slice(html.indexOf('<div class="mask" id="mMicFlow">'),html.indexOf('<!-- remove confirm -->'));
+assert.equal((micFlow.match(/class="flow-step"/g)||[]).length,4);
+assert.match(micFlow,/管理员权限，会改变蓝牙适配器工作方式/);
 assert.match(html,/还没有耳机<br>先在 Windows 配对，或点「添加新耳机」/);
 console.log('PASS feedback_routes_distinct_and_log_choice_visible');
 // The noise-control page explains the blocker as one five-station flow: factual, rival-free
@@ -276,7 +279,7 @@ const rpc=(...args)=>context.rpc(...args),pending=()=>vm.runInContext('Object.ke
   await context.onAudioHeld('A');
   assert.match(heldToasts.at(-1),/播放能力尚未确认/);
   console.log('PASS audioheld_distinguishes_playback_failure');
-  const advancedCode=html.slice(html.indexOf('async function openAdvanced('),html.indexOf('async function openSettings('));
+  const advancedCode=html.slice(html.indexOf('async function openAdvanced('),html.indexOf('const MIC_LABELS='));
   const labStatus={textContent:''},labLaunch={disabled:false};let opened='',launchCalls=0;
   Object.assign(context,{openModal:id=>opened=id,document:{getElementById:id=>id==='advancedLabStatus'?labStatus:labLaunch},
     rpc:async cmd=>{if(cmd==='openadvanced')launchCalls++;return false}});

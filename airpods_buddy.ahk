@@ -16,7 +16,7 @@ Persistent   ; 常驻托盘：关闭窗口 = 缩到托盘，程序继续运行�
 #Include lib\TrayPopup.ahk
 
 ; ------------------------- Config ------------------------------------
-APP_VERSION   := "1.9.54"
+APP_VERSION   := "1.9.55"
 UPDATE_API    := "https://api.github.com/repos/lyzbcy/AirPods-Windows/releases/latest"
 RELEASE_PAGE  := "https://github.com/lyzbcy/AirPods-Windows/releases/latest"
 ; 微软官方 Evergreen Bootstrapper 直链（约 2MB，缺失运行时时的自愈安装器）
@@ -1415,21 +1415,24 @@ SettingWrite(key, value) {
 
 ; Only an explicit 0->1 preference change arms one target-scoped legacy HFP
 ; migration. Both fields are persisted in one atomic settings write.
-MicPreferenceSet(value) {
+MicPreferenceSet(value, stereo?) {
     global SETTINGS_PATH
-    if (value != "0" && value != "1")
+    if (value != "0" && value != "1") || (IsSet(stereo) && stereo != "0" && stereo != "1")
         return false
     wasCritical := A_IsCritical
     Critical("On")
     try {
         old := SettingRead("auto_mic_switch", "0")
-        pending := value = "0" ? "0" : (old = "0" ? "1" : SettingRead("mic_restore_pending", "0"))
+        oldStereo := SettingRead("wpods_stereo_mic", "0")
+        selectingStereo := IsSet(stereo) && stereo = "1"
+        leavingStereo := IsSet(stereo) && stereo = "0" && oldStereo = "1"
+        pending := (value = "0" || selectingStereo) ? "0" : (old = "0" || leavingStereo ? "1" : SettingRead("mic_restore_pending", "0"))
         lines := []
         if FileExist(SETTINGS_PATH) {
             loop read SETTINGS_PATH {
                 line := Trim(A_LoopReadLine)
                 p := InStr(line, "=")
-                if (p && (SubStr(line, 1, p - 1) = "auto_mic_switch" || SubStr(line, 1, p - 1) = "mic_restore_pending"))
+                if (p && (SubStr(line, 1, p - 1) = "auto_mic_switch" || SubStr(line, 1, p - 1) = "mic_restore_pending" || (IsSet(stereo) && SubStr(line, 1, p - 1) = "wpods_stereo_mic")))
                     continue
                 if line != ""
                     lines.Push(line)
@@ -1437,6 +1440,8 @@ MicPreferenceSet(value) {
         }
         lines.Push("auto_mic_switch=" value)
         lines.Push("mic_restore_pending=" pending)
+        if IsSet(stereo)
+            lines.Push("wpods_stereo_mic=" stereo)
         if !AtomicWriteText(SETTINGS_PATH, Join(lines, "`n") "`n")
             return false
         if value = "0"
@@ -1447,6 +1452,29 @@ MicPreferenceSet(value) {
         return false
     } finally Critical(wasCritical)
 }
+
+MicModeGet() {
+    if SettingRead("auto_mic_switch", "0") != "1"
+        return "computer"
+    return SettingRead("wpods_stereo_mic", "0") = "1" ? "stereo" : "airpods"
+}
+
+MicModeSet(mode, statusReader?) {
+    if mode = "computer"
+        return MicPreferenceSet("0", "0")
+    if mode = "airpods"
+        return MicPreferenceSet("1", "0")
+    if (mode != "stereo")
+        return false
+    if IsSet(statusReader)
+        state := statusReader.Call()
+    else
+        state := WPodsGuideStatus()
+    if state != "running"
+        return false
+    return MicPreferenceSet("1", "1")
+}
+
 
 ; Per-device tasks retain cancellation across link/audio/microphone phases.
 BeginDeviceOp(name, action) {
@@ -1783,6 +1811,11 @@ WebMessageHandler(core, args) {
         case "setautostart":      Reply(id, JsonStr(AutostartSet(arg1 = "1")))
         case "getmicswitch":      Reply(id, JsonStr(SettingRead("auto_mic_switch", "0")))
         case "setmicswitch":      Reply(id, MicPreferenceSet(arg1) ? "true" : "false")
+        case "getmicmode":        Reply(id, JsonStr(MicModeGet()))
+        case "setmicmode":        Reply(id, MicModeSet(arg1) ? "true" : "false")
+        case "getwpodsstatus":    Reply(id, JsonStr(WPodsGuideStatus()))
+        case "openwpodsdownload": Reply(id, OpenApprovedUrl("https://github.com/FPNDev/wpods/releases/tag/v0.4.4") ? "true" : "false")
+        case "openwpodsguide":    Reply(id, OpenApprovedUrl("https://github.com/FPNDev/wpods") ? "true" : "false")
         case "getwpodsstereomic": Reply(id, JsonStr(SettingRead("wpods_stereo_mic", "0")))
         case "setwpodsstereomic": Reply(id, SettingWrite("wpods_stereo_mic", arg1) ? "true" : "false")
         case "getrescue":         Reply(id, JsonStr("0"))
@@ -2436,7 +2469,7 @@ DeviceAudioState(name, connected) {
             LogMsg("voice capture state=" captureUse " playbackProbe=" (captureUse = 0 ? "allowed" : "deferred"))
         }
         if captureUse != 0
-            return captureUse = 1 ? "call_active" : "call_unverified"
+            return captureUse = 1 ? (op.stereoCall ? "stereo_call_active" : "call_active") : "call_unverified"
     }
     if (op.state = "audio_failed" && op.gen = routeOwner
         && ValidEndpointId(renderId, 0) && AudioRouteMatchesId(renderId)) {
@@ -2593,7 +2626,7 @@ DaysSince(stamp) {
 }
 
 ValidBridgeArgs(cmd, parts) {
-    counts := Map("list",0,"statuspoll",0,"getversion",0,"openagent",1,"updateagent",1,"closeagent",0,"connect",1,"disconnect",1,"reconnect",1,"remove",1,"add",0,"opensound",0,"windowshape",1,"advancedstatus",0,"openadvanced",0,"winmin",0,"winclose",0,"openrelease",0,"openrepo",0,"stardone",0,"windrag",0,"winresize",0,"doupdate",0,"getautostart",0,"setautostart",1,"getmicswitch",0,"setmicswitch",1,"getwpodsstereomic",0,"setwpodsstereomic",1,"getrescue",0,"setrescue",1,"sendfeedback",1,"sendissue",4,"getfblogs",0,"getfbwebhook",0,"openurl",1,"jserror",1)
+    counts := Map("list",0,"statuspoll",0,"getversion",0,"openagent",1,"updateagent",1,"closeagent",0,"connect",1,"disconnect",1,"reconnect",1,"remove",1,"add",0,"opensound",0,"windowshape",1,"advancedstatus",0,"openadvanced",0,"winmin",0,"winclose",0,"openrelease",0,"openrepo",0,"stardone",0,"windrag",0,"winresize",0,"doupdate",0,"getautostart",0,"setautostart",1,"getmicswitch",0,"setmicswitch",1,"getmicmode",0,"setmicmode",1,"getwpodsstatus",0,"openwpodsguide",0,"openwpodsdownload",0,"getwpodsstereomic",0,"setwpodsstereomic",1,"getrescue",0,"setrescue",1,"sendfeedback",1,"sendissue",4,"getfblogs",0,"getfbwebhook",0,"openurl",1,"jserror",1)
     argc := parts.Length - 2
     if (argc = 1 && parts[3] = "")
         argc := 0
@@ -2609,6 +2642,8 @@ ValidBridgeArgs(cmd, parts) {
         return false
     if cmd = "windowshape"
         return parts[3] = "closed" || parts[3] = "open" || parts[3] = "modal"
+    if cmd = "setmicmode"
+        return parts[3] = "computer" || parts[3] = "airpods" || parts[3] = "stereo"
     if (cmd = "setautostart" || cmd = "setmicswitch" || cmd = "setwpodsstereomic" || cmd = "setrescue")
         return parts[3] = "0" || parts[3] = "1"
     if (cmd = "connect" || cmd = "disconnect" || cmd = "reconnect" || cmd = "remove")
@@ -2623,7 +2658,7 @@ ValidBridgeArgs(cmd, parts) {
 }
 
 OpenApprovedUrl(url) {
-    if !RegExMatch(url, "^https://github\.com/lyzbcy/AirPods-Windows(?:[/#?][^\s\x00-\x20\x22<>]*)?$")
+    if url != "https://github.com/FPNDev/wpods" && url != "https://github.com/FPNDev/wpods/releases/tag/v0.4.4" && !RegExMatch(url, "^https://github\.com/lyzbcy/AirPods-Windows(?:[/#?][^\s\x00-\x20\x22<>]*)?$")
         return false
     try {
         Run(url)

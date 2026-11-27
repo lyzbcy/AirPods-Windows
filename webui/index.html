@@ -730,6 +730,28 @@
   .case-shell[data-case=open] .lid-inner{inset:15px 26px 18px;background:radial-gradient(ellipse at 52% 80%,#fff7e8 0%,#f0dfcb 48%,#cdb7a4 100%);box-shadow:inset 0 8px 18px #9f856e35,inset 0 -4px 5px #fff9}
   .case-base::before{content:'';position:absolute;inset:3px;pointer-events:none;border-radius:inherit;border:1px solid #fff9;box-shadow:inset 3px 0 10px #ffffffb0,inset -3px 0 9px #fff8;z-index:0}
   .case-shell[data-case=open] .case-main{gap:12px}
+  .stereo-guide-steps{padding-left:18px;line-height:1.65;margin:6px 0}.stereo-guide-steps li{margin:4px 0}#stereoMicStatus{font-weight:650;color:#806341}#stereoMicPreference{font-size:11px;color:#76674b}
+
+  #mMic .mic-dlg{position:relative;overflow:hidden;padding:0 22px 24px;width:min(405px,92%);background:radial-gradient(ellipse at 50% 35%,#fffdf7,#f7e7d6);border:1px solid #fff;box-shadow:inset 0 0 0 4px #ffffff88,0 12px 50px #6f4d3035;border-radius:42px}
+  .mic-lid{height:49px;margin:0 -22px 19px;border-bottom:1px solid #bca79370;border-radius:38px 38px 2px 2px;background:linear-gradient(160deg,#fff,#f4e6d7);box-shadow:inset 0 0 0 3px #fff8;position:relative}.mic-lid::after{content:'';position:absolute;width:6px;height:6px;border-radius:50%;background:#e9ad46;left:50%;bottom:-15px;box-shadow:0 0 6px #e6b452}
+  .mic-close{position:absolute;right:15px;top:11px;width:30px;height:30px;border-radius:50%;background:#fffdf680;border:1px solid #fff;color:#9a7b4c;font-size:20px;cursor:pointer}
+  .mic-hero{text-align:center;margin:0 0 16px}.mic-hero img{width:96px;height:96px;object-fit:contain;filter:drop-shadow(0 4px 5px #9a653522)}.mic-hero h3{display:block;text-align:center;margin:7px 0 0!important;font-size:22px}.mic-hero strong{padding:4px 22px;border-radius:999px;background:linear-gradient(#fff4bc,#ffdc7a);border:1px solid white}
+  .mic-picker{position:relative;margin:12px 0;border-radius:25px}.mic-picker summary{display:flex;align-items:center;gap:10px;list-style:none;padding:13px 15px;border-radius:25px;border:1px solid #ffcf5a;background:linear-gradient(#fffdf2,#fff1c7);font-weight:650;cursor:pointer;box-shadow:0 4px 9px #ba85352a}.mic-picker summary::-webkit-details-marker{display:none}.mic-picker summary i{margin-left:auto;font-style:normal;font-size:18px;color:#8e6325}.mic-picker summary>span:first-child{font-size:21px;color:#a87525}
+  .mic-options{display:grid;gap:3px;padding:7px;margin-top:6px;background:linear-gradient(145deg,#fffcf5,#fbecdc);border:1px solid #fff;border-radius:22px;box-shadow:0 6px 18px #a5763925}.mic-options button{display:flex;align-items:center;gap:10px;text-align:left;width:100%;padding:10px 12px;border:1px solid transparent;border-radius:15px;background:transparent;color:#4a351e;font-size:13px;cursor:pointer}.mic-options button i{margin-left:auto;font-style:normal;visibility:hidden;color:#925c0d}.mic-options button[aria-pressed=true]{background:linear-gradient(#fff4b9,#ffdc7a);border-color:#fff}.mic-options button[aria-pressed=true] i{visibility:visible}.mic-options button:hover{background:#fff4cd}
+  .mic-state{display:table;margin:12px auto 5px;padding:5px 14px;border-radius:999px;background:#f2e2d2;color:#6c4f32;font-size:12px;line-height:1.4;text-align:center}.mic-note{font-size:12px;text-align:center;color:#786044;line-height:1.5;min-height:18px;margin:8px 0 12px}.mic-primary{display:block;width:100%;min-height:48px;border-radius:99px!important;font-size:16px!important;flex:none;margin:10px 0}.mic-primary:disabled{opacity:.55;cursor:default}.mic-link{display:block;margin:10px auto 0;padding:5px 8px;border:0;background:transparent;color:#866025;font-size:12px;text-decoration:underline;cursor:pointer}.mic-link:hover{color:#4e3516}
+  #mMicFlow .dlg{width:min(464px,92%);background:radial-gradient(ellipse at top,#fff4c3,transparent 50%),linear-gradient(160deg,#FFFDF7,#FFF1C6);border:1px solid #fff}#mMicFlow h3{font-size:18px;line-height:1.4;text-align:center;display:block}#mMicFlow .flow-step[data-tone=warn] .flow-card{padding:12px 10px 12px 74px}#mMicFlow .flow-step[data-tone=warn] .flow-card>b{padding-left:0;min-height:0}#mMicFlow .flow-card .mic-link{margin:7px 0 0;text-align:left}
+  .mic-setup-progress{display:flex;justify-content:space-between;gap:7px;margin:10px 0;color:#8c795f;text-align:center}.mic-setup-progress[hidden]{display:none}.mic-stage{flex:1;font-size:10px;line-height:1.3}.mic-stage i{display:grid;place-items:center;margin:0 auto 4px;width:24px;height:24px;border-radius:50%;background:#f2e8da;color:#9a8061;font-style:normal}.mic-stage.current i{background:#ffdc7a;color:#775011}.mic-stage.done i{background:#e5f1da;color:#50774c}
+
+  #mMic .mic-dlg{padding:0 22px 16px}
+  #mMic .dlg-body{padding:64px 0 0;overflow-y:auto}
+  .mic-lid{position:absolute;left:0;right:0;top:0;height:42px;margin:0;z-index:0}.mic-close{z-index:2}
+  .mic-hero{margin:0 0 10px}.mic-hero img{width:78px;height:78px}.mic-hero h3{font-size:21px;margin:5px 0 0!important}
+  .mic-picker{margin:9px 0}.mic-picker summary{padding:10px 14px}.mic-options button{padding:8px 10px}
+  .mic-state{margin:9px auto 4px}.mic-note{margin:5px 0 8px;min-height:16px}
+  #mMic .mic-primary,#mMicFlow .row .btn.primary{background:linear-gradient(165deg,#fff2ba,#ffce5b);color:#5a3a13;border:1px solid #fff6d5;box-shadow:0 4px 10px #b37c2630,inset 0 1px 2px white}
+  #mMic .mic-primary{margin:8px 0 3px;min-height:45px}
+  #mMic .mic-link{margin:4px auto 0;padding:4px 8px}
+  .mic-setup-progress{margin:6px 0}.mic-stage i{width:21px;height:21px}
 </style>
 </head>
 <body>
@@ -1007,21 +1029,9 @@
       <label class="switch"><input type="checkbox" id="swAuto"><span class="slider"></span></label>
     </div>
     <div class="set-row">
-      <div class="set-info">
-        <b>自动选择耳机麦克风</b>
-        <p>未设置时默认关闭，保留你原来的麦克风。优先保留立体声和电脑/外接麦克风。开启后，下次连接尝试选择耳机麦克风；未选立体声实验模式时使用 Windows 常规耳机麦克风。关闭时尝试恢复本次由小助手改过的选择，不覆盖你后来的手动选择。</p>
-        <details class="set-more"><summary>通话／游戏没声音？</summary><p>微信语音或游戏使用蓝牙耳机麦克风时，Windows 可能切到通话模式。关闭此开关不禁用耳机麦克风，也不结束其他应用的录音；可改用电脑或外接麦克风，再重新开始通话。旧版本或重启前的选择需手动确认。<br>普通模式下，若录音设备缺失，下次连接仅尝试一次恢复这副耳机的 HFP 服务，可能安装驱动；不重置整机蓝牙、不动其他设备。</p></details>
-      </div>
-      <label class="switch"><input type="checkbox" id="swMic"><span class="slider"></span></label>
+      <div class="set-info"><b>通话麦克风</b><p id="micSettingsLabel">读取当前设置…</p></div>
+      <button class="audio-retry" type="button" onclick="openMic()">设置 ›</button>
     </div>
-    <div class="set-row">
-      <div class="set-info">
-        <b>WPods 立体声通话（实验）</b>
-        <p>适用于 Win11 和兼容耳机。需自行配置 WPods，并同时开启「自动选择耳机麦克风」；设置在下次连接生效。找不到这副耳机的 A2DP 麦时保留原麦，不自动切到免提。小助手不安装驱动，也不保证各型号都适用。</p>
-      </div>
-      <label class="switch"><input type="checkbox" id="swStereoMic" aria-label="WPods 立体声通话"><span class="slider"></span></label>
-    </div>
-    <details class="set-more set-standalone"><summary>通话时音质突然变差？</summary><p>普通蓝牙耳机麦常使 Windows 使用单声道免提。可在通话软件中选电脑或外接麦克风，AirPods 只用来听。使用 WPods 实验模式时，可在通话软件里确认输入是耳机的 A2DP 麦，而不是免提麦。</p></details>
     <div class="set-row">
       <div class="set-info">
         <b>自动重置蓝牙（已停用）</b>
@@ -1035,6 +1045,38 @@
     </div>
   </div>
 </div>
+
+<!-- A single mode picker; explanatory content is optional. -->
+<div class="mask" id="mMic"><div class="dlg mic-dlg">
+  <div class="mic-lid" aria-hidden="true"></div>
+  <button class="mic-close" type="button" aria-label="关闭通话麦克风" onclick="closeModal('mMic')">×</button>
+  <div class="mic-hero"><img id="micHeroImage" alt=""><h3><strong>通话麦克风</strong></h3></div>
+  <details class="mic-picker" id="micPicker">
+    <summary id="micChoice" aria-label="选择通话麦克风"><span aria-hidden="true">♫</span><span id="micChoiceText">读取设置中…</span><i aria-hidden="true">⌄</i></summary>
+    <div class="mic-options" role="group" aria-label="通话麦克风模式">
+      <button type="button" data-mic-mode="computer"><span aria-hidden="true">▢</span><span>电脑麦克风（推荐）</span><i>✓</i></button>
+      <button type="button" data-mic-mode="airpods"><span aria-hidden="true">♩</span><span>AirPods 麦克风 · 普通</span><i>✓</i></button>
+      <button type="button" data-mic-mode="stereo"><span aria-hidden="true">♫</span><span>AirPods 麦克风 · 高音质</span><i>✓</i></button>
+    </div>
+  </details>
+  <div class="mic-state" id="micStatus" role="status" aria-live="polite">正在读取设置…</div>
+  <p class="mic-note" id="micNote"></p>
+  <div class="mic-setup-progress" id="micSetupProgress" hidden aria-live="polite"><div class="mic-stage"><i>1</i><span>打开官方下载页</span></div><div class="mic-stage"><i>2</i><span>等待你完成安装</span></div><div class="mic-stage"><i>3</i><span>检测并启用</span></div></div>
+  <button class="btn primary mic-primary" id="micPrimary" type="button" disabled>请稍候</button>
+  <button class="mic-link" type="button" onclick="openMicFlow()">查看一图流 ↗</button>
+</div></div>
+
+<div class="mask" id="mMicFlow"><div class="dlg mic-flow-dlg">
+  <div class="flow-hero"><img src="assets/face_cheer.png" alt=""><h3><strong>高音质通话</strong><br>一图看懂</h3></div>
+  <ol class="flow" aria-label="高音质通话四步指引">
+    <li class="flow-step" data-tone="honey" style="--i:0"><span class="flow-node" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8m-4-4v4M7 8h10M12 8v6"/></svg></span><div class="flow-card"><b>检查环境</b><p>高音质实验需要 Win11 和兼容耳机。普通耳机麦可能让播放降为免提音质，电脑麦克风通常可保留立体声。切回电脑麦仅恢复小助手本次所改选项，不覆盖你后来的手动选择。</p></div></li>
+    <li class="flow-step" data-tone="warn" style="--i:1"><span class="flow-node" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m3 9 9-6 9 6-9 5-9-5Zm0 0v10l9 3 9-3V9M12 14v8M12 3v8"/></svg></span><div class="flow-card"><img class="flow-sticker" src="assets/face_plead.png" alt=""><b>准备 WPods</b><p>独立第三方软件，安装需要管理员权限，会改变蓝牙适配器工作方式。先看官方兼容性和卸载说明，自行完成安装。</p><button class="mic-link" type="button" onclick="rpc('openwpodsguide')">打开 WPods 官方说明 ↗</button></div></li>
+    <li class="flow-step" data-tone="sage" style="--i:2"><span class="flow-node" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="5"/><circle cx="15.5" cy="12" r="4"/><path d="m14 12 1.2 1.2 2-2.4"/></svg></span><div class="flow-card"><b>一键启用</b><p>选择高音质耳机麦，检测就绪后一键保存配置，下次连接生效。未找到对应麦克风时保留原选择。</p></div></li>
+    <li class="flow-step" data-tone="honey" style="--i:3"><span class="flow-node" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5c0 8 7 15 15 15l2-4-5-3-2 2-5-5 2-2-3-5-4 2ZM16 4a5 5 0 0 1 4 4m-4-7a8 8 0 0 1 7 7"/></svg></span><div class="flow-card"><img class="flow-sticker" src="assets/face_like.png" alt=""><b>试一次通话</b><p>在通话软件选 A2DP 耳机麦，试听立体声并让对方确认收音。实际效果因设备而异。</p></div></li>
+  </ol>
+  <p class="flow-lede">实验功能 · 可随时切回电脑麦克风 · 按 WPods 官方说明卸载</p>
+  <div class="row"><button class="btn primary" type="button" onclick="backMicFlow()">返回通话麦克风</button></div>
+</div></div>
 
 <!-- remove confirm -->
 <div class="mask" id="mDel">
@@ -1074,6 +1116,7 @@ document.querySelectorAll('.dlg').forEach(dlg=>{
 });
 /* Reuse the already loaded brand image; do not embed the same PNG twice in the EXE. */
 document.querySelector('.progress-pet img').src=document.querySelector('.appicon').src;
+document.getElementById('micHeroImage').src=document.querySelector('.appicon').src;
 const SEP='\x1F'; let seq=0; const pending={};
 function rpc(cmd,...args){
   const id=++seq;
@@ -1334,6 +1377,7 @@ function canRetryPlayback(d){return d.connected&&!isConnecting(d)&&!isDisconnect
 function deviceAction(d){return d.connected||isConnecting(d)||isDisconnecting(d)?'disconnect':'connect'}
 function deviceActionTitle(d){return d.progress?.phase==='queued'?'取消已排队':(isDisconnecting(d)?'正在断开':(connectRequestBusy(d)?'正在提交连接请求':(isConnecting(d)?'取消连接':(d.connected?'断开':'连接'))))}
 function deviceStatus(d){
+  if(d.audioState==='stereo_call_active')return '高音质耳机麦使用中 · 请试听';
   if(d.audioState==='call_active')return '耳机麦克风使用中 · 通话音质';
   if(d.audioState==='call_unverified')return '麦克风状态未确认 · 暂缓播放预检';
   if(d.progress?.phase==='queued')return '取消已排队 · 等待当前请求结束';
@@ -1350,6 +1394,7 @@ function deviceStatus(d){
   return d.connected?(d.audioState==='ready'?'默认输出已切耳机 · 请试听':'蓝牙已连接 · 音频未确认'):'未连接';
 }
 function orbStatus(d){
+  if(d.audioState==='stereo_call_active')return '高音质耳机麦使用中';
   if(d.audioState==='call_active')return '麦克风使用中';
   if(d.audioState==='call_unverified')return '状态待确认';
   if(d.progress?.phase==='queued')return '取消已排队';
@@ -1455,7 +1500,7 @@ function renderOrb(){
     button.onclick=()=>doAction(button);group.appendChild(button);
   }
   const i=devices.indexOf(t);
-  tools.innerHTML=`${canRetryPlayback(t)?`<button data-act="connect" data-name="${esc(t.id)}">重试播放连接</button>`:''}<button onclick="rpc('opensound')">声音设置</button><button onclick="rpc('add')">蓝牙设置</button><button onclick="openIssue()">问题诊断</button><button onclick="openAdvanced()">降噪与高级控制</button><button onclick="movePrio(${i},-1)" ${i===0?'disabled':''}>提高优先级</button><button onclick="movePrio(${i},1)" ${i===devices.length-1?'disabled':''}>降低优先级</button><button data-del="${esc(t.id)}">移除设备</button>`;
+  tools.innerHTML=`${canRetryPlayback(t)?`<button data-act="connect" data-name="${esc(t.id)}">重试播放连接</button>`:''}<button onclick="rpc('opensound')">声音设置</button><button onclick="rpc('add')">蓝牙设置</button><button onclick="openIssue()">问题诊断</button><button onclick="openMic()">通话麦克风</button><button onclick="openAdvanced()">降噪与高级控制</button><button onclick="movePrio(${i},-1)" ${i===0?'disabled':''}>提高优先级</button><button onclick="movePrio(${i},1)" ${i===devices.length-1?'disabled':''}>降低优先级</button><button data-del="${esc(t.id)}">移除设备</button>`;
   tools.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>doAction(b));
   tools.querySelector('[data-del]').onclick=()=>askDel(t.id);
   updateCaseShell();
@@ -1733,25 +1778,95 @@ async function launchAdvanced(){
   try{if(await rpc('openadvanced')!==true)toast('实验室未打开，请查看日志')}
   catch(e){toast('实验室未打开，请查看日志')}
 }
+const MIC_LABELS={computer:'电脑麦克风（推荐）',airpods:'AirPods 麦克风 · 普通',stereo:'AirPods 麦克风 · 高音质'};
+let micSavedMode='computer',micDraftMode='computer',micService='unknown',micSetupStarted=false,micLoading=false,micReadReady=false,micReadSerial=0;
+function micConnectedTarget(){const t=orbTarget();return t?.connected&&canReconnect(t)&&!currentProgress()?t:null}
+function renderMicMode(){
+  const primary=document.getElementById('micPrimary'),status=document.getElementById('micStatus'),note=document.getElementById('micNote');
+  document.getElementById('micChoiceText').textContent=micLoading?'读取设置中…':MIC_LABELS[micDraftMode];
+  document.getElementById('micSettingsLabel').textContent=MIC_LABELS[micSavedMode];
+  document.querySelectorAll('[data-mic-mode]').forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset.micMode===micDraftMode));b.disabled=micLoading||!micReadReady;});
+  primary.disabled=micLoading||!micReadReady;
+  const progress=document.getElementById('micSetupProgress');progress.hidden=micDraftMode!=='stereo'||!micSetupStarted;
+  const stage=micService==='running'?(micSavedMode==='stereo'?3:2):1;
+  progress.querySelectorAll('.mic-stage').forEach((node,index)=>{node.classList.toggle('done',index<stage);node.classList.toggle('current',index===stage)});
+  if(micLoading){status.textContent='正在检查环境…';note.textContent='';primary.textContent='请稍候';return;}
+  if(!micReadReady){status.textContent='暂时无法读取设置';note.textContent='请关闭后重新打开';primary.textContent='暂不可用';return;}
+  if(micDraftMode==='computer'){
+    status.textContent=micSavedMode==='computer'?'当前已选 · 保留系统麦克风':'优先保留立体声播放';note.textContent='保留当前 Windows 麦克风选择';primary.textContent=micSavedMode==='computer'?'完成':'使用电脑麦克风';return;
+  }
+  if(micDraftMode==='airpods'){
+    status.textContent=micSavedMode==='airpods'?'当前已选 · 普通通话':'普通耳机麦克风';note.textContent='通话时可能降低播放音质';
+    primary.textContent=micConnectedTarget()?'应用并重连':micSavedMode==='airpods'?'完成':'启用普通耳机麦';return;
+  }
+  const messages={unsupported:'当前系统 · 需要 Win11',absent:'Win11 · 尚未配置 WPods',inactive:'Win11 · WPods 服务未运行',running:'Win11 · WPods 服务已运行',unknown:'尚未核实 WPods 状态'};
+  status.textContent=messages[micService]||messages.unknown;
+  if(micService==='unsupported'){note.textContent='可以选择电脑麦克风或普通耳机麦';primary.textContent='当前不可用';primary.disabled=true;return;}
+  if(micService==='running'){
+    note.textContent=micSavedMode==='stereo'?'已选择 · 连接后还需试听确认':'连接后仍需核实耳机麦克风';primary.textContent=micConnectedTarget()?(micSavedMode==='stereo'?'重连以应用':'启用并重连'):micSavedMode==='stereo'?'完成':'一键启用';return;
+  }
+  note.textContent=micService==='absent'?'第三方安装需管理员权限，会改变蓝牙适配器工作方式':'请确认 WPods 已正常运行';
+  primary.textContent=micService==='absent'&&!micSetupStarted?'开始配置':'检测并启用';
+}
+async function refreshMicMode(resetDraft=false){
+  const serial=++micReadSerial;micLoading=true;micReadReady=false;renderMicMode();
+  try{
+    const [saved,service]=await Promise.all([rpc('getmicmode'),rpc('getwpodsstatus')]);
+    if(serial!==micReadSerial)return;
+    if(!Object.hasOwn(MIC_LABELS,saved))throw new Error('无法读取麦克风设置');
+    micReadReady=true;micSavedMode=saved;micService=['unsupported','absent','inactive','running','unknown'].includes(service)?service:'unknown';
+    if(resetDraft)micDraftMode=saved;
+  }catch(e){if(serial===micReadSerial){micService='unknown';toast(e.message||'读取设置失败');}}
+  finally{if(serial===micReadSerial){micLoading=false;renderMicMode();}}
+}
+async function openMic(){
+  if(document.getElementById('mSet').classList.contains('open'))closeModal('mSet');
+  micSetupStarted=false;document.getElementById('micPicker').open=false;openModal('mMic');await refreshMicMode(true);
+}
+function openMicFlow(){closeModal('mMic');openModal('mMicFlow')}
+function backMicFlow(){closeModal('mMicFlow');openModal('mMic');renderMicMode()}
+document.querySelectorAll('[data-mic-mode]').forEach(b=>b.addEventListener('click',()=>{
+  if(micLoading||!micReadReady)return;micDraftMode=b.dataset.micMode;document.getElementById('micPicker').open=false;renderMicMode();
+}));
+document.getElementById('micPrimary').addEventListener('click',async()=>{
+  if(micLoading||!micReadReady)return;
+  if(micDraftMode==='stereo'&&micService!=='running'){
+    if(micService==='unsupported')return;
+    if(micService==='absent'&&!micSetupStarted){
+      micLoading=true;renderMicMode();try{if(await rpc('openwpodsdownload')!==true)throw new Error('无法打开官方下载页');micSetupStarted=true;}catch(e){toast(e.message)}finally{micLoading=false;renderMicMode()}
+    }else{
+      await refreshMicMode();
+      if(micService==='running'&&micDraftMode==='stereo'){
+        micLoading=true;renderMicMode();
+        try{if(await rpc('setmicmode','stereo')!==true)throw new Error('配置未应用');micSavedMode='stereo';toast('已配置高音质通话，下次连接生效')}catch(e){toast(e.message)}finally{micLoading=false;renderMicMode()}
+      }
+    }
+    return;
+  }
+  const chosen=micDraftMode,target=chosen==='computer'?null:micConnectedTarget();
+  if(chosen===micSavedMode&&!target){closeModal('mMic');return;}
+  micLoading=true;renderMicMode();
+  try{
+    if(chosen!==micSavedMode&&await rpc('setmicmode',chosen)!==true)throw new Error('设置未应用，请检查当前环境后重试');
+    micSavedMode=chosen;closeModal('mMic');
+    if(target){const current=micConnectedTarget();if(current?.id===target.id)await doAction(null,target.id,'reconnect');else toast('设置已保存，下次连接生效');}
+    else toast(chosen==='computer'?'已保留系统麦克风':'设置已保存，下次连接生效');
+  }catch(e){toast(e.message);try{micService=await rpc('getwpodsstatus')}catch(_){micService='unknown'}}
+  finally{micLoading=false;renderMicMode()}
+});
 async function openSettings(){
   openModal('mSet');
-  const st = await rpc('getautostart');
-  const sw = document.getElementById('swAuto');
-  sw.checked = (st==='on'); sw.disabled = (st==='disabled');
-  document.getElementById('autoHint').textContent =
-    st==='disabled' ? '开机自启动当前被系统标记为禁用：请在 任务管理器 → 启动应用 里重新开启' : '';
-  document.getElementById('swMic').checked = (await rpc('getmicswitch'))==='1';
-  document.getElementById('swStereoMic').checked = (await rpc('getwpodsstereomic'))==='1';
-  document.getElementById('swRescue').checked = (await rpc('getrescue'))==='1';
+  const st=await rpc('getautostart');
+  const sw=document.getElementById('swAuto');sw.checked=st==='on';sw.disabled=st==='disabled';
+  document.getElementById('autoHint').textContent=st==='disabled'?'开机自启动当前被系统标记为禁用：请在 任务管理器 → 启动应用 里重新开启':'';
+  try{const mode=await rpc('getmicmode');document.getElementById('micSettingsLabel').textContent=MIC_LABELS[mode]||'暂未确认';}catch(_){document.getElementById('micSettingsLabel').textContent='暂未确认'}
+  document.getElementById('swRescue').checked=(await rpc('getrescue'))==='1';
 }
-for(const [id,cmd,success] of [['swAuto','setautostart','ok'],['swMic','setmicswitch',true],['swStereoMic','setwpodsstereomic',true]]){
-  document.getElementById(id).addEventListener('change',async e=>{
-    const chosen=e.target.checked;e.target.disabled=true;
-    try{if(await rpc(cmd,chosen?'1':'0')!==success)throw new Error('设置保存失败');toast('设置已保存')}
-    catch(err){e.target.checked=!chosen;toast(err.message)}
-    finally{e.target.disabled=false}
-  });
-}
+document.getElementById('swAuto').addEventListener('change',async e=>{
+  const chosen=e.target.checked;e.target.disabled=true;
+  try{if(await rpc('setautostart',chosen?'1':'0')!=='ok')throw new Error('设置保存失败');toast('设置已保存')}
+  catch(err){e.target.checked=!chosen;toast(err.message)}finally{e.target.disabled=false}
+});
 document.getElementById('swRescue').addEventListener('change', async e=>{
   const r = await rpc('setrescue', e.target.checked?'1':'0');
   toast(r===true ? (e.target.checked?'已开启自动重置蓝牙（已停用） ✅':'已关闭蓝牙自救') : '设置失败，请重试');
