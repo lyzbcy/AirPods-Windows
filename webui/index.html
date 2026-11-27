@@ -1573,10 +1573,17 @@ document.getElementById('refresh').onclick=e=>{
   refreshList()};
 
 /* ---------- modal helpers ---------- */
-function openModal(id){const m=document.getElementById(id);m.classList.add('open');syncWindowShape();
-  requestAnimationFrame(()=>requestAnimationFrame(()=>m.classList.add('in')))}
-function closeModal(id){if(id==='mIssue'){clearTimeout(agentSyncTimer);rpc('closeagent').catch(()=>{})}const m=document.getElementById(id);m.classList.remove('in');
-  setTimeout(()=>{m.classList.remove('open');syncWindowShape()},260)}
+function openModal(id){
+  const m=document.getElementById(id),epoch=String(Number(m.dataset.modalEpoch||0)+1);m.dataset.modalEpoch=epoch;
+  m.classList.add('open');syncWindowShape();
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{if(m.dataset.modalEpoch===epoch)m.classList.add('in')}));
+}
+function closeModal(id){
+  if(id==='mIssue'){clearTimeout(agentSyncTimer);rpc('closeagent').catch(()=>{})}
+  const m=document.getElementById(id),epoch=String(Number(m.dataset.modalEpoch||0)+1);m.dataset.modalEpoch=epoch;
+  m.classList.remove('in');
+  setTimeout(()=>{if(m.dataset.modalEpoch===epoch){m.classList.remove('open');syncWindowShape()}},260);
+}
 document.querySelectorAll('.mask').forEach(m=>m.onclick=e=>{if(e.target===m)closeModal(m.id)});
 function qrZoom(card){
   document.getElementById('qrBigImg').src=card.querySelector('img').src;
@@ -1825,6 +1832,14 @@ async function openMic(){
 }
 function openMicFlow(){closeModal('mMic');openModal('mMicFlow')}
 function backMicFlow(){closeModal('mMicFlow');openModal('mMic');renderMicMode()}
+// Returning from official setup refreshes readiness without changing preferences.
+function refreshMicAfterExternalSetup(){
+  if(!micSetupStarted||micDraftMode!=='stereo'||micLoading||micService==='running')return;
+  if(!document.getElementById('mMic').classList.contains('open'))return;
+  refreshMicMode();
+}
+window.addEventListener('focus',refreshMicAfterExternalSetup);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshMicAfterExternalSetup()});
 document.querySelectorAll('[data-mic-mode]').forEach(b=>b.addEventListener('click',()=>{
   if(micLoading||!micReadReady)return;micDraftMode=b.dataset.micMode;document.getElementById('micPicker').open=false;renderMicMode();
 }));
