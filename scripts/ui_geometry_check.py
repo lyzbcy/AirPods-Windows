@@ -14,7 +14,7 @@ with sync_playwright() as pw:
         closed=page.evaluate("""()=>{const shell=document.querySelector('#caseShell'),main=document.querySelector('.case-main'),orb=document.querySelector('#orb'),b=orb.getBoundingClientRect(),m=main.getBoundingClientRect();return {closed:shell.dataset.case==='closed',onlyActionAndBrand:[...main.children].filter(e=>getComputedStyle(e).display!=='none').every(e=>e.id==='actionGroup'||e.tagName==='HEADER'),logo:main.querySelector('.appicon').getBoundingClientRect().height>=70,visibleTitle:getComputedStyle(main.querySelector('.title')).display!=='none',iconControls:[...document.querySelectorAll('.rail-label')].every(e=>getComputedStyle(e).display==='none'),noScroll:main.scrollHeight<=main.clientHeight+1,buttonFit:b.top>=m.top&&b.bottom<=m.bottom&&b.left>=m.left&&b.right<=m.right,centered:Math.abs((b.left+b.right-m.left-m.right)/2)<2,hit:document.elementFromPoint((b.left+b.right)/2,(b.top+b.bottom)/2)?.closest('button')===orb,devices:document.querySelectorAll('#devices [data-select]').length===2}}""")
         assert all(closed.values()),closed
         print("PASS closed_case_brand_and_primary_action_no_scroll",closed)
-        shots=Path(os.environ['TEMP'])/'airpods-1.9.53-ui';shots.mkdir(exist_ok=True)
+        shots=Path(os.environ['TEMP'])/'airpods-1.9.54-ui';shots.mkdir(exist_ok=True)
         page.screenshot(path=str(shots/'closed.png'))
         page.evaluate("""()=>{window.gestureCalls=[];rpc=async(cmd)=>{gestureCalls.push(cmd);return true}}""")
         page.locator('.case-lid-wrap').dispatch_event('mousedown',{'button':0})
@@ -53,8 +53,8 @@ with sync_playwright() as pw:
         button.scroll_into_view_if_needed()
         page.wait_for_timeout(1000)
         assert button.evaluate("e=>{const r=e.getBoundingClientRect();return document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest('button')===e}")
-        (Path(os.environ['TEMP'])/'airpods-1.9.53-ui').mkdir(exist_ok=True)
-        page.screenshot(path=str(Path(os.environ['TEMP'])/'airpods-1.9.53-ui'/'reconnect-ready.png'))
+        (Path(os.environ['TEMP'])/'airpods-1.9.54-ui').mkdir(exist_ok=True)
+        page.screenshot(path=str(Path(os.environ['TEMP'])/'airpods-1.9.54-ui'/'reconnect-ready.png'))
         button.click()
         page.wait_for_timeout(100)
         assert page.evaluate("reconnectCalls.filter(x=>x[0]==='reconnect')") == [['reconnect','A']]

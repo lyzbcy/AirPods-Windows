@@ -244,6 +244,7 @@ const rpc=(...args)=>context.rpc(...args),pending=()=>vm.runInContext('Object.ke
   console.log('PASS connect_disconnect_progress_and_terminal_outcome');
   const caseCode=html.slice(html.indexOf('function updateCaseShell('),html.indexOf('function render(){'));
   const motionCalls=[]; const shell={dataset:{}},led={dataset:{}};
+  context.captureCaseExit=()=>{};
   context.animateCaseTransition=(_shell,next)=>motionCalls.push(next);
   Object.assign(context,{selectedDeviceId:'B',document:{getElementById:id=>id==='caseShell'?shell:id==='caseLed'?led:null},currentProgress:()=>null,progressOutcome:null});
   vm.runInContext(caseCode,context);

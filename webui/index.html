@@ -576,11 +576,7 @@
   .case-shell{perspective:760px}.case-lid-wrap{perspective:none;isolation:isolate}
   .case-lid-wrap,.case-base{transition:height .82s var(--ease-cinema),border-radius .82s var(--ease-cinema)}
   .case-lid{transition:transform .82s var(--ease-cinema),border-radius .82s var(--ease-cinema);overflow:hidden;transform-style:preserve-3d}
-  .case-shell[data-case=open] .case-lid{transform:perspective(960px) rotateX(-38deg) scaleX(.94) translateY(-2px)}
-  .case-shell.case-opening .case-lid{animation:lidOpen .82s var(--ease-cinema) both}
-  .case-shell.case-closing .case-lid{animation:lidClose .72s var(--ease-cinema) both}
-  @keyframes lidOpen{0%{transform:rotateX(0)}64%{transform:perspective(960px) rotateX(-44deg) scaleX(.94) translateY(-4px)}100%{transform:perspective(960px) rotateX(-38deg) scaleX(.94) translateY(-2px)}}
-  @keyframes lidClose{0%{transform:perspective(960px) rotateX(-38deg) scaleX(.94) translateY(-2px)}80%{transform:rotateX(2deg)}100%{transform:rotateX(0)}}
+  .case-shell[data-case=open] .case-lid{transform:perspective(960px) rotateX(-38deg) scaleX(.915) translateY(-2px)}
   .case-shell.case-opening .case-base::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(115deg,transparent 25%,#fff9 48%,transparent 62%);transform:translateX(-110%);animation:caseGlint .85s .12s both ease-out}
   @keyframes caseGlint{to{transform:translateX(110%)}}
   .case-shell.case-opening .case-main header,.case-shell.case-opening .case-summary,.case-shell.case-opening .case-advanced{animation:cinematicReveal .55s .18s both var(--ease-cinema)}
@@ -708,6 +704,32 @@
   .case-shell[data-case=closed] .case-base{border-radius:2px 2px 40px 40px}
   .case-shell[data-case=closed] .case-seam{border-top-color:#b8a48a55;background:transparent}
   .device-rail .add .rail-label{white-space:nowrap}
+
+  /* The whole case shares one physical hinge. CSS transitions reverse from the
+     current computed geometry, even if a device update interrupts the motion. */
+  .case-shell .case-lid-wrap,.case-shell .case-base{transition:height .84s cubic-bezier(.22,.76,.18,1),border-radius .84s cubic-bezier(.22,.76,.18,1)}
+  .case-shell .case-lid{transform:perspective(960px) rotateX(0deg) scaleX(1) translateY(0);transition:transform .84s cubic-bezier(.22,.76,.18,1),border-radius .84s cubic-bezier(.22,.76,.18,1)}
+  .case-shell[data-case=open] .case-lid{transform:perspective(960px) rotateX(-38deg) scaleX(.915) translateY(-2px)}
+  .case-lid-wrap>.topbar{transition:top .84s cubic-bezier(.22,.76,.18,1)}
+  .lid-inner{transition:opacity .58s cubic-bezier(.22,.76,.18,1)}
+  .case-shell.case-opening .case-summary{animation:cinematicReveal .48s .23s both var(--ease-cinema)}
+  .case-shell.case-opening .action-group{animation:cinematicReveal .46s .34s both var(--ease-cinema)}
+  .case-shell.case-opening .case-advanced{animation:cinematicReveal .4s .43s both var(--ease-cinema)}
+  .case-shell.case-closing .case-main header{animation:cinematicReveal .42s .28s both var(--ease-cinema)}
+  .case-shell.case-closing .action-group{animation:cinematicReveal .42s .40s both var(--ease-cinema)}
+  .case-exit-preview{position:fixed!important;z-index:10;pointer-events:none!important;overflow:hidden;padding:0!important;background:transparent!important;animation:caseExit .2s ease-out both}
+  .case-exit-preview *{pointer-events:none!important;animation:none!important;transition:none!important}
+  @keyframes caseExit{from{opacity:1;transform:translateY(0) scale(1)}to{opacity:0;transform:translateY(8px) scale(.98)}}
+  @media(prefers-reduced-motion:reduce){.case-shell.case-opening .case-summary,.case-shell.case-opening .action-group,.case-shell.case-opening .case-advanced,.case-shell.case-closing .case-main header,.case-shell.case-closing .action-group{animation:none!important}.case-exit-preview{display:none!important}}
+
+  /* Keep the open lid taller, as in the approved three-stage artwork. */
+  .case-shell[data-case=open] .case-lid-wrap{height:142px}
+  .case-shell[data-case=open] .case-base{height:410px}
+  .case-lid{background:linear-gradient(156deg,#fff 2%,#fff9f1 32%,#f5e8db 67%,#e6d4c1 100%)}
+  .case-shell[data-case=open] .case-lid{border-radius:40px 40px 40px 40px;box-shadow:inset 0 0 0 4px #fff9,inset 0 -5px 10px #cdb39c40,0 3px 9px #ac8d6b22}
+  .case-shell[data-case=open] .lid-inner{inset:15px 26px 18px;background:radial-gradient(ellipse at 52% 80%,#fff7e8 0%,#f0dfcb 48%,#cdb7a4 100%);box-shadow:inset 0 8px 18px #9f856e35,inset 0 -4px 5px #fff9}
+  .case-base::before{content:'';position:absolute;inset:3px;pointer-events:none;border-radius:inherit;border:1px solid #fff9;box-shadow:inset 3px 0 10px #ffffffb0,inset -3px 0 9px #fff8;z-index:0}
+  .case-shell[data-case=open] .case-main{gap:12px}
 </style>
 </head>
 <body>
@@ -1342,31 +1364,66 @@ function toggleCaseInspect(){
   if(!orbTarget()||currentProgress())return;
   caseInspect=!caseInspect;document.getElementById('caseAdvanced').open=caseInspect;updateCaseShell();
 }
-let shapeTimer=0,shapeLast='',caseMotionTimer=0;
+let shapeTimer=0,shapeLast='',caseMotionTimer=0,caseExitPreview=null;
+const CASE_MOTION_MS=880;
 function syncWindowShape(){
   const shell=document.getElementById('caseShell');if(!shell)return;
   clearTimeout(shapeTimer);
   const modal=!!document.querySelector('.mask.open');
   const mode=modal?'modal':shell.dataset.case==='open'?'open':'closed';
   const send=()=>{if(shapeLast!==mode){shapeLast=mode;rpc('windowshape',mode).catch(()=>{shapeLast=''})}};
-  if(mode==='closed')shapeTimer=setTimeout(send,850);else send();
+  if(mode==='closed'&&shell.classList.contains('case-closing'))shapeTimer=setTimeout(send,CASE_MOTION_MS);else send();
+}
+function removeCaseExitPreview(){
+  caseExitPreview?.remove();caseExitPreview=null;
+}
+function captureCaseExit(shell){
+  removeCaseExitPreview();
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  const main=shell.querySelector('.case-main');
+  if(!main)return;
+  const rect=main.getBoundingClientRect();
+  if(!rect.width||!rect.height)return;
+  const preview=document.createElement('div');
+  preview.className='case-shell case-exit-preview';preview.dataset.case=shell.dataset.case;
+  preview.inert=true;preview.setAttribute('aria-hidden','true');
+  Object.assign(preview.style,{left:`${rect.left}px`,top:`${rect.top}px`,width:`${rect.width}px`,height:`${rect.height}px`});
+  const clone=main.cloneNode(true);
+  const originals=[main,...main.querySelectorAll('*')], copies=[clone,...clone.querySelectorAll('*')];
+  originals.forEach((el,index)=>{
+    const style=getComputedStyle(el),copy=copies[index];
+    // Preserve the last rendered visibility and in-flight pose before removing IDs.
+    copy.style.display=style.display;copy.style.visibility=style.visibility;
+    copy.style.opacity=style.opacity;copy.style.transform=style.transform;
+    if(el.parentElement===main||el.matches('button')){copy.style.width=style.width;copy.style.height=style.height;}
+    copy.removeAttribute('id');
+  });
+  clone.querySelectorAll('button,input,select,textarea').forEach(el=>el.tabIndex=-1);
+  Object.assign(clone.style,{width:'100%',height:'100%',overflow:'hidden',margin:'0'});
+  preview.appendChild(clone);document.body.appendChild(preview);
+  caseExitPreview=preview;
+  preview.addEventListener('animationend',()=>{if(caseExitPreview===preview)removeCaseExitPreview()},{once:true});
 }
 function animateCaseTransition(shell,next){
   clearTimeout(caseMotionTimer);shell.classList.remove('case-opening','case-closing');
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches){removeCaseExitPreview();syncWindowShape();return;}
   shell.classList.add(next==='open'?'case-opening':'case-closing');
   syncWindowShape();
-  caseMotionTimer=setTimeout(()=>shell.classList.remove('case-opening','case-closing'),950);
+  caseMotionTimer=setTimeout(()=>{shell.classList.remove('case-opening','case-closing');removeCaseExitPreview();syncWindowShape()},CASE_MOTION_MS);
 }
 function updateCaseShell(){
   const shell=document.getElementById('caseShell');if(!shell)return;
   const t=orbTarget(),active=currentProgress();
   const failure=!!t&&(['link_failed','service_failed','disconnect_failed'].includes(t.audioState)||(progressOutcome?.id===t.id&&progressOutcome?.connected!==undefined&&!/已确认断开|已取消连接/.test(progressOutcome.title)));
   const next=(t?.connected||active||failure||(typeof caseInspect!=='undefined'&&caseInspect&&t))?'open':'closed';
-  if(shell.dataset.case!==next){shell.dataset.case=next;if(typeof animateCaseTransition==='function')animateCaseTransition(shell,next)}
+  if(shell.dataset.case!==next){if(typeof captureCaseExit==='function')captureCaseExit(shell);shell.dataset.case=next;if(typeof animateCaseTransition==='function')animateCaseTransition(shell,next)}
   document.getElementById('caseLed').dataset.status=t?.connected?'on':active?'busy':'off';
 }
 function render(){
   const t=orbTarget();if(t)selectedDeviceId=t.id;
+  // Switch the shell before changing the live details, so the outgoing surface
+  // actually depicts the previous UI (including the old primary action).
+  updateCaseShell();
   renderOrb();renderProgress();
   const box=document.getElementById('devices');
   document.getElementById('cnt').textContent=devices.length?('· '+devices.length):'';
